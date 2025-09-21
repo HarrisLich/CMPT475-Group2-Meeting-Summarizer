@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meeting Summary App Wireframe</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: #ffffff;
+            border-right: 1px solid #e1e5e9;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #e1e5e9;
+        }
+        
+        .new-meeting-btn {
+            width: 100%;
+            padding: 12px;
+            background: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+        
+        .section-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #8e8e93;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            margin-top: 20px;
+        }
+        
+        .section-title:first-child {
+            margin-top: 0;
+        }
+        
+        .meeting-item {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 4px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .meeting-item:hover {
+            background: #f8f9fa;
+            border-color: #e1e5e9;
+        }
+        
+        .meeting-item.active {
+            background: #e3f2fd;
+            border-color: #2196f3;
+        }
+        
+        .meeting-title {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 4px;
+            color: #1d1d1f;
+        }
+        
+        .meeting-meta {
+            font-size: 12px;
+            color: #8e8e93;
+        }
+        
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Top section with transcript and action buttons */
+        .top-section {
+            display: flex;
+            flex: 1;
+            gap: 16px;
+            padding: 16px;
+            min-height: 0;
+        }
+        
+        /* Action Buttons Panel */
+        .action-panel {
+            width: 300px;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e1e5e9;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .panel-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #1d1d1f;
+        }
+        
+        .custom-prompts {
+            margin-bottom: 24px;
+        }
+        
+        .prompt-button {
+            width: 100%;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            background: #f8f9fa;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            text-align: left;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .prompt-button:hover {
+            background: #e3f2fd;
+            border-color: #2196f3;
+        }
+        
+        .integrations {
+            border-top: 1px solid #e1e5e9;
+            padding-top: 20px;
+        }
+        
+        .integration-btn {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            background: white;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .integration-btn:hover {
+            background: #f8f9fa;
+        }
+        
+        .integration-icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 12px;
+            background: #007AFF;
+            border-radius: 4px;
+        }
+        
+        /* Transcript Panel */
+        .transcript-panel {
+            flex: 1;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e1e5e9;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        
+        .transcript-header {
+            padding: 20px 20px 16px 20px;
+            border-bottom: 1px solid #e1e5e9;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .recording-status {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            color: #34c759;
+        }
+        
+        .recording-dot {
+            width: 8px;
+            height: 8px;
+            background: #34c759;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .transcript-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .transcript-line {
+            margin-bottom: 16px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .speaker {
+            font-weight: 600;
+            color: #007AFF;
+            margin-bottom: 4px;
+        }
+        
+        .timestamp {
+            font-size: 12px;
+            color: #8e8e93;
+            margin-left: 8px;
+        }
+        
+        /* Bottom Output Section */
+        .output-section {
+            height: 300px;
+            background: white;
+            border-top: 1px solid #e1e5e9;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .output-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e1e5e9;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .output-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+        
+        .collapse-btn {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: #8e8e93;
+        }
+        
+        .output-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .summary-section {
+            margin-bottom: 24px;
+        }
+        
+        .summary-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1d1d1f;
+            margin-bottom: 8px;
+        }
+        
+        .summary-content {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #3c3c43;
+        }
+        
+        .action-items {
+            list-style: none;
+        }
+        
+        .action-item {
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .resize-handle {
+            height: 4px;
+            background: #e1e5e9;
+            cursor: row-resize;
+            position: relative;
+        }
+        
+        .resize-handle:hover {
+            background: #007AFF;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <button class="new-meeting-btn">+ New Meeting</button>
+            </div>
+            <div class="sidebar-content">
+                <div class="section-title">Today</div>
+                <div class="meeting-item active">
+                    <div class="meeting-title">Product Review Meeting</div>
+                    <div class="meeting-meta">2:30 PM • 45 min</div>
+                </div>
+                <div class="meeting-item">
+                    <div class="meeting-title">Team Standup</div>
+                    <div class="meeting-meta">9:00 AM • 20 min</div>
+                </div>
+                
+                <div class="section-title">Yesterday</div>
+                <div class="meeting-item">
+                    <div class="meeting-title">Client Presentation</div>
+                    <div class="meeting-meta">3:00 PM • 1h 15min</div>
+                </div>
+                <div class="meeting-item">
+                    <div class="meeting-title">Engineering Sync</div>
+                    <div class="meeting-meta">11:00 AM • 30 min</div>
+                </div>
+                
+                <div class="section-title">This Week</div>
+                <div class="meeting-item">
+                    <div class="meeting-title">Q4 Planning Session</div>
+                    <div class="meeting-meta">Mon • 2h</div>
+                </div>
+                <div class="meeting-item">
+                    <div class="meeting-title">Design Review</div>
+                    <div class="meeting-meta">Tue • 45 min</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Top Section -->
+            <div class="top-section">
+                <!-- Action Panel -->
+                <div class="action-panel">
+                    <div class="panel-title">Actions</div>
+                    
+                    <div class="custom-prompts">
+                        <div class="section-title">Custom Prompts</div>
+                        <button class="prompt-button">Action Button 1<br><small>Generate executive summary</small></button>
+                        <button class="prompt-button">Action Button 2<br><small>Extract key decisions</small></button>
+                        <button class="prompt-button">Action Button 3<br><small>Create follow-up tasks</small></button>
+                    </div>
+                    
+                    <div class="integrations">
+                        <div class="section-title">Integrations</div>
+                        <button class="integration-btn">
+                            <div class="integration-icon"></div>
+                            Send to Slack
+                        </button>
+                        <button class="integration-btn">
+                            <div class="integration-icon"></div>
+                            Google Calendar
+                        </button>
+                        <button class="integration-btn">
+                            <div class="integration-icon"></div>
+                            Email Summary
+                        </button>
+                        <button class="integration-btn">
+                            <div class="integration-icon"></div>
+                            Notion Page
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Transcript Panel -->
+                <div class="transcript-panel">
+                    <div class="transcript-header">
+                        <div class="panel-title">Live Transcript</div>
+                        <div class="recording-status">
+                            <div class="recording-dot"></div>
+                            Recording
+                        </div>
+                    </div>
+                    <div class="transcript-content">
+                        <div class="transcript-line">
+                            <div class="speaker">Sarah Chen <span class="timestamp">14:32</span></div>
+                            <div>Let's start by reviewing the quarterly metrics. I think we've made significant progress on the user engagement front.</div>
+                        </div>
+                        <div class="transcript-line">
+                            <div class="speaker">Mike Rodriguez <span class="timestamp">14:33</span></div>
+                            <div>Absolutely. The mobile app improvements really paid off. We're seeing a 25% increase in daily active users.</div>
+                        </div>
+                        <div class="transcript-line">
+                            <div class="speaker">Sarah Chen <span class="timestamp">14:34</span></div>
+                            <div>That's fantastic. What about the conversion metrics? Are we on track for our Q4 goals?</div>
+                        </div>
+                        <div class="transcript-line">
+                            <div class="speaker">Alex Kim <span class="timestamp">14:35</span></div>
+                            <div>We're actually ahead of schedule. The new onboarding flow has improved our conversion rate by 18%.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Resize Handle -->
+            <div class="resize-handle"></div>
+            
+            <!-- Output Section -->
+            <div class="output-section">
+                <div class="output-header">
+                    <div class="output-title">AI Summary & Output</div>
+                    <button class="collapse-btn">⌄</button>
+                </div>
+                <div class="output-content">
+                    <div class="summary-section">
+                        <div class="summary-title">Executive Summary</div>
+                        <div class="summary-content">
+                            The product review meeting focused on Q4 progress and metrics. Key highlights include a 25% increase in daily active users and 18% improvement in conversion rates due to mobile app enhancements and new onboarding flow optimization.
+                        </div>
+                    </div>
+                    
+                    <div class="summary-section">
+                        <div class="summary-title">Key Decisions</div>
+                        <div class="summary-content">
+                            • Continue investing in mobile app improvements<br>
+                            • Accelerate Q4 goal timeline based on current performance<br>
+                            • Implement similar onboarding improvements to web platform
+                        </div>
+                    </div>
+                    
+                    <div class="summary-section">
+                        <div class="summary-title">Action Items</div>
+                        <ul class="action-items">
+                            <li class="action-item">Sarah to prepare detailed metrics report by Friday</li>
+                            <li class="action-item">Mike to present mobile roadmap next week</li>
+                            <li class="action-item">Alex to analyze web onboarding optimization opportunities</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simple interactivity for demonstration
+        document.querySelectorAll('.meeting-item').forEach(item => {
+            item.addEventListener('click', function() {
+                document.querySelectorAll('.meeting-item').forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        document.querySelectorAll('.prompt-button, .integration-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const outputContent = document.querySelector('.output-content');
+                const newSummary = document.createElement('div');
+                newSummary.className = 'summary-section';
+                newSummary.innerHTML = `
+                    <div class="summary-title">Generated Output</div>
+                    <div class="summary-content">Processing your request: "${this.textContent.trim()}"...</div>
+                `;
+                outputContent.appendChild(newSummary);
+                outputContent.scrollTop = outputContent.scrollHeight;
+            });
+        });
+
+        // Collapse functionality
+        document.querySelector('.collapse-btn').addEventListener('click', function() {
+            const outputSection = document.querySelector('.output-section');
+            const isCollapsed = outputSection.style.height === '60px';
+            
+            if (isCollapsed) {
+                outputSection.style.height = '300px';
+                this.textContent = '⌄';
+            } else {
+                outputSection.style.height = '60px';
+                this.textContent = '⌃';
+            }
+        });
+    </script>
+</body>
+</html>
