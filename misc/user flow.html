@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sumurai - User Flow</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #7f8c8d;
+            font-size: 16px;
+        }
+        
+        .flow-container {
+            position: relative;
+            padding: 20px 0;
+        }
+        
+        /* Flow Elements */
+        .flow-box {
+            position: relative;
+            display: inline-block;
+            padding: 15px 20px;
+            margin: 10px;
+            border-radius: 8px;
+            font-size: 14px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            min-width: 160px;
+            transition: transform 0.2s ease;
+        }
+        
+        .flow-box:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        }
+        
+        .start {
+            background: #2ecc71;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .process {
+            background: #3498db;
+            color: white;
+        }
+        
+        .decision {
+            background: #f39c12;
+            color: white;
+            border-radius: 50%;
+            width: 140px;
+            height: 140px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        
+        .input {
+            background: #9b59b6;
+            color: white;
+        }
+        
+        .output {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .end {
+            background: #34495e;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .optional {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        /* Flow Layout */
+        .flow-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        
+        .flow-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0 20px;
+        }
+        
+        /* Arrows */
+        .arrow {
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 12px solid #7f8c8d;
+            margin: 5px auto;
+        }
+        
+        .arrow-right {
+            width: 0;
+            height: 0;
+            border-top: 8px solid transparent;
+            border-bottom: 8px solid transparent;
+            border-left: 12px solid #7f8c8d;
+            margin: 0 10px;
+        }
+        
+        .arrow-down {
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 12px solid #7f8c8d;
+            margin: 10px auto;
+        }
+        
+        /* Connection Lines */
+        .connection-line {
+            width: 2px;
+            height: 30px;
+            background: #7f8c8d;
+            margin: 0 auto;
+        }
+        
+        .horizontal-line {
+            height: 2px;
+            width: 100px;
+            background: #7f8c8d;
+            margin: 20px 0;
+        }
+        
+        /* Labels */
+        .flow-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin: 5px 0;
+            font-weight: bold;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .flow-row {
+                flex-direction: column;
+            }
+            
+            .arrow-right {
+                transform: rotate(90deg);
+                margin: 10px 0;
+            }
+            
+            .horizontal-line {
+                transform: rotate(90deg);
+                width: 30px;
+                margin: 15px auto;
+            }
+        }
+        
+        /* Step Numbers */
+        .step-number {
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            background: #2c3e50;
+            color: white;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .legend {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ecf0f1;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 10px 20px;
+        }
+        
+        .legend-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            margin-right: 8px;
+        }
+        
+        .legend-text {
+            font-size: 14px;
+            color: #2c3e50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Sumurai AI Meeting Summarizer- User Flow</h1>
+            <p>Complete user journey from meeting input to actionable insights</p>
+        </div>
+        
+        <div class="flow-container">
+            <!-- Step 1: Entry Point -->
+            <div class="flow-row">
+                <div class="flow-box start">
+                    <div class="step-number">1</div>
+                    User Opens<br>Application
+                </div>
+            </div>
+            
+            <div class="arrow-down"></div>
+            
+            <!-- Step 2: Authentication Check -->
+            <div class="flow-row">
+                <div class="flow-box decision">
+                    <div class="step-number">2</div>
+                    Logged In?
+                </div>
+            </div>
+            
+            <div class="flow-row">
+                <div class="flow-column">
+                    <div class="flow-label">No</div>
+                    <div class="arrow-right"></div>
+                    <div class="flow-box process">Login/Register</div>
+                    <div class="arrow-down"></div>
+                </div>
+                <div class="flow-column">
+                    <div class="flow-label">Yes</div>
+                    <div class="arrow-down"></div>
+                </div>
+            </div>
+            
+            <!-- Step 3: Dashboard -->
+            <div class="flow-row">
+                <div class="flow-box process">
+                    <div class="step-number">3</div>
+                    Dashboard<br>Displayed
+                </div>
+            </div>
+            
+            <div class="arrow-down"></div>
+            
+            <!-- Step 4: Input Method Selection -->
+            <div class="flow-row">
+                <div class="flow-box decision">
+                    <div class="step-number">4</div>
+                    Choose Input<br>Method
+                </div>
+            </div>
+            
+            <!-- Step 5: Three Input Paths -->
+            <div class="flow-row">
+                <div class="flow-column">
+                    <div class="flow-label">Live Recording</div>
+                    <div class="arrow-down"></div>
+                    <div class="flow-box input">
+                        <div class="step-number">5a</div>
+                        Start Live<br>Recording
+                    </div>
+                    <div class="arrow-down"></div>
+                    <div class="flow-box process">
+                        Real-time<br>Transcription
+                    </div>
+                    <div class="arrow-down"></div>
+                    <div class="flow-box decision">
+                        Meeting<br>Ended?
+                    </div>
+                    <div class="arrow-down"></div>
+                </div>
+                
+                <div class="flow-column">
+                    <div class="flow-label">File Upload</div>
+                    <div class="arrow-down"></div>
+                    <div class="flow-box input">
+                        <div class="step-number">5b</div>
+                        Upload Audio<br>File
+                    </div>
+                    <div class="arrow-down"></div>
+                    <div class="flow-box decision">
+                        Valid Format?
+                    </div>
+                    <div class="arrow-down"></div>
+                    <div class="flow-box process">
+                        File Processing<br>& Transcription
+                    </div>
+                    <div class="arrow-down"></div>
+                </div>
+                
+                <div class="flow-column">
+                    <div class="flow-label">Import Text</div>
+                    <div class="arrow-down"></div>
+                    <div class="flow-box input">
+                        <div class="step-number">5c</div>
+                        Import<br>Transcript
+                    </div>
+                    <div class="arrow-down"></div>
+                    <div class="flow-box process">
+                        Text Validation<br>& Formatting
+                    </div>
+                    <div class="arrow-down"></div>
+                    <div class="connection-line"></div>
+                    <div class="arrow-down"></div>
+                </div>
+            </div>
+            
+            <!-- Step 6: Processing -->
+            <div class="flow-row">
+                <div class="flow-box process">
+                    <div class="step-number">6</div>
+                    AI Processing<br>& Analysis
+                </div>
+            </div>
+            
+            <div class="arrow-down"></div>
+            
+            <!-- Step 7: Speaker Identification -->
+            <div class="flow-row">
+                <div class="flow-box decision">
+                    <div class="step-number">7</div>
+                    Multiple<br>Speakers?
+                </div>
+            </div>
+            
+            <div class="flow-row">
+                <div class="flow-column">
+                    <div class="flow-label">Yes</div>
+                    <div class="arrow-right"></div>
+                    <div class="flow-box process">Speaker<br>Identification</div>
+                    <div class="arrow-down"></div>
+                </div>
+                <div class="flow-column">
+                    <div class="flow-label">No</div>
+                    <div class="arrow-down"></div>
+                </div>
+            </div>
+            
+            <!-- Step 8: Summary Generation -->
+            <div class="flow-row">
+                <div class="flow-box process">
+                    <div class="step-number">8</div>
+                    Generate Summary<br>& Key Points
+                </div>
+            </div>
+            
+            <div class="arrow-down"></div>
+            
+            <!-- Step 9: Action Items Extraction -->
+            <div class="flow-row">
+                <div class="flow-box process">
+                    <div class="step-number">9</div>
+                    Pull action items <br> & Decisions by key-person  
+                </div>
+            </div>
+            
+            <div class="arrow-down"></div>
+            
+            <!-- Step 10: Review & Edit -->
+            <div class="flow-row">
+                <div class="flow-box output">
+                    <div class="step-number">10</div>
+                    Display Results<br>for Review
+                </div>
+            </div>
+            
+            <div class="arrow-down"></div>
+            
+            <!-- Step 11: User Actions -->
+            <div class="flow-row">
+                <div class="flow-box decision">
+                    <div class="step-number">11</div>
+                    User Action<br>Required?
+                </div>
+            </div>
+            
+            <!-- Step 12: Optional Actions -->
+            <div class="flow-row">
+                <div class="flow-column">
+                    <div class="flow-label">Edit</div>
+                    <div class="arrow-down"></div>
+                    <div class="flow-box optional">
+                        Edit Summary<br>or Actions
+                    </div>
+                </div>
+                
+                <div class="flow-column">
+                    <div class="flow-label">Export</div>
+                    <div class="arrow-down"></div>
+                    <div class="flow-box optional">
+                        Export to<br>PDF/Email
+                    </div>
+                </div>
+                
+                <div class="flow-column">
+                    <div class="flow-label">Share</div>
+                    <div class="arrow-down"></div>
+                    <div class="flow-box optional">
+                        Share with<br>Team
+                    </div>
+                </div>
+                
+                <div class="flow-column">
+                    <div class="flow-label">Schedule</div>
+                    <div class="arrow-down"></div>
+                    <div class="flow-box optional">
+                        Add to<br>Calendar
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flow-row">
+                <div class="connection-line"></div>
+                <div class="connection-line"></div>
+                <div class="connection-line"></div>
+                <div class="connection-line"></div>
+            </div>
+            
+            <div class="arrow-down"></div>
+            
+            <!-- Step 13: Save & Archive -->
+            <div class="flow-row">
+                <div class="flow-box process">
+                    <div class="step-number">13</div>
+                    Save to Meeting<br>History
+                </div>
+            </div>
+            
+            <div class="arrow-down"></div>
+            
+            <!-- Step 14: End -->
+            <div class="flow-row">
+                <div class="flow-box end">
+                    <div class="step-number">14</div>
+                    Meeting Summary<br>Complete
+                </div>
+            </div>
+        </div>
+        
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-box start"></div>
+                <div class="legend-text">Start/End Point</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-box process"></div>
+                <div class="legend-text">Process Step</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-box decision"></div>
+                <div class="legend-text">Decision Point</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-box input"></div>
+                <div class="legend-text">User Input</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-box output"></div>
+                <div class="legend-text">System Output</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-box optional"></div>
+                <div class="legend-text">Optional Action</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
