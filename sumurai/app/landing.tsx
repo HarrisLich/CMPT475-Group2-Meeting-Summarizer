@@ -21,6 +21,9 @@ function Landing() {
   const router = useRouter();
   const [isVisible, setIsVisible] = useState(false);
   const [displayText, setDisplayText] = useState('');
+  const [featuresVisible, setFeaturesVisible] = useState(false);
+  const [swordSlicing, setSwordSlicing] = useState(false);
+  const [hasTriggered, setHasTriggered] = useState(false);
   const fullText = 'actionable insights';
 
   useEffect(() => {
@@ -40,41 +43,69 @@ function Landing() {
     return () => clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !hasTriggered) {
+            setHasTriggered(true);
+            setSwordSlicing(true);
+            setTimeout(() => {
+              setFeaturesVisible(true);
+            }, 800);
+          }
+        });
+      },
+      { threshold: 0.3 }
+    );
+
+    const featuresSection = document.getElementById('features');
+    if (featuresSection) {
+      observer.observe(featuresSection);
+    }
+
+    return () => {
+      if (featuresSection) {
+        observer.unobserve(featuresSection);
+      }
+    };
+  }, [hasTriggered]);
+
   const features = [
     {
       icon: <Brain className="w-6 h-6" />,
       title: "AI-Powered Summarization",
-      description: "Transform lengthy meetings into concise, actionable summaries with advanced AI that captures key decisions and insights.",
+      description: "Transform lengthy meetings into concise, actionable summaries automatically.",
       color: "bg-gradient-to-br from-[#00F5FF] to-[#06B6D4]"
     },
     {
       icon: <CheckCircle className="w-6 h-6" />,
       title: "Action Item Extraction",
-      description: "Automatically identify tasks, deadlines, and responsibilities from your meetings with 90% accuracy.",
+      description: "Automatically identify tasks, deadlines, and responsibilities from discussions.",
       color: "bg-gradient-to-br from-[#00F5FF] to-[#06B6D4]"
     },
     {
       icon: <Users className="w-6 h-6" />,
       title: "Speaker Identification",
-      description: "Track who said what with intelligent speaker tagging that supports up to 15 participants per meeting.",
+      description: "Track who said what with intelligent speaker recognition technology.",
       color: "bg-gradient-to-br from-[#00F5FF] to-[#06B6D4]"
     },
     {
       icon: <Calendar className="w-6 h-6" />,
       title: "Calendar Integration",
-      description: "Seamlessly sync action items and deadlines directly to Google Calendar and Outlook with one click.",
+      description: "Sync action items and deadlines to your favorite calendar apps seamlessly.",
       color: "bg-gradient-to-br from-[#00F5FF] to-[#06B6D4]"
     },
     {
       icon: <Shield className="w-6 h-6" />,
       title: "Enterprise Security",
-      description: "Your data stays secure with end-to-end encryption and compliance with FERPA and HIPAA standards.",
+      description: "Keep your data secure with enterprise-grade encryption and compliance standards.",
       color: "bg-gradient-to-br from-[#00F5FF] to-[#06B6D4]"
     },
     {
       icon: <Zap className="w-6 h-6" />,
       title: "Lightning Fast",
-      description: "Get comprehensive summaries in under 2 minutes for 60-minute meetings. Process up to 5 meetings simultaneously.",
+      description: "Get comprehensive summaries in minutes, not hours. Process multiple meetings at once.",
       color: "bg-gradient-to-br from-[#00F5FF] to-[#06B6D4]"
     }
   ];
@@ -104,13 +135,13 @@ function Landing() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0A0A0A] via-[#0A0A0A] to-[#1A1A1A]">
+    <div className="min-h-screen bg-gradient-to-b from-[#111111] via-[#111111] to-[#1A1A1A]">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-[#0A0A0A]/80 backdrop-blur-lg border-b border-[#333333]">
+      <header className="sticky top-0 z-50 bg-[#111111]/80 backdrop-blur-lg border-b border-[#333333]">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-[#00F5FF] to-[#06B6D4] rounded-xl flex items-center justify-center shadow-lg">
-              <Mic className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 flex items-center justify-center shadow-lg">
+              <img src="/sumurai-icon.png" alt="SumurAI Logo" className="w-10 h-10 rounded-xl" />
             </div>
             <span className="text-2xl font-bold bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] bg-clip-text text-transparent">
               SumurAI
@@ -121,16 +152,19 @@ function Landing() {
             <a href="#features" className="text-gray-300 hover:text-white transition-colors font-medium">
               Features
             </a>
-            <a href="#testimonials" className="text-gray-300 hover:text-white transition-colors font-medium">
-              Testimonials
+            <a href="/demo" className="text-gray-300 hover:text-white transition-colors font-medium">
+              Demo
             </a>
-            <a href="#pricing" className="text-gray-300 hover:text-white transition-colors font-medium">
-              Pricing
+            <a href="/how-it-works" className="text-gray-300 hover:text-white transition-colors font-medium">
+              How It Works
+            </a>
+            <a href="/about" className="text-gray-300 hover:text-white transition-colors font-medium">
+              About
             </a>
           </nav>
 
-          <Button onClick={() => router.push('/login')} className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black shadow-lg">
-            Get Started
+          <Button onClick={() => router.push('/upload')} className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black shadow-lg">
+            Try It Now
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </div>
@@ -143,21 +177,27 @@ function Landing() {
             Turn meetings into
             <span className="bg-gradient-to-r from-[#00F5FF] via-[#06B6D4] to-[#00F5FF] bg-clip-text text-transparent block mt-2 leading-normal text-center">
               {displayText}
-              {displayText && <span className="animate-pulse text-[#00F5FF]">|</span>}
+              {displayText && <span className="text-[#00F5FF]" style={{animation: 'blink 1.0s infinite'}}>|</span>}
+              <style>{`
+                @keyframes blink {
+                  0%, 50% { opacity: 1; }
+                  51%, 100% { opacity: 0; }
+                }
+              `}</style>
             </span>
           </h1>
           
           <p className={`text-xl md:text-2xl text-gray-300 mb-12 leading-relaxed max-w-3xl mx-auto transition-all duration-1000 delay-500 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            SumurAI automatically processes your meeting recordings and transcripts, extracting key decisions, action items, and insights so your team can focus on execution, not documentation.
+            From messy discussions to clear action plans. Get structured outputs that keep you and your team aligned.
           </p>
           
           <div className={`flex flex-col sm:flex-row gap-4 justify-center mb-12 transition-all duration-1000 delay-700 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            <Button 
-              size="lg" 
-              onClick={() => router.push('/login')}
+            <Button
+              size="lg"
+              onClick={() => router.push('/upload')}
               className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black text-lg px-8 py-6 shadow-xl hover:shadow-2xl transition-all duration-300"
             >
-              Start Free Trial
+              Upload Meeting
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
             <Button 
@@ -174,29 +214,56 @@ function Landing() {
           <div className={`flex items-center justify-center space-x-8 text-gray-400 text-sm transition-all duration-1000 delay-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'}`}>
             <div className="flex items-center space-x-2">
               <CheckCircle className="w-4 h-4 text-[#00F5FF]" />
-              <span>No credit card required</span>
+              <span>No signup required</span>
             </div>
             <div className="flex items-center space-x-2">
               <CheckCircle className="w-4 h-4 text-[#00F5FF]" />
-              <span>14-day free trial</span>
+              <span>Instant results</span>
             </div>
             <div className="flex items-center space-x-2">
               <CheckCircle className="w-4 h-4 text-[#00F5FF]" />
-              <span>Cancel anytime</span>
+              <span>Secure processing</span>
             </div>
           </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-20 bg-[#1A1A1A]">
+      <section id="features" className="py-20 bg-[#1A1A1A] relative overflow-hidden">
+        {/* Sword Slicing Effect */}
+        {swordSlicing && (
+          <>
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="sword-slash absolute top-1/2 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#00F5FF] to-transparent transform -translate-y-1/2 rotate-12 animate-sword-slice"></div>
+            </div>
+            <style jsx>{`
+              @keyframes sword-slice {
+                0% {
+                  transform: translateX(-100%) translateY(-50%) rotate(12deg);
+                  opacity: 0;
+                }
+                20% {
+                  opacity: 1;
+                }
+                100% {
+                  transform: translateX(100%) translateY(-50%) rotate(12deg);
+                  opacity: 0;
+                }
+              }
+              .animate-sword-slice {
+                animation: sword-slice 0.8s ease-out forwards;
+              }
+            `}</style>
+          </>
+        )}
+
         <div className="container mx-auto px-6">
-          <div className="text-center mb-16">
+          <div className={`text-center mb-16 transition-all duration-1000 ${featuresVisible ? 'opacity-100 transform translate-y-0' : 'opacity-0 transform translate-y-10 invisible'}`}>
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-              Powerful features for modern teams
+              Perfect for individuals and teams
             </h2>
             <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Everything you need to transform chaotic meetings into structured, actionable outcomes that drive results.
+              Whether you're working solo or with a group, organize your conversations effectively.
             </p>
           </div>
 
@@ -204,8 +271,14 @@ function Landing() {
             {features.map((feature, index) => (
               <Card
                 key={index}
-                className={`border-0 shadow-lg hover:shadow-xl transition-all duration-500 group cursor-pointer bg-[#0A0A0A] border border-[#333333] animate-in fade-in slide-in-from-bottom-4`}
-                style={{ animationDelay: `${index * 150}ms` }}
+                className={`border-0 shadow-lg hover:shadow-xl transition-all duration-500 group cursor-pointer bg-[#111111] border border-[#333333] ${
+                  featuresVisible
+                    ? 'opacity-100 transform translate-y-0'
+                    : 'opacity-0 transform translate-y-10 invisible'
+                }`}
+                style={{
+                  transitionDelay: featuresVisible ? `${index * 150 + 200}ms` : '0ms'
+                }}
               >
                 <CardContent className="p-8">
                   <div className={`w-14 h-14 ${feature.color} rounded-2xl flex items-center justify-center mb-6 text-black group-hover:scale-110 transition-transform duration-300`}>
@@ -230,7 +303,7 @@ function Landing() {
           <div className="grid md:grid-cols-4 gap-8 text-center">
             <div className="hover:scale-105 transition-transform duration-300 cursor-pointer">
               <div className="text-4xl md:text-5xl font-bold mb-2 animate-in fade-in slide-in-from-bottom-4" style={{animationDelay: '200ms'}}>90%</div>
-              <div className="text-black/70">Action Item Accuracy</div>
+              <div className="text-black/70">Accuracy</div>
             </div>
             <div className="hover:scale-105 transition-transform duration-300 cursor-pointer">
               <div className="text-4xl md:text-5xl font-bold mb-2 animate-in fade-in slide-in-from-bottom-4" style={{animationDelay: '400ms'}}>&lt;2min</div>
@@ -238,11 +311,11 @@ function Landing() {
             </div>
             <div className="hover:scale-105 transition-transform duration-300 cursor-pointer">
               <div className="text-4xl md:text-5xl font-bold mb-2 animate-in fade-in slide-in-from-bottom-4" style={{animationDelay: '600ms'}}>15</div>
-              <div className="text-black/70">Speakers Supported</div>
+              <div className="text-black/70">Speakers</div>
             </div>
             <div className="hover:scale-105 transition-transform duration-300 cursor-pointer">
               <div className="text-4xl md:text-5xl font-bold mb-2 animate-in fade-in slide-in-from-bottom-4" style={{animationDelay: '800ms'}}>5+</div>
-              <div className="text-black/70">Concurrent Meetings</div>
+              <div className="text-black/70">Meetings</div>
             </div>
           </div>
         </div>
@@ -285,21 +358,21 @@ function Landing() {
       */}
 
       {/* CTA Section */}
-      <section className="py-20 bg-[#0A0A0A]">
+      <section className="py-20 bg-[#111111]">
         <div className="container mx-auto px-6 text-center">
           <div className="max-w-3xl mx-auto">
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-              Ready to transform your meetings?
+              Ready to organize your conversations?
             </h2>
             <p className="text-xl text-gray-300 mb-12">
-              Start your free trial today and experience the power of AI-driven meeting intelligence.
+              Upload a recording and see AI-powered insights in action.
             </p>
-            <Button 
-              size="lg" 
-              onClick={() => router.push('/login')}
+            <Button
+              size="lg"
+              onClick={() => router.push('/upload')}
               className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black text-lg px-8 py-6 shadow-xl"
             >
-              Start Your Free Trial
+              Get Started Now
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
           </div>
@@ -311,8 +384,8 @@ function Landing() {
         <div className="container mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center space-x-3 mb-4 md:mb-0">
-              <div className="w-8 h-8 bg-gradient-to-br from-[#00F5FF] to-[#06B6D4] rounded-lg flex items-center justify-center">
-                <Mic className="w-4 h-4 text-white" />
+              <div className="w-8 h-8 flex items-center justify-center">
+                <img src="/sumurai-icon.png" alt="SumurAI Logo" className="w-8 h-8 rounded-lg" />
               </div>
               <span className="text-xl font-bold text-white">SumurAI</span>
             </div>
