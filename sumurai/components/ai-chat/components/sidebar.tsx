@@ -77,8 +77,8 @@ export function Sidebar({ chats, selectedChatId, onNewChat, onSelectChat }: Side
                   variant="ghost"
                   onClick={() => onSelectChat(chat.id)}
                   className={cn(
-                    "h-auto w-full justify-start p-3 text-left hover:bg-gray-100",
-                    selectedChatId === chat.id && "bg-gray-100"
+                    "h-auto w-full justify-start p-3 text-left hover:bg-[#00F5FF]/40",
+                    selectedChatId === chat.id && "bg-[#00F5FF]/60 hover:bg-[#00F5FF]/70"
                   )}>
                   <div className="flex w-full items-start gap-2">
                     <MessageCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-400" />
