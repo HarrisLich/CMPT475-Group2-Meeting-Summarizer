@@ -1,0 +1,20 @@
+# Firebase Configuration Template
+# Copy this file to .env and fill in your Firebase credentials
+
+# Firebase Service Account JSON (as a single line string)
+# Get this from Firebase Console > Project Settings > Service Accounts > Generate New Private Key
+FIREBASE_SERVICE_ACCOUNT={"type":"service_account","project_id":"your-project-id","private_key_id":"key-id","private_key":"-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY\n-----END PRIVATE KEY-----\n","client_email":"firebase-adminsdk-xxxxx@your-project-id.iam.gserviceaccount.com","client_id":"123456789","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_x509_cert_url":"https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-xxxxx%40your-project-id.iam.gserviceaccount.com"}
+
+# Instructions:
+# 1. Go to Firebase Console (https://console.firebase.google.com/)
+# 2. Select your project or create a new one
+# 3. Go to Project Settings > Service Accounts
+# 4. Click "Generate New Private Key"
+# 5. Download the JSON file
+# 6. Copy the entire JSON content as a single line string to FIREBASE_SERVICE_ACCOUNT
+# 7. Enable Authentication in Firebase Console:
+#    - Go to Authentication > Sign-in method
+#    - Enable "Email/Password" provider
+# 8. For React frontend, you'll also need the Firebase config:
+#    - Go to Project Settings > General
+#    - Copy the Firebase config object for your React app
