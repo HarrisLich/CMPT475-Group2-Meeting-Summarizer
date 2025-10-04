@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   FileText,
   Users,
@@ -24,7 +25,50 @@ function Landing() {
   const [featuresVisible, setFeaturesVisible] = useState(false);
   const [swordSlicing, setSwordSlicing] = useState(false);
   const [hasTriggered, setHasTriggered] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [isRegister, setIsRegister] = useState(false);
+  // TODO: Add form state for login/register data
+  // const [formData, setFormData] = useState({ username: '', password: '', confirmPassword: '' });
+  // const [isLoading, setIsLoading] = useState(false);
+  // const [error, setError] = useState('');
   const fullText = 'actionable insights';
+
+  const openLogin = () => {
+    setLoginOpen(true);
+    setIsRegister(false);
+  };
+
+  const openSignUp = () => {
+    setLoginOpen(true);
+    setIsRegister(true);
+  };
+
+  // TODO: Add form submission handlers
+  // const handleSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   setIsLoading(true);
+  //   setError('');
+  //
+  //   try {
+  //     if (isRegister) {
+  //       // Handle registration
+  //       // const result = await registerUser(formData);
+  //     } else {
+  //       // Handle login
+  //       // const result = await loginUser(formData);
+  //     }
+  //     // On success: setLoginOpen(false); router.push('/dashboard');
+  //   } catch (err) {
+  //     // setError(err.message);
+  //   } finally {
+  //     // setIsLoading(false);
+  //   }
+  // };
+
+  // TODO: Add input change handlers
+  // const handleInputChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   setFormData(prev => ({ ...prev, [field]: e.target.value }));
+  // };
 
   useEffect(() => {
     setIsVisible(true);
@@ -110,63 +154,44 @@ function Landing() {
     }
   ];
 
-  const testimonials = [
-    {
-      name: "Sarah Chen",
-      role: "Product Manager",
-      company: "TechCorp",
-      content: "SumurAI has transformed how our team handles meeting follow-ups. We've reduced post-meeting admin work by 80%.",
-      rating: 5
-    },
-    {
-      name: "Michael Rodriguez",
-      role: "Engineering Lead",
-      company: "StartupXYZ",
-      content: "The accuracy is incredible. It catches action items we sometimes miss and keeps everyone accountable.",
-      rating: 5
-    },
-    {
-      name: "Emily Johnson",
-      role: "HR Director",
-      company: "GlobalInc",
-      content: "Perfect for our remote team meetings. The speaker identification works flawlessly even with different accents.",
-      rating: 5
-    }
-  ];
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#111111] via-[#111111] to-[#1A1A1A]">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-[#111111]/80 backdrop-blur-lg border-b border-[#333333]">
-        <div className="container mx-auto px-6 py-4 flex justify-between items-center">
+        <div className="container mx-auto px-6 py-4 flex items-center">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 flex items-center justify-center shadow-lg">
-              <img src="/sumurai-icon.png" alt="SumurAI Logo" className="w-10 h-10 rounded-xl" />
+              <img src="/sumurai-icon-blue.png" alt="SumurAI Logo" className="w-10 h-10 rounded-xl" />
             </div>
             <span className="text-2xl font-bold bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] bg-clip-text text-transparent">
               SumurAI
             </span>
           </div>
-          
-          <nav className="hidden md:flex items-center space-x-8">
-            <a href="#features" className="text-gray-300 hover:text-white transition-colors font-medium">
+
+          <nav className="hidden md:flex items-center space-x-8 ml-12">
+            <a href="#features" className="text-white hover:text-[#00F5FF] transition-colors font-medium">
               Features
             </a>
-            <a href="/demo" className="text-gray-300 hover:text-white transition-colors font-medium">
+            <a href="/demo" className="text-white hover:text-[#00F5FF] transition-colors font-medium">
               Demo
             </a>
-            <a href="/how-it-works" className="text-gray-300 hover:text-white transition-colors font-medium">
-              How It Works
+            <a href="/core" className="text-white hover:text-[#00F5FF] transition-colors font-medium">
+              AI Engine
             </a>
-            <a href="/about" className="text-gray-300 hover:text-white transition-colors font-medium">
+            <a href="/about" className="text-white hover:text-[#00F5FF] transition-colors font-medium">
               About
             </a>
           </nav>
 
-          <Button onClick={() => router.push('/upload')} className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black shadow-lg">
-            Try It Now
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
+          <div className="flex items-center space-x-4 ml-auto"> 
+            <Button onClick={openLogin} variant="outline" className="border-[#333333] hover:bg-[#1A1A1A] text-white hover:text-[#00F5FF] transition-colors">
+              Log In
+            </Button>
+            <Button onClick={openSignUp} className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black shadow-lg">
+              Try It Now
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -194,7 +219,7 @@ function Landing() {
           <div className={`flex flex-col sm:flex-row gap-4 justify-center mb-12 transition-all duration-1000 delay-700 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             <Button
               size="lg"
-              onClick={() => router.push('/upload')}
+              onClick={openSignUp}
               className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black text-lg px-8 py-6 shadow-xl hover:shadow-2xl transition-all duration-300"
             >
               Upload Meeting
@@ -204,7 +229,7 @@ function Landing() {
               size="lg" 
               variant="outline" 
               onClick={() => router.push('/demo')}
-              className="text-lg px-8 py-6 border-2 border-[#333333] text-white hover:bg-[#1A1A1A]"
+              className="text-lg px-8 py-6 border-2 border-[#333333] text-white hover:bg-[#1A1A1A] hover:text-[#00F5FF] transition-colors"
             >
               <Mic className="w-5 h-5 mr-2" />
               Watch Demo
@@ -214,7 +239,7 @@ function Landing() {
           <div className={`flex items-center justify-center space-x-8 text-gray-400 text-sm transition-all duration-1000 delay-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'}`}>
             <div className="flex items-center space-x-2">
               <CheckCircle className="w-4 h-4 text-[#00F5FF]" />
-              <span>No signup required</span>
+              <span>Workflow Integrated</span>
             </div>
             <div className="flex items-center space-x-2">
               <CheckCircle className="w-4 h-4 text-[#00F5FF]" />
@@ -229,7 +254,7 @@ function Landing() {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-20 bg-[#1A1A1A] relative overflow-hidden">
+      <section id="features" className="py-20 bg-gradient-to-b from-[#111111] via-[#111111] to-[#1A1A1A] relative overflow-hidden">
         {/* Sword Slicing Effect */}
         {swordSlicing && (
           <>
@@ -321,41 +346,7 @@ function Landing() {
         </div>
       </section>
 
-      {/* Testimonials Section  (Maybe will use if we get feedback?)
-      <section id="testimonials" className="py-20">
-        <div className="container mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-              Loved by teams worldwide
-            </h2>
-            <p className="text-xl text-slate-600">
-              Join thousands of teams already using SumurAI to make their meetings more productive.
-            </p>
-          </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <Card key={index} className="border-0 shadow-lg">
-                <CardContent className="p-8">
-                  <div className="flex mb-4">
-                    {[...Array(testimonial.rating)].map((_, i) => (
-                      <Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />
-                    ))}
-                  </div>
-                  <p className="text-slate-600 mb-6 italic">
-                    "{testimonial.content}"
-                  </p>
-                  <div>
-                    <div className="font-semibold text-slate-900">{testimonial.name}</div>
-                    <div className="text-sm text-slate-500">{testimonial.role} at {testimonial.company}</div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-      */}
 
       {/* CTA Section */}
       <section className="py-20 bg-[#111111]">
@@ -369,7 +360,7 @@ function Landing() {
             </p>
             <Button
               size="lg"
-              onClick={() => router.push('/upload')}
+              onClick={openLogin}
               className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black text-lg px-8 py-6 shadow-xl"
             >
               Get Started Now
@@ -385,12 +376,12 @@ function Landing() {
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center space-x-3 mb-4 md:mb-0">
               <div className="w-8 h-8 flex items-center justify-center">
-                <img src="/sumurai-icon.png" alt="SumurAI Logo" className="w-8 h-8 rounded-lg" />
+                <img src="/sumurai-icon-blue.png" alt="SumurAI Logo" className="w-8 h-8 rounded-lg" />
               </div>
               <span className="text-xl font-bold text-white">SumurAI</span>
             </div>
             <div className="text-gray-300 text-center md:text-right">
-              <p>&copy; 2024 SumurAI. All rights reserved.</p>
+              <p>&copy; 2025 SumurAI. All rights reserved.</p>
               <div className="flex space-x-6 mt-2 justify-center md:justify-end">
                 <a href="#privacy" className="hover:text-white transition-colors">Privacy</a>
                 <a href="#terms" className="hover:text-white transition-colors">Terms</a>
@@ -400,6 +391,86 @@ function Landing() {
           </div>
         </div>
       </footer>
+
+      {/* Login Dialog */}
+      <Dialog open={loginOpen} onOpenChange={setLoginOpen}>
+        <DialogContent className="bg-[#111111] border-[#333333] text-white max-w-lg w-full">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center mb-6">
+              {isRegister ? 'Create Account' : 'Welcome Back'}
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* TODO: Wrap in form element with onSubmit={handleSubmit} */}
+          <div className="space-y-4">
+            {/* TODO: Add error display */}
+            {/* {error && (
+              <div className="text-red-400 text-sm text-center bg-red-900/20 border border-red-900/50 rounded-md p-2">
+                {error}
+              </div>
+            )} */}
+
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-2">
+                Username
+              </label>
+              <input
+                id="username"
+                type="text"
+                className="w-full px-3 py-2 bg-[#1A1A1A] border border-[#333333] rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#00F5FF] focus:border-transparent"
+                placeholder="Enter your username"
+                // TODO: Add value={formData.username} onChange={handleInputChange('username')}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                className="w-full px-3 py-2 bg-[#1A1A1A] border border-[#333333] rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#00F5FF] focus:border-transparent"
+                placeholder="Enter your password"
+                // TODO: Add value={formData.password} onChange={handleInputChange('password')}
+              />
+            </div>
+
+            {isRegister && (
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">
+                  Confirm Password
+                </label>
+                <input
+                  id="confirmPassword"
+                  type="password"
+                  className="w-full px-3 py-2 bg-[#1A1A1A] border border-[#333333] rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#00F5FF] focus:border-transparent"
+                  placeholder="Confirm your password"
+                  // TODO: Add value={formData.confirmPassword} onChange={handleInputChange('confirmPassword')}
+                />
+              </div>
+            )}
+
+            <Button
+              className="w-full bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black font-semibold py-2 mt-6"
+              onClick={() => router.push('/profiling')}
+              // TODO: Add type="submit" disabled={isLoading}
+            >
+              {/* TODO: Add loading spinner when isLoading */}
+              {isRegister ? 'Create Account' : 'Sign In'}
+            </Button>
+
+            <div className="text-center mt-4">
+              <button
+                onClick={() => setIsRegister(!isRegister)}
+                className="text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                {isRegister ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
