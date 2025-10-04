@@ -108,33 +108,65 @@ export default function DemoPage() {
             From messy discussions to clear action plans in minutes.
           </p>
 
-          {/* Main Demo Video Container */}
+          {/* Live Transcription Demo */}
           <div className="max-w-5xl mx-auto mb-16">
-            <div className="relative bg-gray-900/50 rounded-xl border border-[#00F5FF]/20 overflow-hidden shadow-2xl">
-              <div className="aspect-video flex items-center justify-center">
-                {/* Placeholder for demo video */}
-                <div className="text-center">
-                  <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] rounded-full flex items-center justify-center hover:scale-105 transition-transform cursor-pointer">
-                    <Play className="w-10 h-10 text-black ml-1" />
+            <div className="relative bg-gray-900/50 rounded-xl border border-[#00F5FF]/20 overflow-hidden shadow-2xl p-8">
+              <div className="grid md:grid-cols-2 gap-8">
+                {/* Left: Audio Player */}
+                <div className="flex flex-col justify-center">
+                  <h3 className="text-2xl font-semibold text-white mb-4">Audio Input</h3>
+                  <p className="text-gray-400 mb-6">Listen to the original audio recording</p>
+                  <div className="bg-black/30 rounded-lg p-6 border border-[#00F5FF]/10">
+                    <audio
+                      controls
+                      className="w-full"
+                      style={{
+                        filter: 'hue-rotate(180deg) saturate(2)',
+                      }}
+                    >
+                      <source src="/demo-audio.mp3" type="audio/mpeg" />
+                      Your browser does not support the audio element.
+                    </audio>
+                    <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
+                      <Clock className="w-4 h-4" />
+                      <span>Duration: 0:10</span>
+                    </div>
                   </div>
-                  <h3 className="text-2xl font-semibold text-white mb-3">Interactive Demo</h3>
-                  <p className="text-gray-400 mb-4">Watch a full meeting transformation in under 3 minutes</p>
-                  <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-                    <Clock className="w-4 h-4" />
-                    <span>Duration: 2:45</span>
+                </div>
+
+                {/* Right: Transcription Result */}
+                <div className="flex flex-col">
+                  <h3 className="text-2xl font-semibold text-white mb-4">AI Transcription</h3>
+                  <p className="text-gray-400 mb-6">Real-time speech-to-text conversion</p>
+                  <div className="bg-black/30 rounded-lg p-6 border border-[#00F5FF]/10 flex-1">
+                    <div className="mb-4">
+                      <div className="text-sm text-[#00F5FF] mb-2">Full Transcription:</div>
+                      <p className="text-white leading-relaxed">
+                        "If you're going through a hard time remember this. Forests may be gorgeous, but there is nothing more alive than a tree that learns how to grow in a cemetery."
+                      </p>
+                    </div>
+                    <div className="mt-6 pt-4 border-t border-gray-700">
+                      <div className="text-sm text-[#00F5FF] mb-2">Timestamped Segments:</div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex gap-3">
+                          <span className="text-gray-400 font-mono">0:00-0:03</span>
+                          <span className="text-gray-300">If you're going through a hard time remember this.</span>
+                        </div>
+                        <div className="flex gap-3">
+                          <span className="text-gray-400 font-mono">0:03-0:11</span>
+                          <span className="text-gray-300">Forests may be gorgeous, but there is nothing more alive than a tree that learns how to grow in a cemetery.</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-gray-700">
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                        <span>Language: English</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-
-              {/* TODO: Replace with actual video embed */}
-              {/* <video
-                className="w-full h-full object-cover"
-                poster="/demo-thumbnail.jpg"
-                controls
-              >
-                <source src="/demo-video.mp4" type="video/mp4" />
-                Your browser does not support the video tag.
-              </video> */}
             </div>
           </div>
         </div>
