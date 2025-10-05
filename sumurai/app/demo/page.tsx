@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -13,11 +14,50 @@ import {
   Mic,
   Upload,
   Download,
-  Clock
+  Clock,
+  Loader2
 } from 'lucide-react';
 
 export default function DemoPage() {
   const router = useRouter();
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcriptionResult, setTranscriptionResult] = useState<any>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Create URL for audio playback
+    const url = URL.createObjectURL(file);
+    setAudioUrl(url);
+    setError(null);
+    setIsTranscribing(true);
+
+    // Create form data
+    const formData = new FormData();
+    formData.append('audio_file', file);
+
+    try {
+      const response = await fetch('http://localhost:8000/transcribe', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Transcription failed');
+      }
+
+      const result = await response.json();
+      setTranscriptionResult(result);
+    } catch (err) {
+      setError('Failed to transcribe audio. Make sure the FastAPI server is running on port 8000.');
+      console.error(err);
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
 
   const demoSteps = [
     {
@@ -108,33 +148,120 @@ export default function DemoPage() {
             From messy discussions to clear action plans in minutes.
           </p>
 
-          {/* Main Demo Video Container */}
+          {/* Live Transcription Demo */}
           <div className="max-w-5xl mx-auto mb-16">
-            <div className="relative bg-gray-900/50 rounded-xl border border-[#00F5FF]/20 overflow-hidden shadow-2xl">
-              <div className="aspect-video flex items-center justify-center">
-                {/* Placeholder for demo video */}
-                <div className="text-center">
-                  <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] rounded-full flex items-center justify-center hover:scale-105 transition-transform cursor-pointer">
-                    <Play className="w-10 h-10 text-black ml-1" />
+            {/* Upload Section */}
+            <div className="mb-8 text-center">
+              <label htmlFor="audio-upload" className="cursor-pointer">
+                <div className="inline-flex items-center gap-2 bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black font-semibold px-6 py-3 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl">
+                  <Upload className="w-5 h-5" />
+                  Upload Your Own Audio
+                </div>
+              </label>
+              <input
+                id="audio-upload"
+                type="file"
+                accept="audio/*"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              <p className="text-gray-400 text-sm mt-2">Supports MP3, WAV, M4A, and more</p>
+              {error && (
+                <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+                  {error}
+                </div>
+              )}
+            </div>
+
+            <div className="relative bg-gray-900/50 rounded-xl border border-[#00F5FF]/20 overflow-hidden shadow-2xl p-8">
+              <div className="grid md:grid-cols-2 gap-8">
+                {/* Left: Audio Player */}
+                <div className="flex flex-col justify-center">
+                  <h3 className="text-2xl font-semibold text-white mb-4">Audio Input</h3>
+                  <p className="text-gray-400 mb-6">Listen to the original audio recording</p>
+                  <div className="bg-black/30 rounded-lg p-6 border border-[#00F5FF]/10">
+                    <audio
+                      key={audioUrl || '/demo-audio.mp3'}
+                      controls
+                      className="w-full"
+                      style={{
+                        filter: 'hue-rotate(180deg) saturate(2)',
+                      }}
+                    >
+                      <source src={audioUrl || '/demo-audio.mp3'} type="audio/mpeg" />
+                      Your browser does not support the audio element.
+                    </audio>
+                    <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
+                      <Clock className="w-4 h-4" />
+                      <span>{transcriptionResult?.filename || 'Demo Audio (0:10)'}</span>
+                    </div>
                   </div>
-                  <h3 className="text-2xl font-semibold text-white mb-3">Interactive Demo</h3>
-                  <p className="text-gray-400 mb-4">Watch a full meeting transformation in under 3 minutes</p>
-                  <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-                    <Clock className="w-4 h-4" />
-                    <span>Duration: 2:45</span>
+                </div>
+
+                {/* Right: Transcription Result */}
+                <div className="flex flex-col">
+                  <h3 className="text-2xl font-semibold text-white mb-4">AI Transcription</h3>
+                  <p className="text-gray-400 mb-6">Real-time speech-to-text conversion</p>
+                  <div className="bg-black/30 rounded-lg border border-[#00F5FF]/10 flex-1 flex flex-col max-h-[500px] overflow-y-auto">
+                    {isTranscribing ? (
+                      <div className="flex flex-col items-center justify-center h-full p-6">
+                        <Loader2 className="w-12 h-12 text-[#00F5FF] animate-spin mb-4" />
+                        <p className="text-gray-400">Transcribing audio...</p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Full Transcription - Scrollable */}
+                        <div className="p-6 pb-4 border-b border-gray-700">
+                          <div className="text-sm text-[#00F5FF] mb-2">Full Transcription:</div>
+                          <div className="max-h-[150px] overflow-y-auto pr-2">
+                            <p className="text-white leading-relaxed">
+                              {transcriptionResult?.transcription ||
+                                '"If you\'re going through a hard time remember this. Forests may be gorgeous, but there is nothing more alive than a tree that learns how to grow in a cemetery."'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Timestamped Segments - Scrollable */}
+                        <div className="p-6 pb-4 border-b border-gray-700 flex-1 flex flex-col">
+                          <div className="text-sm text-[#00F5FF] mb-2">Timestamped Segments:</div>
+                          <div className="space-y-2 text-sm overflow-y-auto pr-2 max-h-[200px]">
+                            {transcriptionResult?.segments ? (
+                              transcriptionResult.segments.map((segment: any, index: number) => (
+                                <div key={index} className="flex gap-3">
+                                  <span className="text-gray-400 font-mono flex-shrink-0">
+                                    {Math.floor(segment.start / 60)}:{String(Math.floor(segment.start % 60)).padStart(2, '0')}-
+                                    {Math.floor(segment.end / 60)}:{String(Math.floor(segment.end % 60)).padStart(2, '0')}
+                                  </span>
+                                  <span className="text-gray-300">{segment.text}</span>
+                                </div>
+                              ))
+                            ) : (
+                              <>
+                                <div className="flex gap-3">
+                                  <span className="text-gray-400 font-mono">0:00-0:03</span>
+                                  <span className="text-gray-300">If you're going through a hard time remember this.</span>
+                                </div>
+                                <div className="flex gap-3">
+                                  <span className="text-gray-400 font-mono">0:03-0:11</span>
+                                  <span className="text-gray-300">Forests may be gorgeous, but there is nothing more alive than a tree that learns how to grow in a cemetery.</span>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Language Info */}
+                        <div className="p-6 pt-4 border-t border-gray-700">
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                            <span>Language: {transcriptionResult?.language || 'English'}</span>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
-
-              {/* TODO: Replace with actual video embed */}
-              {/* <video
-                className="w-full h-full object-cover"
-                poster="/demo-thumbnail.jpg"
-                controls
-              >
-                <source src="/demo-video.mp4" type="video/mp4" />
-                Your browser does not support the video tag.
-              </video> */}
             </div>
           </div>
         </div>

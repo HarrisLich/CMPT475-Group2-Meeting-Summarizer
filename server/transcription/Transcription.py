@@ -49,6 +49,9 @@ class TranscriptionService:
             "audio/mp4",
             "audio/m4a",
             "audio/flac",
+            "video/mp4",
+            "video/mpeg",
+            "video/quicktime",
             "application/octet-stream"
         ]
         return content_type in allowed_types

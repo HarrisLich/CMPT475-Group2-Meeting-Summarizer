@@ -5,3 +5,6 @@ python-multipart==0.0.20
 python-dotenv==1.0.1
 firebase-admin==6.5.0
 pyrebase4==4.6.0
+openai-whisper
+ffmpeg-python
+
