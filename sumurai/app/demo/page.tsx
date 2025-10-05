@@ -202,7 +202,7 @@ export default function DemoPage() {
                 <div className="flex flex-col">
                   <h3 className="text-2xl font-semibold text-white mb-4">AI Transcription</h3>
                   <p className="text-gray-400 mb-6">Real-time speech-to-text conversion</p>
-                  <div className="bg-black/30 rounded-lg border border-[#00F5FF]/10 flex-1 flex flex-col">
+                  <div className="bg-black/30 rounded-lg border border-[#00F5FF]/10 flex-1 flex flex-col max-h-[500px] overflow-y-auto">
                     {isTranscribing ? (
                       <div className="flex flex-col items-center justify-center h-full p-6">
                         <Loader2 className="w-12 h-12 text-[#00F5FF] animate-spin mb-4" />
@@ -251,7 +251,7 @@ export default function DemoPage() {
                         </div>
 
                         {/* Language Info */}
-                        <div className="p-6 pt-4">
+                        <div className="p-6 pt-4 border-t border-gray-700">
                           <div className="flex items-center gap-2 text-xs text-gray-500">
                             <div className="w-2 h-2 rounded-full bg-green-500"></div>
                             <span>Language: {transcriptionResult?.language || 'English'}</span>
