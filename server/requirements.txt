@@ -7,3 +7,4 @@ firebase-admin==6.5.0
 pyrebase4==4.6.0
 openai-whisper
 ffmpeg-python
+
