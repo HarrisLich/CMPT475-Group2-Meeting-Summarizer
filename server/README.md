@@ -58,6 +58,7 @@ A simple FastAPI-based backend service for meeting summarization.
 
 - `GET /` - Root endpoint with welcome message
 - `GET /health` - Health check endpoint
+- `POST /transcribe` - Upload and transcribe audio/video files
 
 ### Example Usage
 
@@ -72,6 +73,19 @@ curl -X GET "http://localhost:8000/"
 ```bash
 curl -X GET "http://localhost:8000/health"
 ```
+
+#### Transcribe Audio/Video
+
+```bash
+curl -X POST "http://localhost:8000/transcribe" \
+  -H "Content-Type: multipart/form-data" \
+  -F "audio_file=@path/to/your/audio.mp3"
+```
+
+**Supported file types:**
+- Audio: MP3, WAV, MP4, M4A, FLAC
+- Video: MP4, MPEG, QuickTime
+- Generic: application/octet-stream
 
 ## Project Structure
 
@@ -134,7 +148,7 @@ DEBUG=True
 - [ ] Add meeting summarization endpoints
 - [ ] Implement AI-powered summarization logic
 - [ ] Add database integration for persistent storage
-- [ ] Add file upload support for meeting transcripts
+- [x] Add file upload support for meeting transcripts
 - [ ] Implement authentication and authorization
 
 ## Contributing
