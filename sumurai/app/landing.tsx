@@ -17,6 +17,7 @@ import {
   ArrowRight,
   Star
 } from 'lucide-react';
+import { authService, type RegisterData, type LoginData, type User } from '@/lib/services/auth';
 
 function Landing() {
   const router = useRouter();
@@ -27,10 +28,12 @@ function Landing() {
   const [hasTriggered, setHasTriggered] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [isRegister, setIsRegister] = useState(false);
-  // TODO: Add form state for login/register data
-  // const [formData, setFormData] = useState({ username: '', password: '', confirmPassword: '' });
-  // const [isLoading, setIsLoading] = useState(false);
-  // const [error, setError] = useState('');
+  const [formData, setFormData] = useState({ username: '', password: '', confirmPassword: '' });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const fullText = 'actionable insights';
 
   const openLogin = () => {
@@ -43,32 +46,89 @@ function Landing() {
     setIsRegister(true);
   };
 
-  // TODO: Add form submission handlers
-  // const handleSubmit = async (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   setIsLoading(true);
-  //   setError('');
-  //
-  //   try {
-  //     if (isRegister) {
-  //       // Handle registration
-  //       // const result = await registerUser(formData);
-  //     } else {
-  //       // Handle login
-  //       // const result = await loginUser(formData);
-  //     }
-  //     // On success: setLoginOpen(false); router.push('/dashboard');
-  //   } catch (err) {
-  //     // setError(err.message);
-  //   } finally {
-  //     // setIsLoading(false);
-  //   }
-  // };
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
 
-  // TODO: Add input change handlers
-  // const handleInputChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
-  //   setFormData(prev => ({ ...prev, [field]: e.target.value }));
-  // };
+    try {
+      let result;
+      if (isRegister) {
+        // Handle registration
+        result = await authService.registerUser(formData);
+        console.log('Registration successful:', result);
+      } else {
+        // Handle login
+        result = await authService.loginUser(formData);
+        console.log('Login successful:', result);
+      }
+
+      // Store user data and authentication state
+      authService.saveUser(result.user);
+      setCurrentUser(result.user);
+      setIsAuthenticated(true);
+
+      // Store Firebase config if provided
+      if (result.firebase_config) {
+        localStorage.setItem('firebase_config', JSON.stringify(result.firebase_config));
+      }
+
+      // Create a session token based on the user UID and current timestamp
+      // This will persist until the session expires (24 hours by default)
+      const sessionToken = `session_${result.user.uid}_${Date.now()}`;
+      authService.saveToken(sessionToken);
+
+      // Save session data with expiration
+      authService.saveSessionData();
+
+      // On success: close dialog and redirect
+      setLoginOpen(false);
+      router.push('/profiling');
+    } catch (err: any) {
+      setError(err.message || 'An error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleInputChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({ ...prev, [field]: e.target.value }));
+  };
+
+  const handleLogout = async () => {
+    try {
+      await authService.logoutUser();
+      setIsAuthenticated(false);
+      setCurrentUser(null);
+      // Optionally redirect to home or refresh page
+      router.push('/');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+
+  // Check authentication status on component mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      setAuthLoading(true);
+      try {
+        const isAuth = await authService.checkAuthStatus();
+        setIsAuthenticated(isAuth);
+        if (isAuth) {
+          const user = authService.getUser();
+          setCurrentUser(user);
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
 
   useEffect(() => {
     setIsVisible(true);
@@ -183,14 +243,40 @@ function Landing() {
             </a>
           </nav>
 
-          <div className="flex items-center space-x-4 ml-auto"> 
-            <Button onClick={openLogin} variant="outline" className="border-[#333333] hover:bg-[#1A1A1A] text-white hover:text-[#00F5FF] transition-colors">
-              Log In
-            </Button>
-            <Button onClick={openSignUp} className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black shadow-lg">
-              Try It Now
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
+          <div className="flex items-center space-x-4 ml-auto">
+            {authLoading ? (
+              <div className="w-8 h-8 border-2 border-[#00F5FF] border-t-transparent rounded-full animate-spin"></div>
+            ) : isAuthenticated && currentUser ? (
+              <>
+                <span className="text-white text-sm">
+                  Welcome, {currentUser.display_name || currentUser.email}
+                </span>
+                <Button
+                  onClick={() => router.push('/profiling')}
+                  variant="outline"
+                  className="border-[#333333] hover:bg-[#1A1A1A] text-white hover:text-[#00F5FF] transition-colors"
+                >
+                  Dashboard
+                </Button>
+                <Button
+                  onClick={handleLogout}
+                  variant="outline"
+                  className="border-red-600 hover:bg-red-900/20 text-red-400 hover:text-red-300 transition-colors"
+                >
+                  Log Out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button onClick={openLogin} variant="outline" className="border-[#333333] hover:bg-[#1A1A1A] text-white hover:text-[#00F5FF] transition-colors">
+                  Log In
+                </Button>
+                <Button onClick={openSignUp} className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black shadow-lg">
+                  Try It Now
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -217,23 +303,47 @@ function Landing() {
           </p>
           
           <div className={`flex flex-col sm:flex-row gap-4 justify-center mb-12 transition-all duration-1000 delay-700 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            <Button
-              size="lg"
-              onClick={openSignUp}
-              className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black text-lg px-8 py-6 shadow-xl hover:shadow-2xl transition-all duration-300"
-            >
-              Upload Meeting
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </Button>
-            <Button 
-              size="lg" 
-              variant="outline" 
-              onClick={() => router.push('/demo')}
-              className="text-lg px-8 py-6 border-2 border-[#333333] text-white hover:bg-[#1A1A1A] hover:text-[#00F5FF] transition-colors"
-            >
-              <Mic className="w-5 h-5 mr-2" />
-              Watch Demo
-            </Button>
+            {isAuthenticated ? (
+              <>
+                <Button
+                  size="lg"
+                  onClick={() => router.push('/profiling')}
+                  className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black text-lg px-8 py-6 shadow-xl hover:shadow-2xl transition-all duration-300"
+                >
+                  Go to Dashboard
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={() => router.push('/demo')}
+                  className="text-lg px-8 py-6 border-2 border-[#333333] text-white hover:bg-[#1A1A1A] hover:text-[#00F5FF] transition-colors"
+                >
+                  <Mic className="w-5 h-5 mr-2" />
+                  Watch Demo
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  size="lg"
+                  onClick={openSignUp}
+                  className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black text-lg px-8 py-6 shadow-xl hover:shadow-2xl transition-all duration-300"
+                >
+                  Upload Meeting
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={() => router.push('/demo')}
+                  className="text-lg px-8 py-6 border-2 border-[#333333] text-white hover:bg-[#1A1A1A] hover:text-[#00F5FF] transition-colors"
+                >
+                  <Mic className="w-5 h-5 mr-2" />
+                  Watch Demo
+                </Button>
+              </>
+            )}
           </div>
 
           <div className={`flex items-center justify-center space-x-8 text-gray-400 text-sm transition-all duration-1000 delay-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'}`}>
@@ -401,14 +511,12 @@ function Landing() {
             </DialogTitle>
           </DialogHeader>
 
-          {/* TODO: Wrap in form element with onSubmit={handleSubmit} */}
-          <div className="space-y-4">
-            {/* TODO: Add error display */}
-            {/* {error && (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
               <div className="text-red-400 text-sm text-center bg-red-900/20 border border-red-900/50 rounded-md p-2">
                 {error}
               </div>
-            )} */}
+            )}
 
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-2">
@@ -419,7 +527,9 @@ function Landing() {
                 type="text"
                 className="w-full px-3 py-2 bg-[#1A1A1A] border border-[#333333] rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#00F5FF] focus:border-transparent"
                 placeholder="Enter your username"
-                // TODO: Add value={formData.username} onChange={handleInputChange('username')}
+                value={formData.username}
+                onChange={handleInputChange('username')}
+                required
               />
             </div>
 
@@ -432,7 +542,9 @@ function Landing() {
                 type="password"
                 className="w-full px-3 py-2 bg-[#1A1A1A] border border-[#333333] rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#00F5FF] focus:border-transparent"
                 placeholder="Enter your password"
-                // TODO: Add value={formData.password} onChange={handleInputChange('password')}
+                value={formData.password}
+                onChange={handleInputChange('password')}
+                required
               />
             </div>
 
@@ -446,18 +558,26 @@ function Landing() {
                   type="password"
                   className="w-full px-3 py-2 bg-[#1A1A1A] border border-[#333333] rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#00F5FF] focus:border-transparent"
                   placeholder="Confirm your password"
-                  // TODO: Add value={formData.confirmPassword} onChange={handleInputChange('confirmPassword')}
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange('confirmPassword')}
+                  required
                 />
               </div>
             )}
 
             <Button
-              className="w-full bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black font-semibold py-2 mt-6"
-              onClick={() => router.push('/profiling')}
-              // TODO: Add type="submit" disabled={isLoading}
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black font-semibold py-2 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {/* TODO: Add loading spinner when isLoading */}
-              {isRegister ? 'Create Account' : 'Sign In'}
+              {isLoading ? (
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                  <span>{isRegister ? 'Creating Account...' : 'Signing In...'}</span>
+                </div>
+              ) : (
+                <span>{isRegister ? 'Create Account' : 'Sign In'}</span>
+              )}
             </Button>
 
             <div className="text-center mt-4">
@@ -468,7 +588,7 @@ function Landing() {
                 {isRegister ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
               </button>
             </div>
-          </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

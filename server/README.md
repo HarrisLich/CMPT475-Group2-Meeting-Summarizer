@@ -12,7 +12,7 @@ A simple FastAPI-based backend service for meeting summarization.
 
 ### Prerequisites
 
-- Python 3.8 or higher
+- Python 3.12 (recommended) or Python 3.8+
 - pip (Python package installer)
 
 ### Installation
@@ -24,7 +24,7 @@ A simple FastAPI-based backend service for meeting summarization.
 
 2. **Create a virtual environment (recommended):**
    ```bash
-   python3 -m venv venv
+   python3.12 -m venv venv  # Use Python 3.12 specifically
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
@@ -58,6 +58,7 @@ A simple FastAPI-based backend service for meeting summarization.
 
 - `GET /` - Root endpoint with welcome message
 - `GET /health` - Health check endpoint
+- `POST /transcribe` - Upload and transcribe audio/video files
 
 ### Example Usage
 
@@ -73,14 +74,55 @@ curl -X GET "http://localhost:8000/"
 curl -X GET "http://localhost:8000/health"
 ```
 
+#### Transcribe Audio/Video
+
+```bash
+curl -X POST "http://localhost:8000/transcribe" \
+  -H "Content-Type: multipart/form-data" \
+  -F "audio_file=@path/to/your/audio.mp3"
+```
+
+**Supported file types:**
+- Audio: MP3, WAV, MP4, M4A, FLAC
+- Video: MP4, MPEG, QuickTime
+- Generic: application/octet-stream
+
 ## Project Structure
 
 ```
 server/
-├── main.py              # Main FastAPI application
-├── requirements.txt     # Python dependencies
-├── .gitignore          # Git ignore rules
-└── README.md           # This file
+├── main.py                    # Main FastAPI application
+├── Transcription.py           # Whisper transcription service
+├── requirements.txt           # Python dependencies
+├── TRANSCRIPTION_SETUP.md     # Transcription setup guide
+├── README.md                  # This file
+├── auth/                      # Authentication modules
+├── transcription/             # Transcription-related modules
+└── venv/                      # Virtual environment (created during setup)
+```
+
+## Troubleshooting
+
+### NumPy Compatibility Issues
+
+If you encounter errors like "Transcription failed: Numpy is not available" or NumPy compatibility warnings, this is due to PyTorch/Whisper requiring NumPy 1.x instead of NumPy 2.x.
+
+**Solution:**
+```bash
+# Activate your virtual environment first
+source venv/bin/activate
+
+# Downgrade NumPy to a compatible version
+pip install "numpy<2"
+```
+
+This will install NumPy 1.26.4 which is compatible with the current PyTorch and Whisper versions.
+
+### Python Version Issues
+
+If you have multiple Python versions installed, make sure to use Python 3.12 specifically:
+```bash
+python3.12 -m venv venv
 ```
 
 ## Development
@@ -106,7 +148,7 @@ DEBUG=True
 - [ ] Add meeting summarization endpoints
 - [ ] Implement AI-powered summarization logic
 - [ ] Add database integration for persistent storage
-- [ ] Add file upload support for meeting transcripts
+- [x] Add file upload support for meeting transcripts
 - [ ] Implement authentication and authorization
 
 ## Contributing
