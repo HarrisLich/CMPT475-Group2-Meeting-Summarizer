@@ -153,10 +153,12 @@ function Landing() {
         entries.forEach((entry) => {
           if (entry.isIntersecting && !hasTriggered) {
             setHasTriggered(true);
-            setSwordSlicing(true);
             setTimeout(() => {
-              setFeaturesVisible(true);
-            }, 800);
+              setSwordSlicing(true);
+              setTimeout(() => {
+                setFeaturesVisible(true);
+              }, 800);
+            }, 300);
           }
         });
       },
