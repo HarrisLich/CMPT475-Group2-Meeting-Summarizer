@@ -284,7 +284,7 @@ function Landing() {
       </header>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-6 py-20 text-center">
+      <section className="min-h-screen flex items-center justify-center container mx-auto px-6 py-20 text-center">
         <div className="max-w-4xl mx-auto">
           <h1 className={`text-5xl md:text-7xl font-bold text-white mb-8 leading-tight transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             Turn meetings into
