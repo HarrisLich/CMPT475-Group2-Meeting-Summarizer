@@ -1,3 +1,5 @@
+   
+   """
    import os
    from supabase import create_client
    from dotenv import load_dotenv
@@ -39,3 +41,11 @@
        if _instance is None:
            _instance = SupabaseService()
        return _instance
+"""
+#Supabase client is the entryway to supabase services/ecosystem
+import os
+from supabase import create_client, Client
+url: str = os.getenv("SUPABASE_URL")
+key: str = os.getenv("SUPABASE_KEY")
+
+
