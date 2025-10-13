@@ -53,13 +53,13 @@ export default function AboutPage() {
       email: "harris.lich@example.com"
     },
     {
-      name: "Joshua Chenowitz",
-      role: "role",
-      description: "Dev blurb",
-      skills: ["skill1", "skill2", "skill3"],
-      github: "https://github.com/teammember3",
-      linkedin: "https://linkedin.com/in/teammember3",
-      email: "member3@example.com"
+      name: "Joshua Chenoweth",
+      role: "IT",
+      description: "I'm a passionate IT professional from Maryland with a strong background in security, infrastructure, and backend development. I'm a quick learner and I'm always looking for new ways to improve my skills.",
+      skills: ["Python", "Security/Infrastructure", "Backend Development"],
+      github: "https://github.com/JoshuaChenoweth",
+      linkedin: "https://linkedin.com/in/jgchenoweth",
+      email: "Joshua.chenoweth10@gmail.com"
     },
     {
       name: "Marko Pavic",
