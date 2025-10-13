@@ -17,6 +17,8 @@ import {
   Clock,
   Loader2
 } from 'lucide-react';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 
 export default function DemoPage() {
   const router = useRouter();
@@ -107,38 +109,11 @@ export default function DemoPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#111111] via-[#111111] to-[#1A1A1A]">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-[#111111]/80 backdrop-blur-lg border-b border-[#333333]">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <button
-            onClick={() => router.push('/')}
-            className="flex items-center gap-2 text-white hover:text-[#00F5FF] transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Back to Home
-          </button>
-
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 flex items-center justify-center">
-              <img src="/sumurai-icon-blue.png" alt="SumurAI Logo" className="w-8 h-8 rounded-lg" />
-            </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] bg-clip-text text-transparent">
-              SumurAI Demo
-            </span>
-          </div>
-
-          <Button
-            onClick={() => router.push('/core')}
-            className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black"
-          >
-            Try Now
-          </Button>
-        </div>
-      </header>
+    <div className="min-h-screen bg-[#111111]">
+      <Header />
 
       {/* Hero Section */}
-      <section className="py-20">
+      <section className="py-20 bg-gradient-to-b from-[#111111] to-[#151515]">
         <div className="container mx-auto px-6 text-center">
           <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">
             See SumurAI in Action
@@ -268,7 +243,7 @@ export default function DemoPage() {
       </section>
 
       {/* How It Works Section */}
-      <section className="py-20 bg-[#1A1A1A]">
+      <section className="py-20 bg-[#151515]">
         <div className="container mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-white mb-6">How It Works</h2>
@@ -305,38 +280,8 @@ export default function DemoPage() {
         </div>
       </section>
 
-      {/* Features Showcase */}
-      <section className="py-20">
-        <div className="container mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-white mb-6">Key Features</h2>
-            <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-              Powerful AI capabilities designed for modern teams
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-            {features.map((feature, index) => (
-              <Card key={index} className="bg-gray-900/30 border-gray-700 hover:border-[#00F5FF]/40 transition-colors">
-                <CardContent className="p-6 text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-[#00F5FF]/20 to-[#06B6D4]/20 rounded-lg flex items-center justify-center text-[#00F5FF]">
-                    {feature.icon}
-                  </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">
-                    {feature.title}
-                  </h3>
-                  <p className="text-gray-400 text-sm leading-relaxed">
-                    {feature.description}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Sample Output Section */}
-      <section className="py-20 bg-[#1A1A1A]">
+      <section className="py-20 bg-gradient-to-b from-[#151515] to-[#111111]">
         <div className="container mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-white mb-6">Sample Output</h2>
@@ -398,7 +343,7 @@ export default function DemoPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20">
+      <section className="py-20 bg-[#111111]">
         <div className="container mx-auto px-6 text-center">
           <div className="max-w-3xl mx-auto">
             <h2 className="text-4xl font-bold text-white mb-6">
@@ -427,6 +372,8 @@ export default function DemoPage() {
           </div>
         </div>
       </section>
+
+      <Footer />
     </div>
   );
 }
