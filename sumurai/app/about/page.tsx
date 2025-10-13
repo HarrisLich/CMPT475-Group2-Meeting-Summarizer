@@ -29,12 +29,12 @@ export default function AboutPage() {
   const teamMembers = [
     {
       name: "Stefano Farro",
-      role: "Frontend Developer & UI/UX Designer",
-      description: "Dev blurb",
-      skills: ["React", "TypeScript", "UI/UX Design", "Next.js", "Tailwind CSS"],
-      github: "https://github.com/stefanfarro",
-      linkedin: "https://linkedin.com/in/stefanfarro",
-      email: "stefan0.farro@example.com"
+      role: "UI/UX",
+      description: "New Jersey native, fan of hockey and good music. Can cook minute rice in 50 seconds. ",
+      skills: ["TypeScript", "Next.js", "ShadCN", "Tailwind CSS"],
+      github: "https://github.com/stefanog1121",
+      linkedin: "https://www.linkedin.com/in/stefanogfarro/",
+      email: "stefano.farro1@marist.edu"
     },
     {
       name: "Evan Brown ",
@@ -55,13 +55,13 @@ export default function AboutPage() {
       email: "harris.lich@example.com"
     },
     {
-      name: "Joshua Chenowitz",
-      role: "role",
-      description: "Dev blurb",
-      skills: ["skill1", "skill2", "skill3"],
-      github: "https://github.com/teammember3",
-      linkedin: "https://linkedin.com/in/teammember3",
-      email: "member3@example.com"
+      name: "Joshua Chenoweth",
+      role: "IT",
+      description: "I'm a passionate IT professional from Maryland with a strong background in security, infrastructure, and backend development. I'm a quick learner and I'm always looking for new ways to improve my skills.",
+      skills: ["Python", "Security/Infrastructure", "Backend Development"],
+      github: "https://github.com/JoshuaChenoweth",
+      linkedin: "https://linkedin.com/in/jgchenoweth",
+      email: "Joshua.chenoweth10@gmail.com"
     },
     {
       name: "Marko Pavic",
