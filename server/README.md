@@ -14,6 +14,7 @@ A simple FastAPI-based backend service for meeting summarization.
 
 - Python 3.12 (recommended) or Python 3.8+
 - pip (Python package installer)
+- Ollama (for summarization)
 
 ### Installation
 
@@ -59,6 +60,8 @@ A simple FastAPI-based backend service for meeting summarization.
 - `GET /` - Root endpoint with welcome message
 - `GET /health` - Health check endpoint
 - `POST /transcribe` - Upload and transcribe audio/video files
+- `GET /ollama/status` - Check if Ollama is running and accessible
+- `POST /summarize` - Generate AI summary from transcription text
 
 ### Example Usage
 
@@ -87,17 +90,54 @@ curl -X POST "http://localhost:8000/transcribe" \
 - Video: MP4, MPEG, QuickTime
 - Generic: application/octet-stream
 
+#### Check Ollama Status
+
+```bash
+curl -X GET "http://localhost:8000/ollama/status"
+```
+
+**Response:**
+```json
+{
+  "status": "connected",
+  "host": "http://localhost:11434",
+  "available_models": ["llama3.2"]
+}
+```
+
+#### Summarize Transcription
+
+```bash
+curl -X POST "http://localhost:8000/summarize" \
+  -H "Content-Type: application/json" \
+  -d '{"transcription_text": "Meeting about project updates. John will complete design by Friday. Sarah will review code."}'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "summary": "**Meeting Summary**\n\nA brief summary of the meeting...",
+  "model_used": "llama3.2",
+  "transcription_length": 125
+}
+```
+
 ## Project Structure
 
 ```
 server/
 ├── main.py                    # Main FastAPI application
-├── Transcription.py           # Whisper transcription service
 ├── requirements.txt           # Python dependencies
 ├── TRANSCRIPTION_SETUP.md     # Transcription setup guide
 ├── README.md                  # This file
+├── .env                       # Environment variables
 ├── auth/                      # Authentication modules
 ├── transcription/             # Transcription-related modules
+│   └── Transcription.py       # Whisper transcription service
+├── summarization/             # Summarization modules
+│   ├── __init__.py            # Package initialization
+│   └── Summarization_Service.py  # Ollama summarization service
 └── venv/                      # Virtual environment (created during setup)
 ```
 
@@ -125,6 +165,74 @@ If you have multiple Python versions installed, make sure to use Python 3.12 spe
 python3.12 -m venv venv
 ```
 
+## Ollama Setup
+
+The summarization feature uses Ollama to run AI models locally on your machine.
+
+### Installing Ollama
+
+**Windows:**
+1. Download from [ollama.com/download](https://ollama.com/download)
+2. Run the installer
+3. Ollama starts automatically
+
+**Mac:**
+```bash
+brew install ollama
+```
+
+**Linux:**
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+### Download the AI Model
+
+After installing Ollama, pull the model:
+
+```bash
+ollama pull llama3.2
+```
+
+This downloads the Llama 3.2 model (~2GB).
+
+### Verify Installation
+
+```bash
+ollama list
+```
+
+You should see `llama3.2` in the list.
+
+### Configuration
+
+Add these to your `server/.env` file:
+
+```env
+# Ollama Configuration
+OLLAMA_HOST=http://localhost:11434
+OLLAMA_MODEL=llama3.2
+```
+
+### Testing
+
+1. Start Ollama (usually auto-starts): `ollama serve`
+2. Start the FastAPI server: `python main.py`
+3. Test at `http://localhost:8000/docs`
+
+### Troubleshooting Ollama
+
+**"Could not connect to Ollama"**
+- Ensure Ollama is running: `ollama serve`
+- Verify: `curl http://localhost:11434/api/tags`
+
+**"Model not found"**
+- Pull the model: `ollama pull llama3.2`
+
+**Summarization is slow**
+- Try smaller model: `ollama pull llama3.2:1b`
+- Update `.env`: `OLLAMA_MODEL=llama3.2:1b`
+
 ## Development
 
 ### Adding New Endpoints
@@ -141,12 +249,16 @@ Create a `.env` file in the server directory for environment-specific configurat
 API_HOST=0.0.0.0
 API_PORT=8000
 DEBUG=True
+
+# Ollama Configuration
+OLLAMA_HOST=http://localhost:11434
+OLLAMA_MODEL=llama3.2
 ```
 
 ## Next Steps
 
-- [ ] Add meeting summarization endpoints
-- [ ] Implement AI-powered summarization logic
+- [x] Add meeting summarization endpoints
+- [x] Implement AI-powered summarization logic (using Ollama)
 - [ ] Add database integration for persistent storage
 - [x] Add file upload support for meeting transcripts
 - [ ] Implement authentication and authorization
