@@ -14,6 +14,14 @@ class SummarizeRequest(BaseModel):
     """
     transcription_text: str
 
+class ChatRequest(BaseModel):
+    """
+    Request model for chat endpoint.
+    Allows conversational interaction about a meeting.
+    """
+    meeting_context: str
+    user_question: str
+
 # Create FastAPI instance
 app = FastAPI(
     title="Meeting Summarizer API",
@@ -114,6 +122,35 @@ async def summarize_transcription(request: SummarizeRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Summarization failed: {str(e)}")
+
+@app.post("/chat")
+async def chat_about_meeting(request: ChatRequest):
+    """
+    Have a conversational interaction about a meeting.
+    Allows users to ask questions, get greetings, and discuss specific topics.
+    """
+    if not request.user_question or len(request.user_question.strip()) == 0:
+        raise HTTPException(status_code=400,
+                            detail="user_question cannot be empty.")
+    try:
+        # Call the chat method from summarization service
+        result = summarization_service.chat_about_meeting(
+            request.meeting_context,
+            request.user_question
+        )
+
+        # Check if chat was successful
+        if not result.get("success"):
+            raise HTTPException(
+                status_code=503,
+                detail=result.get("error", "Chat failed.")
+            )
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
