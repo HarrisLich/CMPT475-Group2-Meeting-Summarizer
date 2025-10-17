@@ -1,21 +1,32 @@
 "use client";
 
-import type React from "react";
+import React from "react";
+import type { ChangeEvent, FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Copy, Share, ThumbsUp, ThumbsDown, Send, Paperclip, Mic } from "lucide-react";
-import type { UIMessage } from "ai";
+
+interface Message {
+  id: string;
+  role: string;
+  content: string;
+}
 
 interface ChatInterfaceProps {
-  messages: UIMessage[];
+  messages: Message[];
   input: string;
-  handleInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  handleInputChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (e: FormEvent<HTMLFormElement>) => void;
   isLoading: boolean;
   chatTitle?: string;
+  onFileUpload?: (file: File) => void;
+  isUploading?: boolean;
+  uploadStatus?: string;
+  transcript?: string;
+  transcriptSegments?: Array<{start: number; end: number; text: string}>;
 }
 
 export function ChatInterface({
@@ -24,10 +35,27 @@ export function ChatInterface({
   handleInputChange,
   handleSubmit,
   isLoading,
-  chatTitle
+  chatTitle,
+  onFileUpload,
+  isUploading = false,
+  uploadStatus = "",
+  transcript = "",
+  transcriptSegments = []
 }: ChatInterfaceProps) {
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [isFocused, setIsFocused] = React.useState(false);
+
+  const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onFileUpload) {
+      onFileUpload(file);
+    }
+    // Reset input so same file can be selected again
+    e.target.value = '';
+  };
+
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex flex-col h-full">
       {/* Chat Header */}
       {chatTitle && (
         <div className="border-b border-[#00F5FF] px-6 py-4 bg-gradient-to-r from-[#00F5FF]/5 to-[#06B6D4]/5">
@@ -36,14 +64,15 @@ export function ChatInterface({
       )}
 
       {/* Main Content Container */}
-      <div className="flex flex-1 min-h-0 gap-4 p-4">
+      <div className="flex flex-1 min-h-0 gap-4 p-4 overflow-hidden">
         {/* Summary Section (Left) */}
-        <div className="flex flex-col bg-gray-900/5 rounded-xl shadow-sm border border-gray-200/50 flex-1">
-          <div className="px-4 py-3 border-b border-[#00F5FF]/20 bg-gradient-to-r from-[#00F5FF]/5 to-[#06B6D4]/5 rounded-t-xl">
+        <div className="flex flex-col bg-gray-900/5 rounded-xl shadow-sm border border-gray-200/50 flex-1 min-h-0">
+          <div className="px-4 py-3 border-b border-[#00F5FF]/20 bg-gradient-to-r from-[#00F5FF]/5 to-[#06B6D4]/5 rounded-t-xl flex-shrink-0">
             <h3 className="text-lg font-bold text-white">Summary</h3>
           </div>
 
-          <ScrollArea className="flex-1 p-4">
+          <ScrollArea className="flex-1 overflow-y-auto">
+            <div className="p-4">
             <div className="space-y-4">
               {(messages || []).map((message) => (
                 <div key={message.id} className="flex gap-3">
@@ -55,7 +84,7 @@ export function ChatInterface({
                       </Avatar>
                       <div className="flex-1">
                         <div className="bg-muted rounded-lg p-3">
-                          <p className="text-sm">{/*message.content*/ "test 1"}</p>
+                          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                         </div>
                       </div>
                     </>
@@ -66,7 +95,7 @@ export function ChatInterface({
                       </Avatar>
                       <div className="flex-1">
                         <div className="bg-muted rounded-lg border p-3">
-                          <p className="text-sm mb-3">{/*message.content*/ "test 2"}</p>
+                          <p className="text-sm mb-3 whitespace-pre-wrap">{message.content}</p>
                           <div className="flex items-center gap-1">
                             <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
                               <Copy className="h-3 w-3" />
@@ -105,26 +134,50 @@ export function ChatInterface({
                 </div>
               )}
             </div>
+            </div>
           </ScrollArea>
 
           {/* Chat Input */}
-          <div className="border-t border-[#00F5FF]/20 bg-gradient-to-r from-[#00F5FF]/5 to-[#06B6D4]/5 p-4 rounded-b-xl">
+          <div className="border-t border-[#00F5FF]/20 bg-gradient-to-r from-[#00F5FF]/5 to-[#06B6D4]/5 p-4 rounded-b-xl flex-shrink-0">
             <form onSubmit={handleSubmit} className="flex items-center gap-2">
               <div className="bg-muted flex flex-1 items-center rounded-lg border border-gray-200/50 px-3 py-2 relative">
-                <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="audio/*,video/*,.mp3,.wav,.m4a,.flac,.ogg,.webm"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                >
                   <Paperclip className="h-4 w-4" />
                 </Button>
                 <Input
                   value={input}
                   onChange={handleInputChange}
+                  onFocus={() => setIsFocused(true)}
+                  onBlur={() => setIsFocused(false)}
                   placeholder=""
                   className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-transparent"
                   disabled={isLoading}
                 />
-                {!input && (
+                {!input && !isUploading && !isFocused && (
                   <div className="absolute inset-y-0 left-12 flex items-center pointer-events-none">
                     <span className="bg-gradient-to-r from-[#00F5FF] via-[#06B6D4] to-[#00F5FF] bg-clip-text text-transparent animate-pulse text-md font-medium bg-[length:200%_100%] animate-gradient-x">
                       Ask me anything...
+                    </span>
+                  </div>
+                )}
+                {isUploading && (
+                  <div className="absolute inset-y-0 left-12 flex items-center pointer-events-none">
+                    <span className="text-[#00F5FF] text-sm font-medium">
+                      {uploadStatus}
                     </span>
                   </div>
                 )}
@@ -157,44 +210,45 @@ export function ChatInterface({
         </div>
 
         {/* Transcript Section (Right) */}
-        <div className="flex flex-col bg-gray-900/5 rounded-xl shadow-sm border border-gray-200/50 w-1%">
-          <div className="px-4 py-3 border-b border-[#00F5FF]/20 bg-gradient-to-r from-[#00F5FF]/5 to-[#06B6D4]/5 rounded-t-xl">
+        <div className="flex flex-col bg-gray-900/5 rounded-xl shadow-sm border border-gray-200/50 w-1/3 min-h-0">
+          <div className="px-4 py-3 border-b border-[#00F5FF]/20 bg-gradient-to-r from-[#00F5FF]/5 to-[#06B6D4]/5 rounded-t-xl flex-shrink-0">
             <h3 className="text-lg font-semibold bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] bg-clip-text text-transparent text-white">Transcript</h3>
           </div>
 
-          <ScrollArea className="flex-1 p-4">
+          <ScrollArea className="flex-1 overflow-y-auto">
+            <div className="p-4">
             <div className="space-y-3">
-              {/* Dummy transcript data */}
-              <div className="border-l-2 border-[#00F5FF] pl-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-bold text-white">John Doe</span>
-                  <span className="text-xs text-[#06B6D4]">09:15 AM</span>
-                </div>
-                <p className="text-sm text-gray-100 font-medium">Good morning everyone, let's start today's standup meeting.</p>
-              </div>
-
-              <div className="border-l-2 border-gray-300 pl-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-bold text-white">Sarah Chen</span>
-                  <span className="text-xs text-[#06B6D4]">09:16 AM</span>
-                </div>
-                <p className="text-sm text-gray-100 font-medium">I completed the user authentication feature yesterday and it's ready for testing.</p>
-              </div>
-
-              <div className="border-l-2 border-gray-300 pl-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-bold text-white">Mike Rodriguez</span>
-                  <span className="text-xs text-[#06B6D4]">09:17 AM</span>
-                </div>
-                <p className="text-sm text-gray-100 font-medium">I'm working on the API integration and should have it done by end of day.</p>
-              </div>
+              {transcript ? (
+                transcriptSegments.length > 0 ? (
+                  // Show timestamped segments if available
+                  transcriptSegments.map((segment, index) => (
+                    <div key={index} className="border-l-2 border-[#00F5FF] pl-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs text-[#06B6D4]">
+                          {Math.floor(segment.start / 60)}:{String(Math.floor(segment.start % 60)).padStart(2, '0')} -
+                          {Math.floor(segment.end / 60)}:{String(Math.floor(segment.end % 60)).padStart(2, '0')}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-100 font-medium">{segment.text}</p>
+                    </div>
+                  ))
+                ) : (
+                  // Show full transcript without segments
+                  <div className="border-l-2 border-[#00F5FF] pl-3">
+                    <p className="text-sm text-gray-100 font-medium whitespace-pre-wrap">{transcript}</p>
+                  </div>
+                )
+              ) : (
+                <p className="text-sm text-gray-400 italic">Upload a meeting recording to see the transcript here.</p>
+              )}
+            </div>
             </div>
           </ScrollArea>
         </div>
       </div>
 
       {/* Action Items Section */}
-      <div className="p-4">
+      <div className="p-4 flex-shrink-0">
         <div className="bg-gray-900/5 rounded-xl shadow-sm border border-gray-200/50 p-4">
           <div className="px-4 py-3 border-b border-[#00F5FF]/20 bg-gradient-to-r from-[#00F5FF]/5 to-[#06B6D4]/5 rounded-t-xl mb-4 -mx-4 -mt-4">
             <h3 className="text-lg font-semibold bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] bg-clip-text text-transparent text-white">Action Items</h3>
