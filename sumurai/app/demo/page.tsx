@@ -18,6 +18,7 @@ import {
   Loader2
 } from 'lucide-react';
 import Header from '@/components/Header';
+import ReactMarkdown from 'react-markdown';
 import Footer from '@/components/Footer';
 
 export default function DemoPage() {
@@ -250,10 +251,24 @@ export default function DemoPage() {
                   </div>
                 </div>
                 <div className="bg-black/30 rounded-lg border border-[#00F5FF]/10 p-6 max-h-[600px] overflow-y-auto">
-                  <div className="prose prose-invert max-w-none">
-                    <div className="text-gray-300 leading-relaxed whitespace-pre-wrap">
+                  <div className="prose prose-invert max-w-none text-gray-300 leading-relaxed">
+                    <ReactMarkdown
+                      components={{
+                        h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-white mb-4 mt-6" {...props} />,
+                        h2: ({node, ...props}) => <h2 className="text-xl font-semibold text-white mb-3 mt-5" {...props} />,
+                        h3: ({node, ...props}) => <h3 className="text-lg font-semibold text-white mb-2 mt-4" {...props} />,
+                        p: ({node, ...props}) => <p className="mb-4 text-gray-300" {...props} />,
+                        ul: ({node, ...props}) => <ul className="list-disc list-inside mb-4 space-y-2 text-gray-300" {...props} />,
+                        ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-4 space-y-2 text-gray-300" {...props} />,
+                        li: ({node, ...props}) => <li className="text-gray-300" {...props} />,
+                        strong: ({node, ...props}) => <strong className="font-semibold text-white" {...props} />,
+                        em: ({node, ...props}) => <em className="italic text-gray-200" {...props} />,
+                        code: ({node, ...props}) => <code className="bg-gray-800 px-1.5 py-0.5 rounded text-[#00F5FF] text-sm" {...props} />,
+                        pre: ({node, ...props}) => <pre className="bg-gray-800 p-4 rounded-lg overflow-x-auto mb-4" {...props} />,
+                      }}
+                    >
                       {transcriptionResult.summary.summary}
-                    </div>
+                    </ReactMarkdown>
                   </div>
                 </div>
               </div>
