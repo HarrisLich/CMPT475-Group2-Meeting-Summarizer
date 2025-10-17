@@ -52,6 +52,9 @@ async def health_check():
 # Initialize transcription service
 transcription_service = TranscriptionService()
 
+# Initialize summarization service
+summarization_service = SummarizationService()
+
 # Transcription endpoint (authentication disabled for testing)
 @app.post("/transcribe")
 async def transcribe_audio(
@@ -67,7 +70,7 @@ async def transcribe_audio(
 
         # Transcribe using the service
         result = transcription_service.transcribe_file(content, audio_file.filename)
-        
+
         # User info disabled for testing
         result["user"] = {
             "id": "test_user",
@@ -75,13 +78,21 @@ async def transcribe_audio(
             "name": "Test User"
         }
 
+        # Generate summary from transcription
+        transcription_text = result.get("transcription", "")
+        if transcription_text and len(transcription_text.strip()) > 0:
+            summary_result = summarization_service.summarize_transcription(transcription_text)
+            result["summary"] = summary_result
+        else:
+            result["summary"] = {
+                "success": False,
+                "error": "No transcription text available for summarization"
+            }
+
         return result
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
-    
-# Initialize summarization service
-summarization_service = SummarizationService()
 
 @app.get("/ollama/status")
 async def ollama_status():
