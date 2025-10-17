@@ -5,6 +5,7 @@ import { Sidebar } from "./sidebar";
 import { useChat } from "@ai-sdk/react";
 import { WelcomeScreen } from "./welcome-screen";
 import { ChatInterface } from "./chat-interface";
+import { SummarizationService } from "@/lib/services/summarization";
 
 export default function AiChat() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
@@ -81,6 +82,13 @@ export default function AiChat() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // New state for file upload and summarization
+  const [currentTranscript, setCurrentTranscript] = useState<string>("");
+  const [currentSummary, setCurrentSummary] = useState<string>("");
+  const [transcriptSegments, setTranscriptSegments] = useState<any[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string>("");
+
   const dummyConversations: Record<string, any[]> = {
     "1": [
       { id: "1", role: "user", content: "Can you fly?" },
@@ -116,7 +124,7 @@ export default function AiChat() {
     setInput(e.target.value);
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!input.trim()) return;
 
@@ -128,19 +136,87 @@ export default function AiChat() {
     };
 
     setCurrentMessages(prev => [...prev, userMessage]);
+    const userQuestion = input;
     setInput("");
     setIsLoading(true);
 
-    // Simulate AI response after delay
-    setTimeout(() => {
+    try {
+      // Use the chat endpoint for conversational interaction
+      const response = await SummarizationService.chatWithMeeting(
+        currentSummary,
+        userQuestion
+      );
+
       const aiMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "This is a dummy response until the AI API is connected. Your message was: " + input
+        content: response.response
       };
+
       setCurrentMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error("Error:", error);
+      const errorMessage = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "Sorry, I encountered an error. Please try again."
+      };
+      setCurrentMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
+  };
+
+  const handleFileUpload = async (file: File) => {
+    if (!file) return;
+
+    setIsUploading(true);
+    setUploadStatus("Uploading file...");
+
+    try {
+      // Step 1: Transcribe the audio
+      setUploadStatus("Transcribing audio with Whisper...");
+      const transcriptionData = await SummarizationService.transcribeAudio(file);
+
+      setCurrentTranscript(transcriptionData.transcription);
+      setTranscriptSegments(transcriptionData.segments || []);
+
+      // Step 2: Summarize the transcription
+      setUploadStatus("Generating summary with Ollama...");
+      const summaryData = await SummarizationService.summarizeText(
+        transcriptionData.transcription
+      );
+
+      if (summaryData.success) {
+        setCurrentSummary(summaryData.summary);
+
+        // Add summary as AI message
+        const aiMessage = {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: summaryData.summary
+        };
+
+        setCurrentMessages(prev => [...prev, aiMessage]);
+        setUploadStatus("Complete! Your meeting has been summarized.");
+      } else {
+        throw new Error(summaryData.error || "Summarization failed");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      setUploadStatus(`Error: ${error instanceof Error ? error.message : "Unknown error"}`);
+
+      const errorMessage = {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: `Failed to process recording: ${error instanceof Error ? error.message : "Unknown error"}`
+      };
+      setCurrentMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsUploading(false);
+      // Clear status after 3 seconds
+      setTimeout(() => setUploadStatus(""), 3000);
+    }
   };
 
   const handleNewChat = () => {
@@ -176,6 +252,11 @@ export default function AiChat() {
             handleSubmit={handleSubmit}
             isLoading={isLoading}
             chatTitle={chats.find(chat => chat.id === selectedChatId)?.title}
+            onFileUpload={handleFileUpload}
+            isUploading={isUploading}
+            uploadStatus={uploadStatus}
+            transcript={currentTranscript}
+            transcriptSegments={transcriptSegments}
           />
         )}
       </div>
