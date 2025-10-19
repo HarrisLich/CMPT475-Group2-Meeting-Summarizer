@@ -1,5 +1,3 @@
-   
-   
 import os
 from supabase import create_client
 from dotenv import load_dotenv
@@ -10,7 +8,10 @@ from supabase import create_client, Client
 url: str = os.getenv("SUPABASE_URL")
 key: str = os.getenv("SUPABASE_KEY")
 
-   load_dotenv()
+load_dotenv()
+
+# Singleton pattern
+_instance = None
 
 class SupabaseService:
     def __init__(self):
@@ -45,14 +46,12 @@ class SupabaseService:
     def get_meeting_transcription(self, meeting_id):
         return self.client.table("transcriptions").select("*").eq("meeting_id", meeting_id).execute()
 
-    # Singleton pattern
-   _instance = None
 
-    def get_supabase():
-       global _instance
-       if _instance is None:
-           _instance = SupabaseService()
-       return _instance
+def get_supabase():
+    global _instance
+    if _instance is None:
+        _instance = SupabaseService()
+    return _instance
 
 
 

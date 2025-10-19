@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from transcription.Transcription import TranscriptionService
 from auth import auth_router, get_current_user
+from database.middleware import get_db_with_auth
+from database.supabase_service import get_supabase
 
 # Create FastAPI instance
 app = FastAPI(
@@ -69,6 +71,26 @@ async def transcribe_audio(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
+
+# Test endpoint for Supabase integration
+@app.get("/test/summaries")
+async def test_summaries(db = Depends(get_db_with_auth)):
+    try:
+        result = db.table("ai_generate_cleaned_summaries").select("*").execute()
+        return {"success": True, "count": len(result.data), "data": result.data}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.get("/test/public")
+async def test_public():
+    try:
+        supabase = get_supabase()
+        # Try a very basic operation first
+        return {"message": "Supabase client initialized", "url": supabase.url}
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        return {"success": False, "error": str(e), "trace": error_trace}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

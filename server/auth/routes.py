@@ -206,3 +206,24 @@ async def auth_health():
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Auth service unhealthy: {str(e)}"
         )
+@router.post("/get_token")
+async def get_token(request: LoginRequest):
+    """Get a Firebase token for testing (simplified)"""
+    try:
+        firebase_service = get_firebase_service()
+        user_data = firebase_service.get_user_by_email(request.email)
+        
+        # Generate a custom token for the user
+        from firebase_admin import auth
+        custom_token = auth.create_custom_token(user_data["uid"]).decode('utf-8')
+        
+        return {
+            "token": custom_token,
+            "uid": user_data["uid"]
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Token generation failed: {str(e)}"
+        )
+

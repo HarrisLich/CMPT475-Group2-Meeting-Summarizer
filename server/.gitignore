@@ -110,6 +110,7 @@ ENV/
 env.bak/
 venv.bak/
 
+
 # Spyder project settings
 .spyderproject
 .spyproject
@@ -131,3 +132,5 @@ dmypy.json
 # FastAPI specific
 *.db
 *.sqlite
+
+firebase-service-account.json
