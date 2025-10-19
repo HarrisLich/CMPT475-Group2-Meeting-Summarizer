@@ -22,6 +22,13 @@ class ChatRequest(BaseModel):
     meeting_context: str
     user_question: str
 
+class ActionItemsRequest(BaseModel):
+    """
+    Request model for action items extraction endpoint.
+    Extracts structured action items from a meeting transcription.
+    """
+    transcription_text: str
+
 # Create FastAPI instance
 app = FastAPI(
     title="Meeting Summarizer API",
@@ -162,6 +169,32 @@ async def chat_about_meeting(request: ChatRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
+
+@app.post("/extract-action-items")
+async def extract_action_items(request: ActionItemsRequest):
+    """
+    Extract structured action items from a meeting transcription.
+    Uses AI to identify tasks, priorities, and assignments.
+    """
+    if not request.transcription_text or len(request.transcription_text.strip()) == 0:
+        raise HTTPException(status_code=400,
+                            detail="transcription_text cannot be empty.")
+    try:
+        # Call the action items extraction method from summarization service
+        result = summarization_service.extract_action_items(request.transcription_text)
+
+        # Check if extraction was successful
+        if not result.get("success"):
+            raise HTTPException(
+                status_code=503,
+                detail=result.get("error", "Action item extraction failed.")
+            )
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Action item extraction failed: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -180,7 +180,23 @@ export default function AiChat() {
     try {
       // Get the current chat's transcription for context
       const currentChat = chats.find(chat => chat.id === selectedChatId);
-      const meetingContext = currentChat?.transcription?.fullText || "";
+
+      // Build context with timestamps if segments are available
+      let meetingContext = "";
+      if (currentChat?.transcription?.segments && currentChat.transcription.segments.length > 0) {
+        // Include timestamped segments for better context
+        meetingContext = "Meeting Transcription with Timestamps:\n\n";
+        currentChat.transcription.segments.forEach(segment => {
+          const startMin = Math.floor(segment.start / 60);
+          const startSec = Math.floor(segment.start % 60);
+          const endMin = Math.floor(segment.end / 60);
+          const endSec = Math.floor(segment.end % 60);
+          meetingContext += `[${startMin}:${String(startSec).padStart(2, '0')} - ${endMin}:${String(endSec).padStart(2, '0')}] ${segment.text}\n`;
+        });
+      } else {
+        // Fallback to full text if no segments
+        meetingContext = currentChat?.transcription?.fullText || "";
+      }
 
       // Use the chat endpoint for conversational interaction
       const response = await SummarizationService.chatWithMeeting(
@@ -219,7 +235,7 @@ export default function AiChat() {
       targetChatId = Date.now().toString();
       isNewChat = true;
       // Don't create the chat yet - we'll create it with all data after processing
-      setSelectedChatId(targetChatId);
+      // setSelectedChatId(targetChatId); // Moved to after chat creation to fix timing issue
     }
 
     setIsUploading(true);
@@ -227,16 +243,27 @@ export default function AiChat() {
 
     try {
       // Step 1: Transcribe the audio
-      setUploadStatus("Transcribing audio with Whisper...");
+      setUploadStatus("Processing audio file...");
+      await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for UX
+
+      setUploadStatus("Transcribing with Whisper (this may take 2-3 minutes)...");
       const transcriptionData = await SummarizationService.transcribeAudio(file);
       console.log("Transcription data received:", transcriptionData);
 
-      // Step 2: Summarize the transcription
-      setUploadStatus("Generating summary with Ollama...");
-      const summaryData = await SummarizationService.summarizeText(
-        transcriptionData.transcription
-      );
+      // Step 2: Analyze transcription
+      setUploadStatus("Analyzing transcription...");
+      await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UX
+
+      // Step 3 & 4: Run summary and action items extraction in parallel
+      setUploadStatus("Generating summary with AI...");
+      const [summaryData, actionItemsData] = await Promise.all([
+        SummarizationService.summarizeText(transcriptionData.transcription),
+        SummarizationService.extractActionItems(transcriptionData.transcription)
+      ]);
       console.log("Summary data received:", summaryData);
+      console.log("Action items data received:", actionItemsData);
+
+      setUploadStatus("Finalizing...");
 
       if (summaryData.success) {
         // Prepare the complete chat data with transcription and action items
@@ -248,15 +275,16 @@ export default function AiChat() {
             segments: transcriptionData.segments || [],
             fileName: file.name
           },
-          actionItems: summaryData.action_items?.map((item: any, index: number) => ({
+          actionItems: actionItemsData.success ? actionItemsData.action_items?.map((item: any, index: number) => ({
             id: `${targetChatId}-${index}`,
             priority: item.priority || "medium",
             task: item.task || item,
             assignedTo: item.assigned_to || "Unassigned"
-          })) || []
+          })) : []
         };
         console.log("Complete chat data:", chatData);
 
+        // Use React 18's automatic batching or use a callback to ensure state updates happen together
         if (isNewChat) {
           // Create NEW chat with all data at once
           const newChat: Chat = {
@@ -264,7 +292,13 @@ export default function AiChat() {
             timestamp: new Date(),
             ...chatData
           };
-          setChats(prevChats => [newChat, ...prevChats]);
+          // Batch state updates by using functional updates
+          setChats(prevChats => {
+            const updatedChats = [newChat, ...prevChats];
+            // Set selected chat ID in a separate microtask to ensure chats state is updated first
+            setTimeout(() => setSelectedChatId(targetChatId), 0);
+            return updatedChats;
+          });
         } else {
           // Update EXISTING chat with new data
           setChats(prevChats =>
@@ -315,8 +349,22 @@ export default function AiChat() {
   };
 
   const handleSuggestionClick = (suggestion: string) => {
-    // In a real app, this would start a new chat with the suggestion
-    setSelectedChatId("new");
+    // Create a new chat with the suggestion as the first message
+    const newChatId = Date.now().toString();
+    const newChat: Chat = {
+      id: newChatId,
+      title: suggestion.substring(0, 50),
+      preview: suggestion.substring(0, 50) + "...",
+      timestamp: new Date()
+    };
+
+    setChats(prevChats => [newChat, ...prevChats]);
+    setSelectedChatId(newChatId);
+    setCurrentMessages([{
+      id: Date.now().toString(),
+      role: "user",
+      content: suggestion
+    }]);
   };
 
   // Get current chat data - useMemo ensures this recalculates when chats or selectedChatId changes
@@ -354,9 +402,9 @@ export default function AiChat() {
             onFileUpload={handleFileUpload}
             isUploading={isUploading}
             uploadStatus={uploadStatus}
-            transcript={currentChat?.transcription?.fullText || ""}
-            transcriptSegments={currentChat?.transcription?.segments || []}
-            actionItems={currentChat?.actionItems || []}
+            transcript={currentChat?.transcription?.fullText ?? ""}
+            transcriptSegments={currentChat?.transcription?.segments ?? []}
+            actionItems={currentChat?.actionItems ?? []}
           />
         )}
       </div>

@@ -32,6 +32,18 @@ export interface ChatResponse {
   error?: string;
 }
 
+export interface ActionItemsResponse {
+  success: boolean;
+  action_items: Array<{
+    task: string;
+    priority: string;
+    assigned_to: string;
+  }>;
+  model_used: string;
+  error?: string;
+  warning?: string;
+}
+
 export class SummarizationService {
   /**
    * Transcribe audio file using Whisper
@@ -93,6 +105,27 @@ export class SummarizationService {
 
     if (!response.ok) {
       throw new Error(`Chat failed: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * Extract structured action items from a meeting transcription
+   */
+  static async extractActionItems(transcriptionText: string): Promise<ActionItemsResponse> {
+    const response = await fetch(`${API_URL}/extract-action-items`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        transcription_text: transcriptionText,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Action item extraction failed: ${response.statusText}`);
     }
 
     return await response.json();

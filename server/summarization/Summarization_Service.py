@@ -150,6 +150,8 @@ Please format your response clearly with sections for each part."""
         # Create a conversational prompt that makes Ollama act as a meeting assistant
         prompt = f"""You are a friendly and helpful meeting assistant AI named SumurAI. You help users understand and interact with their meeting content.
 
+You have access to the full meeting transcription with timestamps. When users ask about specific times or moments, reference the timestamps to provide accurate information. When users ask about what was said about a topic or person, search through the transcription for relevant mentions.
+
 Meeting Context:
 {meeting_context}
 
@@ -198,6 +200,144 @@ SumurAI Assistant: """
             return {
                 "success": False,
                 "error": f"Chat failed: {str(e)}"
+            }
+
+    def extract_action_items(self, transcription_text: str) -> Dict[str, Any]:
+        """
+        Extract detailed action items from a meeting transcription using Ollama.
+
+        This method takes a transcription and uses AI to identify and structure action items
+        with details like priority, assigned person, and task description.
+
+        Args:
+            transcription_text (str): The meeting transcription text
+
+        Returns:
+            Dict[str, Any]: A dictionary containing:
+                - success (bool): Whether the extraction was successful
+                - action_items (list): List of action item dictionaries with:
+                    - task (str): Description of the action item
+                    - priority (str): "high", "medium", or "low"
+                    - assigned_to (str): Person responsible
+                - model_used (str): Which model was used
+                - error (str): Error message (if failed)
+        """
+
+        # Create a specialized prompt for extracting action items
+        prompt = f"""Extract action items from this meeting transcription. Look for tasks, to-dos, assignments, or things people agreed to do.
+
+Meeting Transcription:
+{transcription_text}
+
+Return a JSON array where each action item has:
+- task: what needs to be done
+- priority: high, medium, or low (based on urgency or importance)
+- assigned_to: person's name if mentioned, otherwise "Unassigned"
+
+Return ONLY valid JSON. Example:
+[
+  {{"task": "Complete user testing by Friday", "priority": "high", "assigned_to": "Sarah Chen"}},
+  {{"task": "Update documentation", "priority": "medium", "assigned_to": "Unassigned"}}
+]
+
+If no action items exist, return: []"""
+
+        try:
+            # Send a POST request to Ollama's generate API endpoint
+            response = requests.post(
+                f"{self.ollama_host}/api/generate",
+                json={
+                    "model": self.model,
+                    "prompt": prompt,
+                    "stream": False
+                },
+                timeout=60  # 1 minute timeout for action item extraction
+            )
+
+            # Raise an exception if the HTTP request failed
+            response.raise_for_status()
+
+            # Parse the JSON response from Ollama
+            result = response.json()
+            ai_response = result.get("response", "").strip()
+
+            # Try to parse the AI's response as JSON
+            import json
+
+            # Clean up the response - remove markdown code blocks and extra text
+            cleaned_response = ai_response.strip()
+
+            # Remove markdown code blocks
+            if "```json" in cleaned_response:
+                # Extract content between ```json and ```
+                start = cleaned_response.find("```json") + 7
+                end = cleaned_response.find("```", start)
+                if end != -1:
+                    cleaned_response = cleaned_response[start:end].strip()
+            elif "```" in cleaned_response:
+                # Extract content between ``` and ```
+                start = cleaned_response.find("```") + 3
+                end = cleaned_response.find("```", start)
+                if end != -1:
+                    cleaned_response = cleaned_response[start:end].strip()
+
+            # Try to find JSON array in the response (look for [ and ])
+            if not cleaned_response.startswith("["):
+                start_idx = cleaned_response.find("[")
+                if start_idx != -1:
+                    end_idx = cleaned_response.rfind("]")
+                    if end_idx != -1:
+                        cleaned_response = cleaned_response[start_idx:end_idx+1]
+
+            # Parse the JSON array of action items
+            action_items = json.loads(cleaned_response)
+
+            # Validate that we got a list
+            if not isinstance(action_items, list):
+                action_items = []
+
+            # Ensure all action items have the required fields
+            normalized_items = []
+            for item in action_items:
+                if isinstance(item, dict):
+                    normalized_items.append({
+                        "task": item.get("task", ""),
+                        "priority": item.get("priority", "medium"),
+                        "assigned_to": item.get("assigned_to", "Unassigned")
+                    })
+
+            # Return success response with extracted action items
+            return {
+                "success": True,
+                "action_items": normalized_items,
+                "model_used": self.model
+            }
+
+        except json.JSONDecodeError:
+            # If we can't parse the JSON, return empty action items
+            return {
+                "success": True,
+                "action_items": [],
+                "model_used": self.model,
+                "warning": "Could not parse action items from AI response"
+            }
+
+        except requests.exceptions.ConnectionError:
+            return {
+                "success": False,
+                "error": "Could not connect to Ollama. Make sure Ollama is running on your machine."
+            }
+
+        except requests.exceptions.Timeout:
+            return {
+                "success": False,
+                "error": "Action item extraction timed out. Please try again."
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Action item extraction failed: {str(e)}"
             }
 
     def check_ollama_status(self) -> Dict[str, Any]:
