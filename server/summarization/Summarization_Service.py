@@ -89,7 +89,7 @@ Please format your response clearly with sections for each part."""
                     "prompt": prompt,                 # The prompt we created above
                     "stream": False                   # Get the full response at once (not streaming)
                 },
-                timeout=120  # Wait up to 2 minutes (AI can take time for long texts)
+                timeout=300  # Wait up to 5 minutes (AI can take time for long texts)
             )
 
             # Raise an exception if the HTTP request failed (non-200 status code)
@@ -251,7 +251,7 @@ If no action items exist, return: []"""
                     "prompt": prompt,
                     "stream": False
                 },
-                timeout=60  # 1 minute timeout for action item extraction
+                timeout=300  # 5 minute timeout for action item extraction
             )
 
             # Raise an exception if the HTTP request failed
