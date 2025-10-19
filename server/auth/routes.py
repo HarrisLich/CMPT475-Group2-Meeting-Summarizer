@@ -68,26 +68,30 @@ async def register_user(request: RegisterRequest):
 
 @router.post("/login")
 async def login_user(request: LoginRequest):
-    """Login user with email and password (returns Firebase config for client-side auth)"""
+    """Login user with email and password - returns authentication tokens"""
     try:
         firebase_service = get_firebase_service()
-        
-        # Verify user exists and credentials are valid
-        user_data = firebase_service.get_user_by_email(request.email)
-        
-        # Return Firebase config for client-side authentication
-        firebase_config = firebase_service.get_firebase_config()
-        
+
+        # Authenticate user with email and password
+        auth_data = firebase_service.authenticate_user(request.email, request.password)
+
         return {
-            "message": "Login successful - use Firebase client SDK",
-            "firebase_config": firebase_config,
-            "user": UserResponse(**user_data)
+            "message": "Login successful",
+            "user": {
+                "uid": auth_data["uid"],
+                "email": auth_data["email"],
+                "display_name": auth_data["display_name"],
+                "email_verified": auth_data["email_verified"]
+            },
+            "id_token": auth_data["id_token"],
+            "refresh_token": auth_data["refresh_token"],
+            "expires_in": auth_data["expires_in"]
         }
-        
+
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Login failed: {str(e)}"
+            detail=str(e)
         )
     except Exception as e:
         raise HTTPException(
