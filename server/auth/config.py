@@ -9,7 +9,7 @@ class FirebaseConfig:
     """Firebase configuration settings"""
     
     # Firebase Service Account Configuration
-    SERVICE_ACCOUNT_KEY = os.getenv("FIREBASE_SERVICE_ACCOUNT")
+    SERVICE_ACCOUNT_KEY = os.path.join(os.path.dirname(__file__), '..', 'firebase-service-account.json')
     
     # Firebase Project Configuration
     PROJECT_ID = None
