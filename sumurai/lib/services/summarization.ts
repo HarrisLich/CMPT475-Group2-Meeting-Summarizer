@@ -17,6 +17,11 @@ export interface SummarizationResponse {
   summary: string;
   model_used: string;
   transcription_length: number;
+  action_items?: Array<{
+    task: string;
+    priority?: string;
+    assigned_to?: string;
+  }>;
   error?: string;
 }
 

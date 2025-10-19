@@ -1,14 +1,12 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { User, Upload, FileText, CheckCircle, Share2 } from 'lucide-react';
+import { Upload, FileText, CheckCircle, Share2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import AiChat from '@/components/ai-chat/components/ai-chat';
 
 export default function CorePage() {
-  const router = useRouter();
   const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
 
   useEffect(() => {
@@ -25,7 +23,7 @@ export default function CorePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#111111] text-white">
+    <div className="h-screen bg-[#111111] text-white overflow-hidden">
       {/* Welcome Dialog */}
       <Dialog open={showWelcomeDialog} onOpenChange={setShowWelcomeDialog}>
         <DialogContent className="bg-[#1A1A1A] border-[#333333] text-white max-w-2xl">
@@ -117,33 +115,8 @@ export default function CorePage() {
         </DialogContent>
       </Dialog>
 
-      {/* Custom Header */}
-      <header className="border-b border-gray-800 bg-[#111111] px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4" onClick={() => router.push('/')}>
-            <img src="/sumurai-icon-blue.png" alt="SumurAI Logo" className="w-10 h-10 rounded-xl" />
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] bg-clip-text text-transparent">
-              SumurAI
-            </h1>
-          </div>
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <div className="h-2 w-2 rounded-full bg-green-500"></div>
-              <span className="text-sm text-gray-400">AI Ready</span>
-            </div>
-            <button
-              onClick={() => router.push('/profiling')}
-              className="w-10 h-10 rounded-full bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] flex items-center justify-center transition-all duration-300 shadow-lg hover:shadow-xl"
-              title="Profile"
-            >
-              <User className="w-5 h-5 text-black" />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* AI Chat Interface */}
-      <div className="h-[calc(100vh-80px)]">
+      {/* AI Chat Interface - Full Height */}
+      <div className="h-full">
         <AiChat />
       </div>
     </div>
