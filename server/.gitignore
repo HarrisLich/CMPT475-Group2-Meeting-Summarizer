@@ -134,3 +134,4 @@ dmypy.json
 *.sqlite
 
 firebase-service-account.json
+.env.local
