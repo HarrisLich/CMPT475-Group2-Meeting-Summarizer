@@ -36,81 +36,7 @@ interface Chat {
 
 export default function AiChat() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
-  const [chats, setChats] = useState<Chat[]>([
-    {
-      id: "1",
-      title: "Can you fly?",
-      preview: "Not on my own! I exist o...",
-      timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
-      transcription: {
-        fullText: "This is the transcript for chat 1...",
-        segments: [
-          { start: 0, end: 5, text: "Hello everyone" },
-          { start: 5, end: 10, text: "Let's begin the meeting" },
-          { start: 5, end: 10, text: "Let's begin the meeting" },
-          { start: 5, end: 10, text: "Let's begin the meeting" },
-          { start: 5, end: 10, text: "Let's begin the meeting" },
-          { start: 5, end: 10, text: "Let's begin the meeting" },
-          { start: 5, end: 10, text: "Let's begin the meeting" },
-          { start: 5, end: 10, text: "Let's begin the meeting" },
-          { start: 5, end: 10, text: "Let's begin the meeting" },
-          { start: 5, end: 10, text: "Let's begin the meeting" },
-          { start: 5, end: 10, text: "Let's begin the meeting" },
-          { start: 5, end: 10, text: "Let's begin the meeting" },
-          { start: 5, end: 10, text: "Let's begin the meeting" },
-          { start: 5, end: 10, text: "Let's begin the meeting" },
-          { start: 5, end: 10, text: "Let's begin the meeting" },
-          { start: 5, end: 10, text: "Let's begin the meeting" },
-          { start: 5, end: 10, text: "Let's begin the meeting" },
-          { start: 5, end: 10, text: "Let's begin the meeting" }
-        ]
-      },
-      actionItems: [
-        {
-          id: "1",
-          priority: "high",
-          task: "Complete user testing",
-          assignedTo: "Sarah Chen"
-        },
-        {
-          id: "2",
-          priority: "low",
-          task: "Get stakeholder feedback",
-          assignedTo: "Ben Dover"
-        },
-        {
-          id: "3",
-          priority: "medium",
-          task: "task",
-          assignedTo: "assignee"
-        },
-        {
-          id: "4",
-          priority: "medium",
-          task: "task",
-          assignedTo: "assignee"
-        },
-        {
-          id: "5",
-          priority: "medium",
-          task: "task",
-          assignedTo: "assignee"
-        },
-        {
-          id: "6",
-          priority: "medium",
-          task: "task",
-          assignedTo: "assignee"
-        },
-      ]
-    },
-    {
-      id: "2",
-      title: "Do you have emotions?",
-      preview: "I can't feel emotions...",
-      timestamp: new Date(Date.now() - 1000 * 60 * 60) // 1 hour ago
-    }
-  ]);
+  const [chats, setChats] = useState<Chat[]>([]);
 
   const [currentMessages, setCurrentMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
@@ -118,43 +44,9 @@ export default function AiChat() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>("");
 
-  const dummyConversations: Record<string, any[]> = {
-    "1": [
-      { id: "1", role: "user", content: "Can you fly?" },
-      { id: "2", role: "assistant", content: "Not on my own! I exist only as a digital assistant, so I don't have a physical form that could fly. But I can help you with information about flying, aviation, or anything else you'd like to know!" },
-      { id: "3", role: "assistant", content: "Not on my own! I exist only as a digital assistant, so I don't have a physical form that could fly. But I can help you with information about flying, aviation, or anything else you'd like to know!" },
-      { id: "4", role: "assistant", content: "Not on my own! I exist only as a digital assistant, so I don't have a physical form that could fly. But I can help you with information about flying, aviation, or anything else you'd like to know!" },
-      { id: "5", role: "assistant", content: "Not on my own! I exist only as a digital assistant, so I don't have a physical form that could fly. But I can help you with information about flying, aviation, or anything else you'd like to know!" },
-      { id: "6", role: "assistant", content: "Not on my own! I exist only as a digital assistant, so I don't have a physical form that could fly. But I can help you with information about flying, aviation, or anything else you'd like to know!" },
-      { id: "7", role: "assistant", content: "Not on my own! I exist only as a digital assistant, so I don't have a physical form that could fly. But I can help you with information about flying, aviation, or anything else you'd like to know!" },
-      { id: "8", role: "assistant", content: "Not on my own! I exist only as a digital assistant, so I don't have a physical form that could fly. But I can help you with information about flying, aviation, or anything else you'd like to know!" },
-      { id: "9", role: "assistant", content: "Not on my own! I exist only as a digital assistant, so I don't have a physical form that could fly. But I can help you with information about flying, aviation, or anything else you'd like to know!" },
-      { id: "10", role: "assistant", content: "Not on my own! I exist only as a digital assistant, so I don't have a physical form that could fly. But I can help you with information about flying, aviation, or anything else you'd like to know!" },
-    ],
-    "2": [
-      { id: "1", role: "user", content: "Do you have emotions?" },
-      { id: "2", role: "assistant", content: "I can't feel emotions myself, but I can understand and respond to yours! Tell me how you're feeling today." }
-    ],
-    "3": [
-      { id: "1", role: "user", content: "Will robots take over the world?" },
-      { id: "2", role: "assistant", content: "Science fiction is fun, but the reality is much more nuanced! AI development focuses on being helpful tools for humans rather than replacement. What specific concerns do you have about AI?" }
-    ],
-    "4": [
-      { id: "1", role: "user", content: "What's the meaning of life?" },
-      { id: "2", role: "assistant", content: "That's a big question philosophers have pondered for centuries! Some find meaning through relationships, others through achievement, service, or personal growth. What brings meaning to your life?" }
-    ],
-    "5": [
-      { id: "1", role: "user", content: "Can you write a song about cats?" },
-      { id: "2", role: "assistant", content: "I can definitely help you with that! Here's a short song about cats:\n\n🎵 Whiskers twitching in the sun,\nSilent paws, they softly run,\nPurring engines, warm and sweet,\nCurled up cozy at your feet 🎵\n\nWould you like me to write more verses?" }
-    ]
-  };
-
   useEffect(() => {
-    if (selectedChatId && dummyConversations[selectedChatId]) {
-      setCurrentMessages(dummyConversations[selectedChatId]);
-    } else {
-      setCurrentMessages([]);
-    }
+    // Reset messages when chat changes
+    setCurrentMessages([]);
   }, [selectedChatId]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -174,12 +66,25 @@ export default function AiChat() {
 
     setCurrentMessages(prev => [...prev, userMessage]);
     const userQuestion = input;
+
+    // Update chat title if it's the first message
+    const currentChat = chats.find(chat => chat.id === selectedChatId);
+    if (currentChat && currentChat.title === "New Chat" && currentMessages.length === 0) {
+      const newTitle = input.substring(0, 50);
+      setChats(prevChats =>
+        prevChats.map(chat =>
+          chat.id === selectedChatId
+            ? { ...chat, title: newTitle, preview: newTitle + "..." }
+            : chat
+        )
+      );
+    }
+
     setInput("");
     setIsLoading(true);
 
     try {
       // Get the current chat's transcription for context
-      const currentChat = chats.find(chat => chat.id === selectedChatId);
 
       // Build context with timestamps if segments are available
       let meetingContext = "";
@@ -231,11 +136,18 @@ export default function AiChat() {
     let targetChatId = selectedChatId;
     let isNewChat = false;
 
+    // Check if we need to create a new chat or can use existing
     if (!targetChatId) {
+      // No chat selected, create new one
       targetChatId = Date.now().toString();
       isNewChat = true;
-      // Don't create the chat yet - we'll create it with all data after processing
-      // setSelectedChatId(targetChatId); // Moved to after chat creation to fix timing issue
+    } else {
+      // Check if selected chat is empty "New Chat" without transcription
+      const currentChat = chats.find(chat => chat.id === selectedChatId);
+      if (currentChat && !currentChat.transcription) {
+        // We can reuse this empty chat
+        isNewChat = false;
+      }
     }
 
     setIsUploading(true);
@@ -340,8 +252,18 @@ export default function AiChat() {
   };
 
   const handleNewChat = () => {
-    setSelectedChatId(null);
-    // Reset chat messages would happen here in a real app
+    // Create a new empty chat
+    const newChatId = Date.now().toString();
+    const newChat: Chat = {
+      id: newChatId,
+      title: "New Chat",
+      preview: "Start a conversation...",
+      timestamp: new Date()
+    };
+
+    setChats(prevChats => [newChat, ...prevChats]);
+    setSelectedChatId(newChatId);
+    setCurrentMessages([]);
   };
 
   const handleSelectChat = (chatId: string) => {
