@@ -17,10 +17,11 @@ import {
   ArrowRight,
   Star
 } from 'lucide-react';
-import { authService, type RegisterData, type LoginData, type User } from '@/lib/services/auth';
+import { useAuth } from '@/lib/context/auth-context';
 
 function Landing() {
   const router = useRouter();
+  const { user, session, loading: authLoading, error: authError, login, register, logout } = useAuth();
   const [isVisible, setIsVisible] = useState(false);
   const [displayText, setDisplayText] = useState('');
   const [featuresVisible, setFeaturesVisible] = useState(false);
@@ -28,12 +29,9 @@ function Landing() {
   const [hasTriggered, setHasTriggered] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [isRegister, setIsRegister] = useState(false);
-  const [formData, setFormData] = useState({ username: '', password: '', confirmPassword: '' });
+  const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '' });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
   const fullText = 'actionable insights';
 
   const openLogin = () => {
@@ -51,35 +49,29 @@ function Landing() {
     setIsLoading(true);
     setError('');
 
+    // Validate form data
+    if (!formData.email || !formData.password) {
+      setError('Email and password are required');
+      setIsLoading(false);
+      return;
+    }
+
+    if (isRegister && formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      let result;
       if (isRegister) {
         // Handle registration
-        result = await authService.registerUser(formData);
-        console.log('Registration successful:', result);
+        await register(formData.email, formData.password);
+        console.log('Registration successful');
       } else {
         // Handle login
-        result = await authService.loginUser(formData);
-        console.log('Login successful:', result);
+        await login(formData.email, formData.password);
+        console.log('Login successful');
       }
-
-      // Store user data and authentication state
-      authService.saveUser(result.user);
-      setCurrentUser(result.user);
-      setIsAuthenticated(true);
-
-      // Store Firebase config if provided
-      if (result.firebase_config) {
-        localStorage.setItem('firebase_config', JSON.stringify(result.firebase_config));
-      }
-
-      // Create a session token based on the user UID and current timestamp
-      // This will persist until the session expires (24 hours by default)
-      const sessionToken = `session_${result.user.uid}_${Date.now()}`;
-      authService.saveToken(sessionToken);
-
-      // Save session data with expiration
-      authService.saveSessionData();
 
       // On success: close dialog and redirect
       setLoginOpen(false);
@@ -97,9 +89,7 @@ function Landing() {
 
   const handleLogout = async () => {
     try {
-      await authService.logoutUser();
-      setIsAuthenticated(false);
-      setCurrentUser(null);
+      await logout();
       // Optionally redirect to home or refresh page
       router.push('/');
     } catch (error) {
@@ -107,28 +97,7 @@ function Landing() {
     }
   };
 
-  // Check authentication status on component mount
-  useEffect(() => {
-    const checkAuth = async () => {
-      setAuthLoading(true);
-      try {
-        const isAuth = await authService.checkAuthStatus();
-        setIsAuthenticated(isAuth);
-        if (isAuth) {
-          const user = authService.getUser();
-          setCurrentUser(user);
-        }
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        setIsAuthenticated(false);
-        setCurrentUser(null);
-      } finally {
-        setAuthLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, []);
+  // Auth state is now managed by the AuthProvider context
 
   useEffect(() => {
     setIsVisible(true);
@@ -246,10 +215,10 @@ function Landing() {
           <div className="flex items-center space-x-4 ml-auto">
             {authLoading ? (
               <div className="w-8 h-8 border-2 border-[#00F5FF] border-t-transparent rounded-full animate-spin"></div>
-            ) : isAuthenticated && currentUser ? (
+            ) : user && session ? (
               <>
                 <span className="text-white text-sm">
-                  Welcome, {currentUser.display_name || currentUser.email}
+                  Welcome, {user.user_metadata?.display_name || user.email}
                 </span>
                 <Button
                   onClick={() => router.push('/profiling')}
@@ -303,7 +272,7 @@ function Landing() {
           </p>
           
           <div className={`flex flex-col sm:flex-row gap-4 justify-center mb-12 transition-all duration-1000 delay-700 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            {isAuthenticated ? (
+            {user && session ? (
               <>
                 <Button
                   size="lg"
@@ -512,23 +481,23 @@ function Landing() {
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
+            {(error || authError) && (
               <div className="text-red-400 text-sm text-center bg-red-900/20 border border-red-900/50 rounded-md p-2">
-                {error}
+                {error || authError}
               </div>
             )}
 
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-2">
-                Username
+              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
+                Email
               </label>
               <input
-                id="username"
-                type="text"
+                id="email"
+                type="email"
                 className="w-full px-3 py-2 bg-[#1A1A1A] border border-[#333333] rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#00F5FF] focus:border-transparent"
-                placeholder="Enter your username"
-                value={formData.username}
-                onChange={handleInputChange('username')}
+                placeholder="Enter your email"
+                value={formData.email}
+                onChange={handleInputChange('email')}
                 required
               />
             </div>
