@@ -3,6 +3,8 @@ from firebase_admin import credentials, auth as firebase_auth
 from typing import Dict, Any, Optional
 from .config import FirebaseConfig
 import threading
+import requests
+import os
 
 # Thread-safe Firebase app initialization
 _firebase_app = None
@@ -167,3 +169,66 @@ class FirebaseService:
     def get_firebase_config(self) -> Dict[str, Any]:
         """Get Firebase configuration for client-side use"""
         return self.config.get_firebase_config()
+
+    def authenticate_user(self, email: str, password: str) -> Dict[str, Any]:
+        """
+        Authenticate user with email and password using Firebase REST API.
+        Returns user info and tokens on success.
+        """
+        try:
+            # Get Firebase Web API Key from environment
+            api_key = os.getenv("FIREBASE_WEB_API_KEY")
+            if not api_key:
+                raise ValueError("FIREBASE_WEB_API_KEY not found in environment variables")
+
+            # Firebase Authentication REST API endpoint
+            url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={api_key}"
+
+            payload = {
+                "email": email,
+                "password": password,
+                "returnSecureToken": True
+            }
+
+            # Make request to Firebase Auth REST API
+            response = requests.post(url, json=payload)
+
+            if response.status_code != 200:
+                error_data = response.json()
+                error_message = error_data.get("error", {}).get("message", "Authentication failed")
+
+                # Map Firebase error messages to user-friendly messages
+                if "INVALID_PASSWORD" in error_message or "INVALID_LOGIN_CREDENTIALS" in error_message:
+                    raise ValueError("Invalid email or password")
+                elif "EMAIL_NOT_FOUND" in error_message:
+                    raise ValueError("Invalid email or password")
+                elif "USER_DISABLED" in error_message:
+                    raise ValueError("User account has been disabled")
+                elif "TOO_MANY_ATTEMPTS_TRY_LATER" in error_message:
+                    raise ValueError("Too many failed login attempts. Please try again later")
+                else:
+                    raise ValueError(f"Authentication failed: {error_message}")
+
+            # Parse successful response
+            data = response.json()
+
+            # Get additional user info from Firebase Admin SDK
+            app = self._get_app()
+            user_record = firebase_auth.get_user(data["localId"], app=app)
+
+            return {
+                "uid": data["localId"],
+                "email": data["email"],
+                "display_name": user_record.display_name,
+                "id_token": data["idToken"],
+                "refresh_token": data["refreshToken"],
+                "expires_in": data["expiresIn"],
+                "email_verified": user_record.email_verified
+            }
+
+        except requests.exceptions.RequestException as e:
+            raise ValueError(f"Network error during authentication: {str(e)}")
+        except Exception as e:
+            if isinstance(e, ValueError):
+                raise
+            raise ValueError(f"Authentication failed: {str(e)}")

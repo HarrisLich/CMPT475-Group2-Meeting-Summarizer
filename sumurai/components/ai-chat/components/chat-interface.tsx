@@ -131,13 +131,34 @@ export function ChatInterface({
                 </div>
               ) : null}
               {isUploading && messages.length === 0 && (
-                <div className="flex flex-col items-center justify-center gap-4 min-h-[600px]">
+                <div className="flex flex-col items-center justify-center gap-6 min-h-[600px] max-w-md mx-auto">
                   <div className="flex items-center gap-2">
                     <div className="h-3 w-3 rounded-full bg-[#00F5FF] animate-pulse"></div>
                     <div className="h-3 w-3 rounded-full bg-[#06B6D4] animate-pulse" style={{ animationDelay: '0.2s' }}></div>
                     <div className="h-3 w-3 rounded-full bg-[#00F5FF] animate-pulse" style={{ animationDelay: '0.4s' }}></div>
                   </div>
-                  <p className="text-sm text-[#00F5FF] font-medium">{uploadStatus || 'Processing your meeting...'}</p>
+
+                  {/* Progress bar */}
+                  <div className="w-full">
+                    <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] rounded-full animate-pulse"
+                           style={{
+                             width: uploadStatus?.includes('Uploading') ? '5%' :
+                                    uploadStatus?.includes('Processing audio') ? '15%' :
+                                    uploadStatus?.includes('Transcribing') ? '50%' :
+                                    uploadStatus?.includes('Analyzing') ? '70%' :
+                                    uploadStatus?.includes('Generating summary') ? '85%' :
+                                    uploadStatus?.includes('Finalizing') ? '95%' : '5%',
+                             transition: 'width 0.5s ease-in-out'
+                           }}>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-center">
+                    <p className="text-sm text-[#00F5FF] font-medium mb-2">{uploadStatus || 'Processing your meeting...'}</p>
+                    <p className="text-xs text-gray-500">This may take 2-3 minutes depending on file size</p>
+                  </div>
                 </div>
               )}
               {(messages || []).map((message) => (
@@ -281,12 +302,12 @@ export function ChatInterface({
       {/* Right Side: Transcript & Action Items (50% width, stacked vertically) */}
       <div className={`flex flex-col min-h-0 transition-all duration-300 ${rightPanelCollapsed ? 'w-0 overflow-hidden' : 'w-1/2'}`}>
         <div className="flex flex-col w-full min-h-0 h-full">
-        {/* Transcript Section (Top, 60% of right side) */}
-        <div className={`flex flex-col border-b-2 border-gray-700 transition-all duration-300 bg-gradient-to-b from-transparent via-cyan-400/5 to-gray-900/25 relative ${transcriptCollapsed ? 'h-0 overflow-hidden' : (actionItemsCollapsed ? 'h-full' : 'h-[60%]')}`}>
+        {/* Transcript Section (Top, 50% of right side) */}
+        <div className={`flex flex-col border-b-2 border-gray-700 transition-all duration-300 bg-gradient-to-b from-transparent via-cyan-400/5 to-gray-900/25 relative ${transcriptCollapsed ? 'h-0 overflow-hidden' : (actionItemsCollapsed ? 'h-full' : 'h-1/2')} min-h-0`}>
           {transcript && (
             <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none z-20"></div>
           )}
-          <ScrollArea className="flex-1 h-full overflow-y-auto">
+          <ScrollArea className="flex-1 overflow-y-auto">
               {/* Floating Header */}
               <div className="sticky top-0 z-10 px-6 pt-4 pb-8 bg-gradient-to-b from-black via-black/60 to-transparent">
                 <h3 className="text-sm font-semibold text-gray-200 uppercase tracking-wide flex items-center gap-2">
@@ -296,7 +317,7 @@ export function ChatInterface({
               </div>
             <div className="px-6 pb-6">
               <div className="space-y-3">
-                {transcript ? (
+                {transcript && transcript.length > 0 ? (
                   transcriptSegments.length > 0 ? (
                     transcriptSegments.map((segment, index) => (
                       <div key={index} className="group relative pl-4 py-2 border-l-2 border-[#00F5FF]/40 hover:border-[#00F5FF] transition-colors">
@@ -384,12 +405,12 @@ export function ChatInterface({
           </div>
         )}
 
-        {/* Action Items Section (Bottom, 40% of right side) */}
-        <div className={`flex flex-col transition-all duration-300 bg-gradient-to-t from-transparent via-cyan-400/5 to-gray-900/25 relative ${actionItemsCollapsed ? 'h-0 overflow-hidden' : (transcriptCollapsed ? 'h-full' : 'h-[40%]')}`}>
+        {/* Action Items Section (Bottom, 50% of right side) */}
+        <div className={`flex flex-col transition-all duration-300 bg-gradient-to-t from-transparent via-cyan-400/5 to-gray-900/25 relative ${actionItemsCollapsed ? 'h-0 overflow-hidden' : (transcriptCollapsed ? 'h-full' : 'h-1/2')} min-h-0`}>
           {actionItems && actionItems.length > 0 && (
             <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none z-20"></div>
           )}
-          <ScrollArea className="flex-1 h-full overflow-y-auto">
+          <ScrollArea className="flex-1 overflow-y-auto">
               {/* Floating Header */}
               <div className="sticky top-0 z-10 px-6 pt-4 pb-8 bg-gradient-to-b from-black via-black/60 to-transparent">
                 <h3 className="text-sm font-semibold text-gray-200 uppercase tracking-wide flex items-center gap-2">
