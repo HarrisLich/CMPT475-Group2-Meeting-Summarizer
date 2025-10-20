@@ -191,8 +191,9 @@ export default function DemoPage() {
                           <div className="text-sm text-[#00F5FF] mb-2">Full Transcription:</div>
                           <div className="max-h-[150px] overflow-y-auto pr-2">
                             <p className="text-white leading-relaxed">
-                              {transcriptionResult?.transcription ||
-                                '"If you\'re going through a hard time remember this. Forests may be gorgeous, but there is nothing more alive than a tree that learns how to grow in a cemetery."'}
+                              {transcriptionResult?.transcription || (
+                                <span className="text-gray-400">Upload an audio file to see the transcription</span>
+                              )}
                             </p>
                           </div>
                         </div>
@@ -212,16 +213,9 @@ export default function DemoPage() {
                                 </div>
                               ))
                             ) : (
-                              <>
-                                <div className="flex gap-3">
-                                  <span className="text-gray-400 font-mono">0:00-0:03</span>
-                                  <span className="text-gray-300">If you're going through a hard time remember this.</span>
-                                </div>
-                                <div className="flex gap-3">
-                                  <span className="text-gray-400 font-mono">0:03-0:11</span>
-                                  <span className="text-gray-300">Forests may be gorgeous, but there is nothing more alive than a tree that learns how to grow in a cemetery.</span>
-                                </div>
-                              </>
+                              <div className="text-gray-400 text-center py-4">
+                                Upload an audio file to see timestamped segments
+                              </div>
                             )}
                           </div>
                         </div>

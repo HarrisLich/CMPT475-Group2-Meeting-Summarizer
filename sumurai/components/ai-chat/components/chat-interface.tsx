@@ -75,43 +75,44 @@ export function ChatInterface({
   };
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex h-full overflow-hidden bg-[#111111]">
       {/* Left Side: Summary Section (50% width, full height) */}
-      <div className={`flex flex-col min-h-0 border-r border-gray-700 transition-all duration-300 relative ${rightPanelCollapsed ? 'w-full' : 'w-1/2'}`}>
+      <div className={`flex flex-col min-h-0 border-r border-[#333333] transition-all duration-300 relative ${rightPanelCollapsed ? 'w-full' : 'w-1/2'}`}>
         {/* Horizontal Collapse Handle */}
         <div
           onClick={() => setRightPanelCollapsed(!rightPanelCollapsed)}
-          className="absolute right-0 top-0 bottom-0 w-1 bg-transparent hover:bg-[#00F5FF]/60 cursor-col-resize transition-colors duration-75 z-50 group"
+          className="absolute right-0 top-0 bottom-0 w-1 bg-transparent hover:bg-[#00F5FF]/30 cursor-col-resize transition-all duration-200 z-50 group"
           title={rightPanelCollapsed ? "Show transcript & action items" : "Hide transcript & action items"}
         >
-          <div className={`absolute top-1/2 -translate-y-1/2 w-3 h-12 bg-[#00F5FF]/0 group-hover:bg-[#00F5FF]/80 flex items-center justify-center transition-all duration-75 ${rightPanelCollapsed ? '-left-3 rounded-l-md' : '-right-3 rounded-r-md'}`}>
+          <div className={`absolute top-1/2 -translate-y-1/2 w-3 h-12 bg-[#1A1A1A] group-hover:bg-[#00F5FF]/80 border border-[#333333] flex items-center justify-center transition-all duration-200 ${rightPanelCollapsed ? '-left-3 rounded-l-md' : '-right-3 rounded-r-md'}`}>
             {rightPanelCollapsed ? (
-              <ChevronLeft className="h-3 w-3 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-75" />
+              <ChevronLeft className="h-3 w-3 text-gray-400 group-hover:text-white transition-colors duration-200" />
             ) : (
-              <ChevronRight className="h-3 w-3 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-75" />
+              <ChevronRight className="h-3 w-3 text-gray-400 group-hover:text-white transition-colors duration-200" />
             )}
           </div>
         </div>
 
         {/* Messages Area */}
-        <div className="flex-1 flex flex-col min-h-0 relative bg-gradient-to-b from-transparent via-cyan-400/5 to-gray-900/25">
+        <div className="flex-1 flex flex-col min-h-0 relative bg-[#111111]">
           {messages && messages.length > 0 && (
             <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none z-20"></div>
           )}
           <ScrollArea className="flex-1 h-full overflow-y-auto">
             {/* Floating Header */}
-            <div className="sticky top-0 z-10 px-6 pt-4 pb-8 bg-gradient-to-b from-black via-black/60 to-transparent">
-              <div className="flex items-center gap-3">
+            <div className="sticky top-0 z-10 px-6 pt-6 pb-6 bg-gradient-to-b from-[#111111] via-[#111111]/95 to-transparent">
+              <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-[#333333] bg-[#1A1A1A] shadow-lg">
                 {chatTitle && (
                   <>
                     <h2 className="text-lg font-bold bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] bg-clip-text text-transparent leading-none">
                       {chatTitle}
                     </h2>
-                    <div className="h-5 w-px bg-[#00F5FF]/30"></div>
+                    <div className="h-5 w-px bg-[#333333]"></div>
                   </>
                 )}
-                <span className="h-2 w-2 rounded-full bg-gradient-to-r from-[#00F5FF] to-[#06B6D4]"></span>
-                <h3 className="text-sm font-semibold text-gray-200 uppercase tracking-wide leading-none">Summary</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-white uppercase tracking-wide leading-none">Summary</h3>
+                </div>
               </div>
             </div>
           <div className="px-6 pb-6">
@@ -162,39 +163,39 @@ export function ChatInterface({
                 </div>
               )}
               {(messages || []).map((message) => (
-                <div key={message.id} className="flex gap-3">
+                <div key={message.id} className="flex gap-3 group">
                   {message.role === "user" ? (
                     <>
                       <Avatar className="h-8 w-8 flex-shrink-0">
                         <AvatarImage src="/placeholder.svg?height=32&width=32" />
-                        <AvatarFallback className="bg-gradient-to-br from-gray-600 to-gray-700 text-white text-xs font-semibold">JD</AvatarFallback>
+                        <AvatarFallback className="bg-[#1A1A1A] border border-[#333333] text-white text-xs font-semibold">U</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 max-w-[85%]">
-                        <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 backdrop-blur-sm rounded-2xl rounded-tl-sm p-4 border border-gray-700/50 shadow-lg">
-                          <p className="text-sm text-gray-100 whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                        <div className="bg-[#1A1A1A] rounded-lg p-4 border border-[#333333] shadow-lg hover:shadow-xl transition-all duration-300">
+                          <p className="text-sm text-white whitespace-pre-wrap leading-relaxed">{message.content}</p>
                         </div>
                       </div>
                     </>
                   ) : (
                     <>
                       <Avatar className="h-8 w-8 flex-shrink-0">
-                        <AvatarFallback className="bg-gradient-to-br from-[#00F5FF] to-[#06B6D4] text-gray-900 text-xs font-bold">AI</AvatarFallback>
+                        <AvatarFallback className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] text-black text-xs font-bold">AI</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 max-w-[85%]">
-                        <div className="bg-gradient-to-br from-[#00F5FF]/10 to-[#06B6D4]/5 backdrop-blur-sm rounded-2xl rounded-tl-sm p-4 border border-[#00F5FF]/30 shadow-lg">
-                          <p className="text-sm text-gray-100 mb-3 whitespace-pre-wrap leading-relaxed">{message.content}</p>
-                          <div className="flex items-center gap-2 pt-2 border-t border-[#00F5FF]/20">
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:bg-[#00F5FF]/20 hover:text-[#00F5FF] transition-colors">
+                        <div className="bg-[#111111] rounded-lg p-4 border border-[#333333] shadow-lg hover:shadow-xl transition-all duration-300">
+                          <p className="text-sm text-white mb-3 whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                          <div className="flex items-center gap-2 pt-3 border-t border-[#333333]">
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:bg-[#1A1A1A] hover:text-[#00F5FF] transition-all duration-200">
                               <Copy className="h-3.5 w-3.5" />
                             </Button>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:bg-[#00F5FF]/20 hover:text-[#00F5FF] transition-colors">
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:bg-[#1A1A1A] hover:text-[#00F5FF] transition-all duration-200">
                               <Share className="h-3.5 w-3.5" />
                             </Button>
                             <div className="ml-auto flex items-center gap-2">
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:bg-red-500/20 hover:text-red-400 transition-colors">
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:bg-[#1A1A1A] hover:text-red-400 transition-all duration-200">
                                 <ThumbsDown className="h-3.5 w-3.5" />
                               </Button>
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:bg-green-500/20 hover:text-green-400 transition-colors">
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:bg-[#1A1A1A] hover:text-green-400 transition-all duration-200">
                                 <ThumbsUp className="h-3.5 w-3.5" />
                               </Button>
                             </div>
@@ -226,9 +227,9 @@ export function ChatInterface({
           </div>
             {/* Chat Input - Sticky at bottom */}
             <div className="sticky bottom-0 z-10 px-6 pb-12 pt-12 relative">
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent pointer-events-none"></div>
+              <div className="absolute inset-0 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent pointer-events-none"></div>
               <form onSubmit={handleSubmit} className="flex items-center gap-2 relative z-10">
-            <div className="bg-gray-900/50 backdrop-blur-sm flex flex-1 items-center rounded-xl border border-[#00F5FF]/30 px-3 py-2 relative shadow-lg hover:border-[#00F5FF] transition-colors">
+            <div className="bg-[#1A1A1A] flex flex-1 items-center rounded-lg border border-[#333333] px-3 py-2 relative shadow-lg hover:border-[#00F5FF] focus-within:border-[#00F5FF] transition-all duration-200">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -289,7 +290,7 @@ export function ChatInterface({
                 type="submit"
                 size="sm"
                 disabled={!(input || '').trim() || isLoading}
-                className="h-8 w-8 p-0 bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00F5FF]/80 hover:to-[#06B6D4]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                className="h-8 w-8 p-0 bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl">
                 <Send className="h-4 w-4" />
               </Button>
             </div>
@@ -300,18 +301,17 @@ export function ChatInterface({
       </div>
 
       {/* Right Side: Transcript & Action Items (50% width, stacked vertically) */}
-      <div className={`flex flex-col min-h-0 transition-all duration-300 ${rightPanelCollapsed ? 'w-0 overflow-hidden' : 'w-1/2'}`}>
+      <div className={`flex flex-col min-h-0 transition-all duration-300 bg-[#111111] ${rightPanelCollapsed ? 'w-0 overflow-hidden' : 'w-1/2'}`}>
         <div className="flex flex-col w-full min-h-0 h-full">
         {/* Transcript Section (Top, 50% of right side) */}
-        <div className={`flex flex-col border-b-2 border-gray-700 transition-all duration-300 bg-gradient-to-b from-transparent via-cyan-400/5 to-gray-900/25 relative ${transcriptCollapsed ? 'h-0 overflow-hidden' : (actionItemsCollapsed ? 'h-full' : 'h-1/2')} min-h-0`}>
+        <div className={`flex flex-col border-b border-[#333333] transition-all duration-300 bg-[#111111] relative ${transcriptCollapsed ? 'h-0 overflow-hidden' : (actionItemsCollapsed ? 'h-full' : 'h-1/2')} min-h-0`}>
           {transcript && (
             <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none z-20"></div>
           )}
           <ScrollArea className="flex-1 overflow-y-auto">
               {/* Floating Header */}
-              <div className="sticky top-0 z-10 px-6 pt-4 pb-8 bg-gradient-to-b from-black via-black/60 to-transparent">
-                <h3 className="text-sm font-semibold text-gray-200 uppercase tracking-wide flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-gradient-to-r from-[#00F5FF] to-[#06B6D4]"></span>
+              <div className="sticky top-0 z-10 px-6 pt-4 pb-4 bg-[#111111]">
+                <h3 className="text-sm font-semibold text-white uppercase tracking-wide">
                   Transcript
                 </h3>
               </div>
@@ -320,23 +320,23 @@ export function ChatInterface({
                 {transcript && transcript.length > 0 ? (
                   transcriptSegments.length > 0 ? (
                     transcriptSegments.map((segment, index) => (
-                      <div key={index} className="group relative pl-4 py-2 border-l-2 border-[#00F5FF]/40 hover:border-[#00F5FF] transition-colors">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <span className="text-xs font-mono text-[#06B6D4] font-semibold bg-[#06B6D4]/10 px-2 py-0.5 rounded">
+                      <div key={index} className="bg-[#1A1A1A] rounded-lg p-3 border border-[#333333] hover:shadow-lg transition-all duration-300">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs font-mono text-[#00F5FF] font-semibold">
                             {Math.floor(segment.start / 60)}:{String(Math.floor(segment.start % 60)).padStart(2, '0')} - {Math.floor(segment.end / 60)}:{String(Math.floor(segment.end % 60)).padStart(2, '0')}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-200 leading-relaxed">{segment.text}</p>
+                        <p className="text-sm text-gray-300 leading-relaxed">{segment.text}</p>
                       </div>
                     ))
                   ) : (
-                    <div className="pl-4 py-2 border-l-2 border-[#00F5FF]/40">
-                      <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">{transcript}</p>
+                    <div className="bg-[#1A1A1A] rounded-lg p-4 border border-[#333333]">
+                      <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{transcript}</p>
                     </div>
                   )
                 ) : (
                   <div className="flex items-center justify-center h-32">
-                    <p className="text-sm text-gray-500 italic text-center max-w-xs">
+                    <p className="text-sm text-gray-400 text-center max-w-xs">
                       Upload a meeting recording to see the transcript.
                     </p>
                   </div>
@@ -406,15 +406,14 @@ export function ChatInterface({
         )}
 
         {/* Action Items Section (Bottom, 50% of right side) */}
-        <div className={`flex flex-col transition-all duration-300 bg-gradient-to-t from-transparent via-cyan-400/5 to-gray-900/25 relative ${actionItemsCollapsed ? 'h-0 overflow-hidden' : (transcriptCollapsed ? 'h-full' : 'h-1/2')} min-h-0`}>
+        <div className={`flex flex-col transition-all duration-300 bg-[#111111] relative ${actionItemsCollapsed ? 'h-0 overflow-hidden' : (transcriptCollapsed ? 'h-full' : 'h-1/2')} min-h-0`}>
           {actionItems && actionItems.length > 0 && (
-            <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none z-20"></div>
+            <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-[#111111]/90 via-[#111111]/50 to-transparent pointer-events-none z-20"></div>
           )}
           <ScrollArea className="flex-1 overflow-y-auto">
               {/* Floating Header */}
-              <div className="sticky top-0 z-10 px-6 pt-4 pb-8 bg-gradient-to-b from-black via-black/60 to-transparent">
-                <h3 className="text-sm font-semibold text-gray-200 uppercase tracking-wide flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-gradient-to-r from-[#06B6D4] to-[#00F5FF]"></span>
+              <div className="sticky top-0 z-10 px-6 pt-4 pb-4 bg-[#111111]">
+                <h3 className="text-sm font-semibold text-white uppercase tracking-wide">
                   Action Items
                 </h3>
               </div>
@@ -424,28 +423,28 @@ export function ChatInterface({
                   {actionItems.map((item) => (
                     <div
                       key={item.id}
-                      className="group bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4 shadow-lg hover:shadow-xl hover:border-gray-600/50 transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between min-h-[110px]"
+                      className="bg-[#1A1A1A] rounded-lg border border-[#333333] p-4 shadow-lg hover:shadow-xl transition-all duration-300 flex flex-col justify-between min-h-[110px]"
                     >
                       <div>
                         <div className="flex items-center gap-2 mb-2">
-                          <div className={`h-2 w-2 rounded-full shadow-md ${
-                            item.priority === 'high' ? 'bg-gradient-to-r from-red-400 to-red-600 shadow-red-500/50' :
-                            item.priority === 'medium' ? 'bg-gradient-to-r from-yellow-400 to-amber-500 shadow-yellow-500/50' :
-                            'bg-gradient-to-r from-emerald-400 to-green-600 shadow-green-500/50'
+                          <div className={`h-2 w-2 rounded-full ${
+                            item.priority === 'high' ? 'bg-red-500' :
+                            item.priority === 'medium' ? 'bg-yellow-500' :
+                            'bg-green-500'
                           }`}></div>
-                          <span className={`text-xs font-bold uppercase tracking-wider ${
+                          <span className={`text-xs font-semibold uppercase tracking-wide ${
                             item.priority === 'high' ? 'text-red-400' :
                             item.priority === 'medium' ? 'text-yellow-400' :
-                            'text-emerald-400'
+                            'text-green-400'
                           }`}>
                             {item.priority}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-200 mb-3 leading-relaxed font-medium">{item.task}</p>
+                        <p className="text-sm text-white mb-3 leading-relaxed">{item.task}</p>
                       </div>
-                      <div className="flex items-center gap-1.5 pt-2 border-t border-gray-700/50">
-                        <span className="text-xs text-gray-500 font-medium">Assigned:</span>
-                        <span className="text-sm font-semibold bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] bg-clip-text text-transparent">
+                      <div className="flex items-center gap-1.5 pt-2 border-t border-[#333333]">
+                        <span className="text-xs text-gray-400">Assigned:</span>
+                        <span className="text-sm font-semibold text-[#00F5FF]">
                           {item.assignedTo}
                         </span>
                       </div>
@@ -454,7 +453,7 @@ export function ChatInterface({
                 </div>
               ) : (
                 <div className="flex items-center justify-center h-32">
-                  <p className="text-sm text-gray-500 italic text-center max-w-xs">
+                  <p className="text-sm text-gray-400 text-center max-w-xs">
                     Upload a meeting recording to see action items.
                   </p>
                 </div>
