@@ -26,6 +26,7 @@ async def register(request: RegisterRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/login")
+
 async def login(request: LoginRequest):
     try:
         auth = get_supabase_auth()

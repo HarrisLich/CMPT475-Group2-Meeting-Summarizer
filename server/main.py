@@ -5,6 +5,32 @@ from transcription.Transcription import TranscriptionService
 from auth.routes import router as auth_router
 from auth.supabase_dependencies import get_current_user
 from database.supabase_service import get_supabase
+from auth import auth_router, get_current_user
+from summarization import SummarizationService
+from pydantic import BaseModel
+
+class SummarizeRequest(BaseModel):
+    """
+    Request model for summarization endpoint.
+    Defines the expected structure of the request body.
+
+    """
+    transcription_text: str
+
+class ChatRequest(BaseModel):
+    """
+    Request model for chat endpoint.
+    Allows conversational interaction about a meeting.
+    """
+    meeting_context: str
+    user_question: str
+
+class ActionItemsRequest(BaseModel):
+    """
+    Request model for action items extraction endpoint.
+    Extracts structured action items from a meeting transcription.
+    """
+    transcription_text: str
 
 # Create FastAPI instance
 app = FastAPI(
@@ -44,6 +70,9 @@ async def health_check():
 # Initialize transcription service
 transcription_service = TranscriptionService()
 
+# Initialize summarization service
+summarization_service = SummarizationService()
+
 # Transcription endpoint (authentication disabled for testing)
 @app.post("/transcribe")
 async def transcribe_audio(
@@ -59,13 +88,24 @@ async def transcribe_audio(
 
         # Transcribe using the service
         result = transcription_service.transcribe_file(content, audio_file.filename)
-        
+
         # User info disabled for testing
         result["user"] = {
             "id": "test_user",
             "email": "test@example.com",
             "name": "Test User"
         }
+
+        # Generate summary from transcription
+        transcription_text = result.get("transcription", "")
+        if transcription_text and len(transcription_text.strip()) > 0:
+            summary_result = summarization_service.summarize_transcription(transcription_text)
+            result["summary"] = summary_result
+        else:
+            result["summary"] = {
+                "success": False,
+                "error": "No transcription text available for summarization"
+            }
 
         return result
 
@@ -118,5 +158,92 @@ async def protected_route(current_user = Depends(get_current_user)):
 
 
         
+@app.get("/ollama/status")
+async def ollama_status():
+    """
+    Endpoint to check if Ollama is running and accessible.
+
+    Returns:
+        Dict[str, Any]: Status information from the SummarizationService.
+    """
+    return summarization_service.check_ollama_status()
+
+@app.post("/summarize")
+async def summarize_transcription(request: SummarizeRequest):
+    if not request.transcription_text or len(request.transcription_text.strip()) == 0:
+        raise HTTPException(status_code=400, 
+                            detail="transcription_text cannot be empty.")
+    try:
+        # Call if summarization service was successful
+        result = summarization_service.summarize_transcription(request.transcription_text)
+
+        #check if summarization was successful
+        if not result.get("success"):
+            raise HTTPException(
+                status_code=503,
+                detail=result.get("error", "Summarization failed.")
+            )
+        return result
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Summarization failed: {str(e)}")
+
+@app.post("/chat")
+async def chat_about_meeting(request: ChatRequest):
+    """
+    Have a conversational interaction about a meeting.
+    Allows users to ask questions, get greetings, and discuss specific topics.
+    """
+    if not request.user_question or len(request.user_question.strip()) == 0:
+        raise HTTPException(status_code=400,
+                            detail="user_question cannot be empty.")
+    try:
+        # Call the chat method from summarization service
+        result = summarization_service.chat_about_meeting(
+            request.meeting_context,
+            request.user_question
+        )
+
+        # Check if chat was successful
+        if not result.get("success"):
+            raise HTTPException(
+                status_code=503,
+                detail=result.get("error", "Chat failed.")
+            )
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
+
+@app.post("/extract-action-items")
+async def extract_action_items(request: ActionItemsRequest):
+    """
+    Extract structured action items from a meeting transcription.
+    Uses AI to identify tasks, priorities, and assignments.
+    """
+    if not request.transcription_text or len(request.transcription_text.strip()) == 0:
+        raise HTTPException(status_code=400,
+                            detail="transcription_text cannot be empty.")
+    try:
+        # Call the action items extraction method from summarization service
+        result = summarization_service.extract_action_items(request.transcription_text)
+
+        # Check if extraction was successful
+        if not result.get("success"):
+            raise HTTPException(
+                status_code=503,
+                detail=result.get("error", "Action item extraction failed.")
+            )
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Action item extraction failed: {str(e)}")
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

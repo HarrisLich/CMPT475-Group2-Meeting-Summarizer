@@ -20,6 +20,8 @@ import {
   Database,
   Cpu
 } from 'lucide-react';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 
 export default function AboutPage() {
   const router = useRouter();
@@ -27,12 +29,12 @@ export default function AboutPage() {
   const teamMembers = [
     {
       name: "Stefano Farro",
-      role: "Frontend Developer & UI/UX Designer",
-      description: "Dev blurb",
-      skills: ["React", "TypeScript", "UI/UX Design", "Next.js", "Tailwind CSS"],
-      github: "https://github.com/stefanfarro",
-      linkedin: "https://linkedin.com/in/stefanfarro",
-      email: "stefan0.farro@example.com"
+      role: "UI/UX",
+      description: "New Jersey native, fan of hockey and good music. Can cook minute rice in 50 seconds. ",
+      skills: ["TypeScript", "Next.js", "ShadCN", "Tailwind CSS"],
+      github: "https://github.com/stefanog1121",
+      linkedin: "https://www.linkedin.com/in/stefanogfarro/",
+      email: "stefano.farro1@marist.edu"
     },
     {
       name: "Evan Brown ",
@@ -53,13 +55,13 @@ export default function AboutPage() {
       email: "harris.lich@example.com"
     },
     {
-      name: "Joshua Chenowitz",
-      role: "role",
-      description: "Dev blurb",
-      skills: ["skill1", "skill2", "skill3"],
-      github: "https://github.com/teammember3",
-      linkedin: "https://linkedin.com/in/teammember3",
-      email: "member3@example.com"
+      name: "Joshua Chenoweth",
+      role: "IT",
+      description: "I'm a passionate IT professional from Maryland with a strong background in security, infrastructure, and backend development. I'm a quick learner and I'm always looking for new ways to improve my skills.",
+      skills: ["Python", "Security/Infrastructure", "Backend Development"],
+      github: "https://github.com/JoshuaChenoweth",
+      linkedin: "https://linkedin.com/in/jgchenoweth",
+      email: "Joshua.chenoweth10@gmail.com"
     },
     {
       name: "Marko Pavic",
@@ -103,38 +105,11 @@ export default function AboutPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#111111] via-[#111111] to-[#1A1A1A]">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-[#111111]/80 backdrop-blur-lg border-b border-[#333333]">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <button
-            onClick={() => router.push('/')}
-            className="flex items-center gap-2 text-white hover:text-[#00F5FF] transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Back to Home
-          </button>
-
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 flex items-center justify-center">
-              <img src="/sumurai-icon-blue.png" alt="SumurAI Logo" className="w-8 h-8 rounded-lg" />
-            </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] bg-clip-text text-transparent">
-              About SumurAI
-            </span>
-          </div>
-
-          <Button
-            onClick={() => router.push('/core')}
-            className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black"
-          >
-            Try Now
-          </Button>
-        </div>
-      </header>
+    <div className="min-h-screen bg-[#111111]">
+      <Header />
 
       {/* Hero Section */}
-      <section className="py-20">
+      <section className="py-20 bg-gradient-to-b from-[#111111] to-[#151515]">
         <div className="container mx-auto px-6 text-center">
           <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">
             About SumurAI
@@ -147,7 +122,7 @@ export default function AboutPage() {
       </section>
 
       {/* Mission & Vision Section */}
-      <section className="py-20 bg-[#1A1A1A]">
+      <section className="py-20 bg-[#151515]">
         <div className="container mx-auto px-6">
           <div className="max-w-6xl mx-auto">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -268,7 +243,7 @@ export default function AboutPage() {
       */}
             
       {/* Team Section */}
-      <section className="py-20">
+      <section className="py-20 bg-gradient-to-b from-[#151515] to-[#111111]">
         <div className="container mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-white mb-6">Meet the Development Team</h2>
@@ -370,6 +345,8 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
+
+      <Footer />
     </div>
   );
 }

@@ -3,10 +3,9 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import {
-  FileText,
   Users,
   Calendar,
   CheckCircle,
@@ -14,8 +13,7 @@ import {
   Brain,
   Shield,
   Zap,
-  ArrowRight,
-  Star
+  ArrowRight
 } from 'lucide-react';
 import { useAuth } from '@/lib/context/auth-context';
 
@@ -122,10 +120,12 @@ function Landing() {
         entries.forEach((entry) => {
           if (entry.isIntersecting && !hasTriggered) {
             setHasTriggered(true);
-            setSwordSlicing(true);
             setTimeout(() => {
-              setFeaturesVisible(true);
-            }, 800);
+              setSwordSlicing(true);
+              setTimeout(() => {
+                setFeaturesVisible(true);
+              }, 800);
+            }, 300);
           }
         });
       },
@@ -185,73 +185,10 @@ function Landing() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#111111] via-[#111111] to-[#1A1A1A]">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-[#111111]/80 backdrop-blur-lg border-b border-[#333333]">
-        <div className="container mx-auto px-6 py-4 flex items-center">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 flex items-center justify-center shadow-lg">
-              <img src="/sumurai-icon-blue.png" alt="SumurAI Logo" className="w-10 h-10 rounded-xl" />
-            </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] bg-clip-text text-transparent">
-              SumurAI
-            </span>
-          </div>
-
-          <nav className="hidden md:flex items-center space-x-8 ml-12">
-            <a href="#features" className="text-white hover:text-[#00F5FF] transition-colors font-medium">
-              Features
-            </a>
-            <a href="/demo" className="text-white hover:text-[#00F5FF] transition-colors font-medium">
-              Demo
-            </a>
-            <a href="/core" className="text-white hover:text-[#00F5FF] transition-colors font-medium">
-              AI Engine
-            </a>
-            <a href="/about" className="text-white hover:text-[#00F5FF] transition-colors font-medium">
-              About
-            </a>
-          </nav>
-
-          <div className="flex items-center space-x-4 ml-auto">
-            {authLoading ? (
-              <div className="w-8 h-8 border-2 border-[#00F5FF] border-t-transparent rounded-full animate-spin"></div>
-            ) : user && session ? (
-              <>
-                <span className="text-white text-sm">
-                  Welcome, {user.user_metadata?.display_name || user.email}
-                </span>
-                <Button
-                  onClick={() => router.push('/profiling')}
-                  variant="outline"
-                  className="border-[#333333] hover:bg-[#1A1A1A] text-white hover:text-[#00F5FF] transition-colors"
-                >
-                  Dashboard
-                </Button>
-                <Button
-                  onClick={handleLogout}
-                  variant="outline"
-                  className="border-red-600 hover:bg-red-900/20 text-red-400 hover:text-red-300 transition-colors"
-                >
-                  Log Out
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button onClick={openLogin} variant="outline" className="border-[#333333] hover:bg-[#1A1A1A] text-white hover:text-[#00F5FF] transition-colors">
-                  Log In
-                </Button>
-                <Button onClick={openSignUp} className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black shadow-lg">
-                  Try It Now
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Hero Section */}
-      <section className="container mx-auto px-6 py-20 text-center">
+      <section className="min-h-screen flex items-center justify-center container mx-auto px-6 py-20 text-center">
         <div className="max-w-4xl mx-auto">
           <h1 className={`text-5xl md:text-7xl font-bold text-white mb-8 leading-tight transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             Turn meetings into
@@ -439,7 +376,7 @@ function Landing() {
             </p>
             <Button
               size="lg"
-              onClick={openLogin}
+              onClick={() => router.push('/profiling')}
               className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black text-lg px-8 py-6 shadow-xl"
             >
               Get Started Now
@@ -560,6 +497,7 @@ function Landing() {
           </form>
         </DialogContent>
       </Dialog>
+      <Footer />
     </div>
   );
 }
