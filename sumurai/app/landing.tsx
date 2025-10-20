@@ -15,15 +15,87 @@ import {
   Zap,
   ArrowRight
 } from 'lucide-react';
+import { useAuth } from '@/lib/context/auth-context';
 
 function Landing() {
   const router = useRouter();
+  const { user, session, loading: authLoading, error: authError, login, register, logout } = useAuth();
   const [isVisible, setIsVisible] = useState(false);
   const [displayText, setDisplayText] = useState('');
   const [featuresVisible, setFeaturesVisible] = useState(false);
   const [swordSlicing, setSwordSlicing] = useState(false);
   const [hasTriggered, setHasTriggered] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [isRegister, setIsRegister] = useState(false);
+  const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '' });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const fullText = 'actionable insights';
+
+  const openLogin = () => {
+    setLoginOpen(true);
+    setIsRegister(false);
+  };
+
+  const openSignUp = () => {
+    setLoginOpen(true);
+    setIsRegister(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+
+    // Validate form data
+    if (!formData.email || !formData.password) {
+      setError('Email and password are required');
+      setIsLoading(false);
+      return;
+    }
+
+    if (isRegister && formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      if (isRegister) {
+        // Handle registration
+        await register(formData.email, formData.password);
+        console.log('Registration successful');
+      } else {
+        // Handle login
+        await login(formData.email, formData.password);
+        console.log('Login successful');
+      }
+
+      // On success: close dialog and redirect
+      setLoginOpen(false);
+      router.push('/profiling');
+    } catch (err: any) {
+      setError(err.message || 'An error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleInputChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({ ...prev, [field]: e.target.value }));
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      // Optionally redirect to home or refresh page
+      router.push('/');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+
+  // Auth state is now managed by the AuthProvider context
 
   useEffect(() => {
     setIsVisible(true);
@@ -137,23 +209,47 @@ function Landing() {
           </p>
           
           <div className={`flex flex-col sm:flex-row gap-4 justify-center mb-12 transition-all duration-1000 delay-700 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            <Button
-              size="lg"
-              onClick={() => router.push('/profiling')}
-              className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black text-lg px-8 py-6 shadow-xl hover:shadow-2xl transition-all duration-300"
-            >
-              Get Started
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              onClick={() => router.push('/demo')}
-              className="text-lg px-8 py-6 border-2 border-[#333333] text-white hover:bg-[#1A1A1A] hover:text-[#00F5FF] transition-colors"
-            >
-              <Mic className="w-5 h-5 mr-2" />
-              Watch Demo
-            </Button>
+            {user && session ? (
+              <>
+                <Button
+                  size="lg"
+                  onClick={() => router.push('/profiling')}
+                  className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black text-lg px-8 py-6 shadow-xl hover:shadow-2xl transition-all duration-300"
+                >
+                  Go to Dashboard
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={() => router.push('/demo')}
+                  className="text-lg px-8 py-6 border-2 border-[#333333] text-white hover:bg-[#1A1A1A] hover:text-[#00F5FF] transition-colors"
+                >
+                  <Mic className="w-5 h-5 mr-2" />
+                  Watch Demo
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  size="lg"
+                  onClick={openSignUp}
+                  className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black text-lg px-8 py-6 shadow-xl hover:shadow-2xl transition-all duration-300"
+                >
+                  Upload Meeting
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={() => router.push('/demo')}
+                  className="text-lg px-8 py-6 border-2 border-[#333333] text-white hover:bg-[#1A1A1A] hover:text-[#00F5FF] transition-colors"
+                >
+                  <Mic className="w-5 h-5 mr-2" />
+                  Watch Demo
+                </Button>
+              </>
+            )}
           </div>
 
           <div className={`flex items-center justify-center space-x-8 text-gray-400 text-sm transition-all duration-1000 delay-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'}`}>
@@ -290,6 +386,117 @@ function Landing() {
         </div>
       </section>
 
+      {/* Footer */}
+      <footer className="bg-[#1A1A1A] border-t border-[#333333] py-12">
+        <div className="container mx-auto px-6">
+          <div className="flex flex-col md:flex-row justify-between items-center">
+            <div className="flex items-center space-x-3 mb-4 md:mb-0">
+              <div className="w-8 h-8 flex items-center justify-center">
+                <img src="/sumurai-icon-blue.png" alt="SumurAI Logo" className="w-8 h-8 rounded-lg" />
+              </div>
+              <span className="text-xl font-bold text-white">SumurAI</span>
+            </div>
+            <div className="text-gray-300 text-center md:text-right">
+              <p>&copy; 2025 SumurAI. All rights reserved.</p>
+              <div className="flex space-x-6 mt-2 justify-center md:justify-end">
+                <a href="#privacy" className="hover:text-white transition-colors">Privacy</a>
+                <a href="#terms" className="hover:text-white transition-colors">Terms</a>
+                <a href="#support" className="hover:text-white transition-colors">Support</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </footer>
+
+      {/* Login Dialog */}
+      <Dialog open={loginOpen} onOpenChange={setLoginOpen}>
+        <DialogContent className="bg-[#111111] border-[#333333] text-white max-w-lg w-full">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center mb-6">
+              {isRegister ? 'Create Account' : 'Welcome Back'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {(error || authError) && (
+              <div className="text-red-400 text-sm text-center bg-red-900/20 border border-red-900/50 rounded-md p-2">
+                {error || authError}
+              </div>
+            )}
+
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                className="w-full px-3 py-2 bg-[#1A1A1A] border border-[#333333] rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#00F5FF] focus:border-transparent"
+                placeholder="Enter your email"
+                value={formData.email}
+                onChange={handleInputChange('email')}
+                required
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                className="w-full px-3 py-2 bg-[#1A1A1A] border border-[#333333] rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#00F5FF] focus:border-transparent"
+                placeholder="Enter your password"
+                value={formData.password}
+                onChange={handleInputChange('password')}
+                required
+              />
+            </div>
+
+            {isRegister && (
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">
+                  Confirm Password
+                </label>
+                <input
+                  id="confirmPassword"
+                  type="password"
+                  className="w-full px-3 py-2 bg-[#1A1A1A] border border-[#333333] rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#00F5FF] focus:border-transparent"
+                  placeholder="Confirm your password"
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange('confirmPassword')}
+                  required
+                />
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black font-semibold py-2 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                  <span>{isRegister ? 'Creating Account...' : 'Signing In...'}</span>
+                </div>
+              ) : (
+                <span>{isRegister ? 'Create Account' : 'Sign In'}</span>
+              )}
+            </Button>
+
+            <div className="text-center mt-4">
+              <button
+                onClick={() => setIsRegister(!isRegister)}
+                className="text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                {isRegister ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
       <Footer />
     </div>
   );

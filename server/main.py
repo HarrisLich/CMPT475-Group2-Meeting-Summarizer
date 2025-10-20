@@ -2,6 +2,9 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from transcription.Transcription import TranscriptionService
+from auth.routes import router as auth_router
+from auth.supabase_dependencies import get_current_user
+from database.supabase_service import get_supabase
 from auth import auth_router, get_current_user
 from summarization import SummarizationService
 from pydantic import BaseModel
@@ -32,7 +35,7 @@ class ActionItemsRequest(BaseModel):
 # Create FastAPI instance
 app = FastAPI(
     title="Meeting Summarizer API",
-    description="Simple API for meeting summarization with Auth0 authentication",
+    description="Simple API for meeting summarization",
     version="1.0.0"
 )
 
@@ -109,6 +112,52 @@ async def transcribe_audio(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
 
+@app.get("/test/public")
+async def test_public():
+    try:
+        supabase = get_supabase()
+        # Try a very basic operation first
+        # Try a simple query - this will likely be blocked by RLS unless you've configured public access
+        result = supabase.client.table("ai_generate_cleaned_summaries").select("*").execute()
+        
+        return {
+            "success": True, 
+            "count": len(result.data),
+            "data": result.data
+
+        }
+        
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        return {"success": False, "error": str(e), "trace": error_trace}
+@app.get("/test/tables")
+async def test_tables():
+    try:
+        supabase = get_supabase()
+        # First check if we can get the URL and key
+        url = supabase.url
+        key = supabase.key
+        # Just try to list tables (simpler operation)
+        response = supabase.client.table("ai_generate_cleaned_summaries").select("count").execute()
+        return {
+            "success": True,
+            "url": url,
+            "key_length": len(key) if key else 0,
+            "response": response
+        }
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        return {"success": False, "error": str(e), "trace": error_trace}
+
+@app.get("/protected-route")
+async def protected_route(current_user = Depends(get_current_user)):
+    # This endpoint is now protected with Supabase auth
+    return {"message": "This is protected", "user": current_user}
+
+
+        
 @app.get("/ollama/status")
 async def ollama_status():
     """
