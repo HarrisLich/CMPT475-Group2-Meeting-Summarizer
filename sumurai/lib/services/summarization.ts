@@ -1,6 +1,19 @@
 // sumurai/lib/services/summarization.ts
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+/**
+ * Custom error class for rate limit errors
+ */
+export class RateLimitError extends Error {
+  retryAfter: string;
+
+  constructor(message: string, retryAfter: string = '60 seconds') {
+    super(message);
+    this.name = 'RateLimitError';
+    this.retryAfter = retryAfter;
+  }
+}
+
 export interface TranscriptionResponse {
   transcription: string;
   segments?: Array<{
@@ -23,6 +36,8 @@ export interface SummarizationResponse {
     assigned_to?: string;
   }>;
   error?: string;
+  error_type?: string;
+  warning?: string;
 }
 
 export interface ChatResponse {
@@ -30,6 +45,7 @@ export interface ChatResponse {
   response: string;
   model_used: string;
   error?: string;
+  error_type?: string;
 }
 
 export interface ActionItemsResponse {
@@ -41,6 +57,7 @@ export interface ActionItemsResponse {
   }>;
   model_used: string;
   error?: string;
+  error_type?: string;
   warning?: string;
 }
 
@@ -58,6 +75,35 @@ export class SummarizationService {
     });
 
     if (!response.ok) {
+      // Try to parse detailed error message from backend
+      try {
+        const errorData = await response.json();
+
+        // Check for rate limit error (429)
+        if (response.status === 429) {
+          const retryAfter = errorData.detail?.retry_after || '60 seconds';
+          const message = errorData.detail?.message || 'API rate limit exceeded. Please wait before trying again.';
+          throw new RateLimitError(message, retryAfter);
+        }
+
+        // If backend sent structured error (file too large, etc.)
+        if (errorData.detail && typeof errorData.detail === 'object') {
+          const { message, suggestion } = errorData.detail;
+          throw new Error(`${message}\n\n${suggestion || ''}`);
+        }
+
+        // If backend sent string error
+        if (errorData.detail && typeof errorData.detail === 'string') {
+          throw new Error(errorData.detail);
+        }
+      } catch (parseError) {
+        // If it's already a RateLimitError, re-throw it
+        if (parseError instanceof RateLimitError) {
+          throw parseError;
+        }
+        // If parsing fails, fall back to generic error
+      }
+
       throw new Error(`Transcription failed: ${response.statusText}`);
     }
 
@@ -79,6 +125,28 @@ export class SummarizationService {
     });
 
     if (!response.ok) {
+      // Try to parse detailed error message from backend
+      try {
+        const errorData = await response.json();
+
+        // Check for rate limit error (429)
+        if (response.status === 429) {
+          const retryAfter = errorData.detail?.retry_after || '60 seconds';
+          const message = errorData.detail?.message || 'API rate limit exceeded. Please wait before trying again.';
+          throw new RateLimitError(message, retryAfter);
+        }
+
+        // If backend sent string error
+        if (errorData.detail && typeof errorData.detail === 'string') {
+          throw new Error(errorData.detail);
+        }
+      } catch (parseError) {
+        // If it's already a RateLimitError, re-throw it
+        if (parseError instanceof RateLimitError) {
+          throw parseError;
+        }
+      }
+
       throw new Error(`Summarization failed: ${response.statusText}`);
     }
 
@@ -104,6 +172,28 @@ export class SummarizationService {
     });
 
     if (!response.ok) {
+      // Try to parse detailed error message from backend
+      try {
+        const errorData = await response.json();
+
+        // Check for rate limit error (429)
+        if (response.status === 429) {
+          const retryAfter = errorData.detail?.retry_after || '60 seconds';
+          const message = errorData.detail?.message || 'API rate limit exceeded. Please wait before trying again.';
+          throw new RateLimitError(message, retryAfter);
+        }
+
+        // If backend sent string error
+        if (errorData.detail && typeof errorData.detail === 'string') {
+          throw new Error(errorData.detail);
+        }
+      } catch (parseError) {
+        // If it's already a RateLimitError, re-throw it
+        if (parseError instanceof RateLimitError) {
+          throw parseError;
+        }
+      }
+
       throw new Error(`Chat failed: ${response.statusText}`);
     }
 
@@ -125,6 +215,28 @@ export class SummarizationService {
     });
 
     if (!response.ok) {
+      // Try to parse detailed error message from backend
+      try {
+        const errorData = await response.json();
+
+        // Check for rate limit error (429)
+        if (response.status === 429) {
+          const retryAfter = errorData.detail?.retry_after || '60 seconds';
+          const message = errorData.detail?.message || 'API rate limit exceeded. Please wait before trying again.';
+          throw new RateLimitError(message, retryAfter);
+        }
+
+        // If backend sent string error
+        if (errorData.detail && typeof errorData.detail === 'string') {
+          throw new Error(errorData.detail);
+        }
+      } catch (parseError) {
+        // If it's already a RateLimitError, re-throw it
+        if (parseError instanceof RateLimitError) {
+          throw parseError;
+        }
+      }
+
       throw new Error(`Action item extraction failed: ${response.statusText}`);
     }
 

@@ -57,6 +57,8 @@ class TranscriptionService:
                 - transcription (str): The transcribed text
                 - language (str): Detected language (if available)
                 - segments (list): Timestamped segments (if available)
+                - error (str): Error message if failed
+                - error_type (str): Type of error (rate_limit, api_error, etc.)
         """
         # Create temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix=Path(filename).suffix) as temp_file:
@@ -89,6 +91,25 @@ class TranscriptionService:
                 "transcription": transcription.text,
                 "language": getattr(transcription, 'language', None),
                 "segments": segments
+            }
+
+        except Exception as e:
+            error_message = str(e)
+            error_type = "api_error"
+
+            # Check if this is a rate limit error
+            if "rate_limit" in error_message.lower() or "429" in error_message or "quota" in error_message.lower():
+                error_type = "rate_limit"
+                error_message = "Groq API rate limit exceeded. Please wait a moment before trying again."
+            elif "503" in error_message or "service unavailable" in error_message.lower():
+                error_type = "rate_limit"
+                error_message = "Groq API is temporarily unavailable (likely due to rate limits). Please try again in a few moments."
+
+            return {
+                "filename": filename,
+                "error": error_message,
+                "error_type": error_type,
+                "transcription": None
             }
 
         finally:

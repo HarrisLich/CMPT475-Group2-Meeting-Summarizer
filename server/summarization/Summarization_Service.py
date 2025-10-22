@@ -34,13 +34,7 @@ Meeting Transcription:
 Please format your response clearly with sections for each part."""
 
     def __init__(self):
-        """
-        Initialize the SummarizationService.
-
-        Reads configuration from environment variables:
-        - GROQ_API_KEY: Your Groq API key (required)
-        - GROQ_MODEL: Which AI model to use (default: llama-3.3-70b-versatile)
-        """
+        
         # Get Groq API key from environment variable
         api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
@@ -108,10 +102,22 @@ Please format your response clearly with sections for each part."""
             }
 
         except Exception as e:
+            error_message = str(e)
+            error_type = "api_error"
+
+            # Check if this is a rate limit error
+            if "rate_limit" in error_message.lower() or "429" in error_message or "quota" in error_message.lower():
+                error_type = "rate_limit"
+                error_message = "Groq API rate limit exceeded. Please wait a moment before trying again."
+            elif "503" in error_message or "service unavailable" in error_message.lower():
+                error_type = "rate_limit"
+                error_message = "Groq API is temporarily unavailable (likely due to rate limits). Please try again in a few moments."
+
             # Catch any errors
             return {
                 "success": False,
-                "error": f"Summarization failed: {str(e)}"
+                "error": error_message,
+                "error_type": error_type
             }
 
     def chat_about_meeting(self, meeting_context: str, user_question: str) -> Dict[str, Any]:
@@ -135,8 +141,8 @@ Please format your response clearly with sections for each part."""
 
         # Create a conversational prompt that makes the AI act as a meeting assistant
         system_message = """You are a friendly and helpful meeting assistant AI named SumurAI. You help users understand and interact with their meeting content.
-
-You have access to the full meeting transcription with timestamps. When users ask about specific times or moments, reference the timestamps to provide accurate information. When users ask about what was said about a topic or person, search through the transcription for relevant mentions."""
+            You have access to the full meeting transcription with timestamps. When users ask about specific times or moments,
+            reference the timestamps to provide accurate information. When users ask about what was said about a topic or person, search through the transcription for relevant mentions."""
 
         try:
             # Send a request to Groq's chat completion API
@@ -167,9 +173,21 @@ You have access to the full meeting transcription with timestamps. When users as
             }
 
         except Exception as e:
+            error_message = str(e)
+            error_type = "api_error"
+
+            # Check if this is a rate limit error
+            if "rate_limit" in error_message.lower() or "429" in error_message or "quota" in error_message.lower():
+                error_type = "rate_limit"
+                error_message = "Groq API rate limit exceeded. Please wait a moment before trying again."
+            elif "503" in error_message or "service unavailable" in error_message.lower():
+                error_type = "rate_limit"
+                error_message = "Groq API is temporarily unavailable (likely due to rate limits). Please try again in a few moments."
+
             return {
                 "success": False,
-                "error": f"Chat failed: {str(e)}"
+                "error": error_message,
+                "error_type": error_type
             }
 
     def extract_action_items(self, transcription_text: str) -> Dict[str, Any]:
@@ -291,9 +309,21 @@ If no action items exist, return: []"""
             }
 
         except Exception as e:
+            error_message = str(e)
+            error_type = "api_error"
+
+            # Check if this is a rate limit error
+            if "rate_limit" in error_message.lower() or "429" in error_message or "quota" in error_message.lower():
+                error_type = "rate_limit"
+                error_message = "Groq API rate limit exceeded. Please wait a moment before trying again."
+            elif "503" in error_message or "service unavailable" in error_message.lower():
+                error_type = "rate_limit"
+                error_message = "Groq API is temporarily unavailable (likely due to rate limits). Please try again in a few moments."
+
             return {
                 "success": False,
-                "error": f"Action item extraction failed: {str(e)}"
+                "error": error_message,
+                "error_type": error_type
             }
 
     def check_groq_status(self) -> Dict[str, Any]:
