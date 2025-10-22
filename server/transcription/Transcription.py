@@ -1,39 +1,94 @@
-import whisper
-import tempfile
+"""
+Transcription Service Module
+
+This module provides audio transcription using Groq's Whisper API.
+"""
+
 import os
-import ssl
+import tempfile
 from pathlib import Path
 from typing import Dict, Any
+from groq import Groq
+from dotenv import load_dotenv
 
-# Bypass SSL verification for Whisper model download
-ssl._create_default_https_context = ssl._create_unverified_context
+# Load environment variables
+load_dotenv()
 
 class TranscriptionService:
-    def __init__(self, model_size: str = "base"):
-        self.model_size = model_size
-        self._model = None
+    """
+    Transcription service using Groq's Whisper API.
 
-    def _load_model(self):
-        if self._model is None:
-            self._model = whisper.load_model(self.model_size)
-        return self._model
+    Attributes:
+        groq_client (Groq): The Groq API client
+        model (str): The Whisper model to use (default: whisper-large-v3-turbo)
+    """
+
+    def __init__(self, model_size: str = "whisper-large-v3-turbo"):
+        """
+        Initialize the TranscriptionService.
+
+        Args:
+            model_size (str): Groq Whisper model to use. Options:
+                - whisper-large-v3-turbo (fastest, recommended)
+                - whisper-large-v3
+        """
+        # Get Groq API key from environment variable
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise ValueError("GROQ_API_KEY environment variable is required")
+
+        # Initialize Groq client
+        self.groq_client = Groq(api_key=api_key)
+
+        # Set the model
+        self.model = model_size
 
     def transcribe_file(self, file_content: bytes, filename: str) -> Dict[str, Any]:
+        """
+        Transcribe an audio file using Groq's Whisper API.
+
+        Args:
+            file_content (bytes): The audio file content as bytes
+            filename (str): The original filename (used to determine file type)
+
+        Returns:
+            Dict[str, Any]: A dictionary containing:
+                - filename (str): The original filename
+                - transcription (str): The transcribed text
+                - language (str): Detected language (if available)
+                - segments (list): Timestamped segments (if available)
+        """
         # Create temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix=Path(filename).suffix) as temp_file:
             temp_file.write(file_content)
             temp_file_path = temp_file.name
 
         try:
-            # Load model and transcribe
-            model = self._load_model()
-            result = model.transcribe(temp_file_path)
+            # Open the file and send to Groq Whisper API
+            with open(temp_file_path, "rb") as audio_file:
+                transcription = self.groq_client.audio.transcriptions.create(
+                    file=(filename, audio_file.read()),
+                    model=self.model,
+                    response_format="verbose_json",  # Get detailed response with timestamps
+                )
+
+            # Extract segments with timestamps if available
+            segments = []
+            if hasattr(transcription, 'segments') and transcription.segments:
+                segments = [
+                    {
+                        "start": segment.get("start"),
+                        "end": segment.get("end"),
+                        "text": segment.get("text")
+                    }
+                    for segment in transcription.segments
+                ]
 
             return {
                 "filename": filename,
-                "transcription": result["text"],
-                "language": result.get("language"),
-                "segments": result.get("segments", [])
+                "transcription": transcription.text,
+                "language": getattr(transcription, 'language', None),
+                "segments": segments
             }
 
         finally:
@@ -42,6 +97,15 @@ class TranscriptionService:
                 os.unlink(temp_file_path)
 
     def is_supported_file_type(self, content_type: str) -> bool:
+        """
+        Check if the file type is supported for transcription.
+
+        Args:
+            content_type (str): The MIME type of the file
+
+        Returns:
+            bool: True if supported, False otherwise
+        """
         allowed_types = [
             "audio/mpeg",
             "audio/wav",
@@ -49,9 +113,12 @@ class TranscriptionService:
             "audio/mp4",
             "audio/m4a",
             "audio/flac",
+            "audio/webm",
+            "audio/ogg",
             "video/mp4",
             "video/mpeg",
             "video/quicktime",
+            "video/webm",
             "application/octet-stream"
         ]
         return content_type in allowed_types

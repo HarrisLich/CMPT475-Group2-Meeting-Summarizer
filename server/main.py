@@ -2,6 +2,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from transcription.Transcription import TranscriptionService
+from transcription.audio_utils import compress_audio
 from auth.routes import router as auth_router
 from auth.supabase_dependencies import get_current_user
 from database.supabase_service import get_supabase
@@ -86,6 +87,29 @@ async def transcribe_audio(
         # Read file content
         content = await audio_file.read()
 
+        # Check file size and compress if needed (Groq has a 25MB limit)
+        file_size_mb = len(content) / (1024 * 1024)
+        if file_size_mb > 25:
+            print(f"File too large ({file_size_mb:.1f}MB), attempting compression...")
+            try:
+                # Try to compress the audio
+                content = compress_audio(content, audio_file.filename, target_size_mb=20)
+                compressed_size_mb = len(content) / (1024 * 1024)
+                print(f"Compressed to {compressed_size_mb:.1f}MB")
+
+                # If still too large after compression, reject
+                if compressed_size_mb > 25:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"File too large even after compression ({compressed_size_mb:.1f}MB). Maximum file size is 25MB. Please split your audio into smaller segments."
+                    )
+            except Exception as compress_error:
+                print(f"Compression failed: {str(compress_error)}")
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File too large ({file_size_mb:.1f}MB) and compression failed. Maximum file size is 25MB."
+                )
+
         # Transcribe using the service
         result = transcription_service.transcribe_file(content, audio_file.filename)
 
@@ -110,6 +134,10 @@ async def transcribe_audio(
         return result
 
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"ERROR in /transcribe endpoint: {str(e)}")
+        print(f"Full traceback:\n{error_trace}")
         raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
 
 @app.get("/test/public")
@@ -157,16 +185,16 @@ async def protected_route(current_user = Depends(get_current_user)):
     return {"message": "This is protected", "user": current_user}
 
 
-        
-@app.get("/ollama/status")
-async def ollama_status():
+
+@app.get("/groq/status")
+async def groq_status():
     """
-    Endpoint to check if Ollama is running and accessible.
+    Endpoint to check if Groq API is accessible.
 
     Returns:
         Dict[str, Any]: Status information from the SummarizationService.
     """
-    return summarization_service.check_ollama_status()
+    return summarization_service.check_groq_status()
 
 @app.post("/summarize")
 async def summarize_transcription(request: SummarizeRequest):
