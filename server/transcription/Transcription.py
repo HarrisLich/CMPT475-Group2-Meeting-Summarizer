@@ -9,7 +9,18 @@ from typing import Dict, Any
 ssl._create_default_https_context = ssl._create_unverified_context
 
 class TranscriptionService:
-    def __init__(self, model_size: str = "base"):
+    def __init__(self, model_size: str = "small"):
+        """
+        Initialize the TranscriptionService with a specified Whisper model.
+
+        Args:
+            model_size: Whisper model size. Options:
+                - 'tiny': Fastest, lowest accuracy (~1GB RAM, 5x faster)
+                - 'small': Good balance for CPU-only (2-3x faster, recommended)
+                - 'base': Default, moderate speed/accuracy
+                - 'medium': Slower but more accurate
+                - 'large': Slowest, highest accuracy (not recommended for CPU-only)
+        """
         self.model_size = model_size
         self._model = None
 
@@ -27,7 +38,12 @@ class TranscriptionService:
         try:
             # Load model and transcribe
             model = self._load_model()
-            result = model.transcribe(temp_file_path)
+            # CPU optimization: Use fp16=False for better CPU performance
+            result = model.transcribe(
+                temp_file_path,
+                fp16=False,  # Disable half-precision (not supported on CPU)
+                verbose=False  # Reduce console output
+            )
 
             return {
                 "filename": filename,
