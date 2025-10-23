@@ -1,11 +1,12 @@
 """
 Local Whisper Transcription Service Module
 
-This module provides LOCAL audio transcription using OpenAI's Whisper model.
+This module provides LOCAL audio transcription using faster-whisper.
 Runs entirely on your machine - no API calls, unlimited usage.
+4-5x faster than base Whisper with same accuracy!
 """
 
-import whisper
+from faster_whisper import WhisperModel
 import tempfile
 import os
 import ssl
@@ -34,7 +35,13 @@ class LocalWhisperService:
 
     def _load_model(self):
         if self._model is None:
-            self._model = whisper.load_model(self.model_size)
+            # Load model with faster-whisper
+            # device="cpu" works on all platforms, "auto" will use GPU if available
+            self._model = WhisperModel(
+                self.model_size,
+                device="cpu",
+                compute_type="int8"  # 8-bit quantization for speed/memory efficiency
+            )
         return self._model
 
     def transcribe_file(self, file_content: bytes, filename: str) -> Dict[str, Any]:
@@ -46,18 +53,31 @@ class LocalWhisperService:
         try:
             # Load model and transcribe
             model = self._load_model()
-            # CPU optimization: Use fp16=False for better CPU performance
-            result = model.transcribe(
+
+            # faster-whisper returns (segments, info) tuple
+            segments, info = model.transcribe(
                 temp_file_path,
-                fp16=False,  # Disable half-precision (not supported on CPU)
-                verbose=False  # Reduce console output
+                beam_size=5,  # Good balance of speed/accuracy
+                vad_filter=True  # Voice Activity Detection for better results
             )
+
+            # Convert segments iterator to list and build full text
+            segments_list = []
+            full_text = []
+
+            for segment in segments:
+                segments_list.append({
+                    "start": segment.start,
+                    "end": segment.end,
+                    "text": segment.text
+                })
+                full_text.append(segment.text)
 
             return {
                 "filename": filename,
-                "transcription": result["text"],
-                "language": result.get("language"),
-                "segments": result.get("segments", [])
+                "transcription": " ".join(full_text),
+                "language": info.language,
+                "segments": segments_list
             }
 
         finally:

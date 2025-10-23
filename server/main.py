@@ -76,7 +76,7 @@ async def health_check():
 
 # Initialize transcription service (HYBRID: Groq + Local Whisper)
 # Uses Groq's fast Whisper API when possible, falls back to local Whisper
-whisper_model = os.getenv("WHISPER_MODEL", "small")
+whisper_model = os.getenv("WHISPER_MODEL", "tiny")
 transcription_service = HybridTranscriptionService(
     whisper_model=whisper_model,
     groq_model="whisper-large-v3"
