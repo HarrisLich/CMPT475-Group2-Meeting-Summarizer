@@ -1,26 +1,32 @@
 """
 Summarization Service Module
 
-This module provides AI-powered summarization of meeting transcriptions using Groq.
-
+This module provides AI-powered summarization of meeting transcriptions using LOCAL Ollama.
+All operations (summarization, chat, action items) run on your machine - unlimited and free.
 """
 
 import os
 from typing import Dict, Any
-from groq import Groq
+import requests
 from dotenv import load_dotenv
+import json
 
-# load environment variables from .env file
+# Load environment variables from .env file
 load_dotenv()
+
 
 class SummarizationService:
     """
+    Ollama-based summarization service for meeting transcriptions.
+
+    All AI operations run locally - no cloud API calls, completely unlimited.
+
     Attributes:
-        groq_client (Groq): The Groq API client
-        model (str): The Groq model to use for summarization (default: llama-3.3-70b-versatile)
+        ollama_host (str): The URL where Ollama is running (default: http://localhost:11434)
+        model (str): The Ollama model to use (default: llama3.2:1b for speed)
     """
 
-    # default prompt template
+    # Default prompt template for summarization
     DEFAULT_PROMPT_TEMPLATE = """You are a meeting summarization assistant. Please analyze the following meeting transcription and provide:
 
 1. A brief summary (3-4 sentences)
@@ -34,27 +40,20 @@ Meeting Transcription:
 Please format your response clearly with sections for each part."""
 
     def __init__(self):
-        
-        # Get Groq API key from environment variable
-        api_key = os.getenv("GROQ_API_KEY")
-        if not api_key:
-            raise ValueError("GROQ_API_KEY environment variable is required")
+        """
+        Initialize the SummarizationService with Ollama.
 
-        # Initialize Groq client
-        self.groq_client = Groq(api_key=api_key)
-
-        # Get the model name from environment variable, default to llama-3.3-70b-versatile
-        # Available models: llama-3.3-70b-versatile, llama-3.1-70b-versatile, mixtral-8x7b-32768
-        self.model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-
-        # Always use the default prompt template
+        Reads configuration from environment variables:
+        - OLLAMA_HOST: Where Ollama is running (e.g., http://localhost:11434)
+        - OLLAMA_MODEL: Which AI model to use (e.g., llama3.2:1b, llama3.2)
+        """
+        self.ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+        self.model = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
         self.prompt_template = self.DEFAULT_PROMPT_TEMPLATE
 
     def summarize_transcription(self, transcription_text: str) -> Dict[str, Any]:
         """
-        Summarize a meeting transcription using Groq's AI models.
-
-        This method uses the prompt to create a structured summary of the provided transcription text.
+        Summarize a meeting transcription using LOCAL Ollama.
 
         Args:
             transcription_text (str): The full text transcription of the meeting
@@ -66,66 +65,66 @@ Please format your response clearly with sections for each part."""
                 - model_used (str): Which model was used
                 - transcription_length (int): Length of the input text
                 - error (str): Error message (if failed)
-
-        Example:
-            >>> service = SummarizationService()
-            >>> result = service.summarize_transcription("Meeting about project updates...")
-            >>> print(result['summary'])
         """
-
-        # Format the default prompt with the transcription text
+        # Format the prompt with the transcription text
         prompt = self.prompt_template.format(transcription_text=transcription_text)
 
         try:
-            # Send a request to Groq's chat completion API
-            chat_completion = self.groq_client.chat.completions.create(
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    }
-                ],
-                model=self.model,
-                temperature=0.5,  # Lower temperature for more focused summaries
-                max_tokens=2048,  # Enough tokens for detailed summaries
+            # Send POST request to LOCAL Ollama's chat API endpoint (v0.12+)
+            response = requests.post(
+                f"{self.ollama_host}/api/chat",
+                json={
+                    "model": self.model,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    "stream": False  # Get full response at once
+                },
+                timeout=300  # 5 minute timeout for long transcriptions
             )
 
-            # Extract the AI's response
-            summary = chat_completion.choices[0].message.content
+            # Raise exception if HTTP request failed
+            response.raise_for_status()
 
-            # Return a success response with the AI-generated summary
+            # Parse JSON response from Ollama
+            result = response.json()
+
+            # Extract message content from chat response
+            message = result.get("message", {})
+            summary_text = message.get("content", "")
+
             return {
                 "success": True,
-                "summary": summary,
+                "summary": summary_text,
                 "model_used": self.model,
                 "transcription_length": len(transcription_text)
             }
 
-        except Exception as e:
-            error_message = str(e)
-            error_type = "api_error"
-
-            # Check if this is a rate limit error
-            if "rate_limit" in error_message.lower() or "429" in error_message or "quota" in error_message.lower():
-                error_type = "rate_limit"
-                error_message = "Groq API rate limit exceeded. Please wait a moment before trying again."
-            elif "503" in error_message or "service unavailable" in error_message.lower():
-                error_type = "rate_limit"
-                error_message = "Groq API is temporarily unavailable (likely due to rate limits). Please try again in a few moments."
-
-            # Catch any errors
+        except requests.exceptions.ConnectionError:
             return {
                 "success": False,
-                "error": error_message,
-                "error_type": error_type
+                "error": "Could not connect to Ollama. Make sure Ollama is running on your machine.",
+                "hint": "Run 'ollama serve' in a terminal"
+            }
+
+        except requests.exceptions.Timeout:
+            return {
+                "success": False,
+                "error": "Summarization timed out. The transcription might be too long."
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Summarization failed: {str(e)}"
             }
 
     def chat_about_meeting(self, meeting_context: str, user_question: str) -> Dict[str, Any]:
         """
-        Have a conversational interaction about a meeting using Groq.
-
-        This method allows for natural conversation about meeting content,
-        answering questions, providing greetings, and discussing specific topics.
+        Have a conversational interaction about a meeting using LOCAL Ollama.
 
         Args:
             meeting_context (str): The meeting summary or transcription for context
@@ -138,64 +137,69 @@ Please format your response clearly with sections for each part."""
                 - model_used (str): Which model was used
                 - error (str): Error message (if failed)
         """
+        # Create conversational prompt for Ollama
+        prompt = f"""You are a friendly and helpful meeting assistant AI named SumurAI. You help users understand and interact with their meeting content.
 
-        # Create a conversational prompt that makes the AI act as a meeting assistant
-        system_message = """You are a friendly and helpful meeting assistant AI named SumurAI. You help users understand and interact with their meeting content.
-            You have access to the full meeting transcription with timestamps. When users ask about specific times or moments,
-            reference the timestamps to provide accurate information. When users ask about what was said about a topic or person, search through the transcription for relevant mentions."""
+You have access to the full meeting transcription with timestamps. When users ask about specific times or moments, reference the timestamps to provide accurate information. When users ask about what was said about a topic or person, search through the transcription for relevant mentions.
+
+Meeting Context:
+{meeting_context}
+
+User: {user_question}
+
+SumurAI Assistant: """
 
         try:
-            # Send a request to Groq's chat completion API
-            chat_completion = self.groq_client.chat.completions.create(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": system_message,
-                    },
-                    {
-                        "role": "user",
-                        "content": f"Meeting Context:\n{meeting_context}\n\nUser Question: {user_question}",
-                    }
-                ],
-                model=self.model,
-                temperature=0.7,  # Higher temperature for more conversational responses
-                max_tokens=1024,
+            # Send POST request to LOCAL Ollama's chat API (v0.12+)
+            response = requests.post(
+                f"{self.ollama_host}/api/chat",
+                json={
+                    "model": self.model,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    "stream": False
+                },
+                timeout=120  # 2 minute timeout for chat
             )
 
-            # Extract the AI's response
-            response = chat_completion.choices[0].message.content
+            response.raise_for_status()
+            result = response.json()
 
-            # Return a success response with the AI's conversational response
+            # Extract message content from chat response
+            message = result.get("message", {})
+            response_text = message.get("content", "")
+
             return {
                 "success": True,
-                "response": response,
+                "response": response_text,
                 "model_used": self.model
             }
 
-        except Exception as e:
-            error_message = str(e)
-            error_type = "api_error"
-
-            # Check if this is a rate limit error
-            if "rate_limit" in error_message.lower() or "429" in error_message or "quota" in error_message.lower():
-                error_type = "rate_limit"
-                error_message = "Groq API rate limit exceeded. Please wait a moment before trying again."
-            elif "503" in error_message or "service unavailable" in error_message.lower():
-                error_type = "rate_limit"
-                error_message = "Groq API is temporarily unavailable (likely due to rate limits). Please try again in a few moments."
-
+        except requests.exceptions.ConnectionError:
             return {
                 "success": False,
-                "error": error_message,
-                "error_type": error_type
+                "error": "Could not connect to Ollama. Make sure Ollama is running on your machine."
+            }
+
+        except requests.exceptions.Timeout:
+            return {
+                "success": False,
+                "error": "Request timed out. Please try again."
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Chat failed: {str(e)}"
             }
 
     def extract_action_items(self, transcription_text: str) -> Dict[str, Any]:
         """
-        Extract detailed action items from a meeting transcription using Groq.
-
-        This method takes a transcription and uses AI to identify and structure action items
-        with details like priority, assigned person, and task description.
+        Extract detailed action items from a meeting transcription using LOCAL Ollama.
 
         Args:
             transcription_text (str): The meeting transcription text
@@ -210,8 +214,7 @@ Please format your response clearly with sections for each part."""
                 - model_used (str): Which model was used
                 - error (str): Error message (if failed)
         """
-
-        # Create a specialized prompt for extracting action items
+        # Create specialized prompt for extracting action items
         prompt = f"""Extract action items from this meeting transcription. Look for tasks, to-dos, assignments, or things people agreed to do.
 
 Meeting Transcription:
@@ -231,43 +234,46 @@ Return ONLY valid JSON. Example:
 If no action items exist, return: []"""
 
         try:
-            # Send a request to Groq's chat completion API
-            chat_completion = self.groq_client.chat.completions.create(
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    }
-                ],
-                model=self.model,
-                temperature=0.3,  # Lower temperature for more structured output
-                max_tokens=2048,
+            # Send POST request to LOCAL Ollama's chat API (v0.12+)
+            response = requests.post(
+                f"{self.ollama_host}/api/chat",
+                json={
+                    "model": self.model,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    "stream": False
+                },
+                timeout=300  # 5 minute timeout
             )
 
-            # Extract the AI's response
-            ai_response = chat_completion.choices[0].message.content.strip()
+            response.raise_for_status()
+            result = response.json()
 
-            # Try to parse the AI's response as JSON
-            import json
+            # Extract message content from chat response
+            message = result.get("message", {})
+            ai_response = message.get("content", "").strip()
 
-            # Clean up the response - remove markdown code blocks and extra text
+            # Parse AI response as JSON
+            # Clean up the response - remove markdown code blocks
             cleaned_response = ai_response.strip()
 
             # Remove markdown code blocks
             if "```json" in cleaned_response:
-                # Extract content between ```json and ```
                 start = cleaned_response.find("```json") + 7
                 end = cleaned_response.find("```", start)
                 if end != -1:
                     cleaned_response = cleaned_response[start:end].strip()
             elif "```" in cleaned_response:
-                # Extract content between ``` and ```
                 start = cleaned_response.find("```") + 3
                 end = cleaned_response.find("```", start)
                 if end != -1:
                     cleaned_response = cleaned_response[start:end].strip()
 
-            # Try to find JSON array in the response (look for [ and ])
+            # Find JSON array in response (look for [ and ])
             if not cleaned_response.startswith("["):
                 start_idx = cleaned_response.find("[")
                 if start_idx != -1:
@@ -275,14 +281,14 @@ If no action items exist, return: []"""
                     if end_idx != -1:
                         cleaned_response = cleaned_response[start_idx:end_idx+1]
 
-            # Parse the JSON array of action items
+            # Parse JSON array of action items
             action_items = json.loads(cleaned_response)
 
             # Validate that we got a list
             if not isinstance(action_items, list):
                 action_items = []
 
-            # Ensure all action items have the required fields
+            # Ensure all action items have required fields
             normalized_items = []
             for item in action_items:
                 if isinstance(item, dict):
@@ -292,7 +298,6 @@ If no action items exist, return: []"""
                         "assigned_to": item.get("assigned_to", "Unassigned")
                     })
 
-            # Return success response with extracted action items
             return {
                 "success": True,
                 "action_items": normalized_items,
@@ -300,7 +305,7 @@ If no action items exist, return: []"""
             }
 
         except json.JSONDecodeError:
-            # If we can't parse the JSON, return empty action items
+            # If can't parse JSON, return empty action items
             return {
                 "success": True,
                 "action_items": [],
@@ -308,64 +313,53 @@ If no action items exist, return: []"""
                 "warning": "Could not parse action items from AI response"
             }
 
-        except Exception as e:
-            error_message = str(e)
-            error_type = "api_error"
-
-            # Check if this is a rate limit error
-            if "rate_limit" in error_message.lower() or "429" in error_message or "quota" in error_message.lower():
-                error_type = "rate_limit"
-                error_message = "Groq API rate limit exceeded. Please wait a moment before trying again."
-            elif "503" in error_message or "service unavailable" in error_message.lower():
-                error_type = "rate_limit"
-                error_message = "Groq API is temporarily unavailable (likely due to rate limits). Please try again in a few moments."
-
+        except requests.exceptions.ConnectionError:
             return {
                 "success": False,
-                "error": error_message,
-                "error_type": error_type
+                "error": "Could not connect to Ollama. Make sure Ollama is running on your machine."
             }
 
-    def check_groq_status(self) -> Dict[str, Any]:
+        except requests.exceptions.Timeout:
+            return {
+                "success": False,
+                "error": "Action item extraction timed out. Please try again."
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Action item extraction failed: {str(e)}"
+            }
+
+    def check_ollama_status(self) -> Dict[str, Any]:
         """
-        Check if Groq API is accessible.
+        Check if LOCAL Ollama is running and accessible.
 
         Returns:
             Dict[str, Any]: A dictionary containing:
                 - status (str): "connected" or "disconnected"
-                - model (str): The configured model name
-                - message (str): Status message
-
-        Example:
-            >>> service = SummarizationService()
-            >>> status = service.check_groq_status()
-            >>> if status['status'] == 'connected':
-            >>>     print(f"Groq is ready with model: {status['model']}")
+                - host (str): The Ollama host URL
+                - available_models (list): List of model names (if connected)
+                - message (str): Error message (if disconnected)
         """
         try:
-            # Try a simple API call to check connectivity
-            chat_completion = self.groq_client.chat.completions.create(
-                messages=[
-                    {
-                        "role": "user",
-                        "content": "Hello",
-                    }
-                ],
-                model=self.model,
-                max_tokens=10,
-            )
+            # Try to get list of available models from Ollama
+            response = requests.get(f"{self.ollama_host}/api/tags", timeout=5)
+            response.raise_for_status()
 
-            # Return success status
+            # Parse response to get models
+            models = response.json().get("models", [])
+
             return {
                 "status": "connected",
-                "model": self.model,
-                "message": "Groq API is accessible"
+                "host": self.ollama_host,
+                "available_models": [m.get("name") for m in models]
             }
 
-        except Exception as e:
-            # If anything goes wrong, Groq is not accessible
+        except:
+            # If anything goes wrong, Ollama is not accessible
             return {
                 "status": "disconnected",
-                "model": self.model,
-                "message": f"Groq API is not accessible: {str(e)}"
+                "host": self.ollama_host,
+                "message": "Ollama is not running or not accessible"
             }

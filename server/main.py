@@ -2,6 +2,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from transcription.Transcription import TranscriptionService
+from transcription.Groq_Transcription import HybridTranscriptionService
 from transcription.audio_utils import compress_audio
 from auth.routes import router as auth_router
 from auth.supabase_dependencies import get_current_user
@@ -9,6 +10,11 @@ from database.supabase_service import get_supabase
 from auth import auth_router, get_current_user
 from summarization import SummarizationService
 from pydantic import BaseModel
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 class SummarizeRequest(BaseModel):
     """
@@ -68,10 +74,16 @@ async def root():
 async def health_check():
     return {"status": "healthy", "service": "meeting-summarizer"}
 
-# Initialize transcription service
-transcription_service = TranscriptionService()
+# Initialize transcription service (HYBRID: Groq + Local Whisper)
+# Uses Groq's fast Whisper API when possible, falls back to local Whisper
+whisper_model = os.getenv("WHISPER_MODEL", "small")
+transcription_service = HybridTranscriptionService(
+    whisper_model=whisper_model,
+    groq_model="whisper-large-v3"
+)
 
-# Initialize summarization service
+# Initialize summarization service (LOCAL ONLY - Ollama)
+# ALL summarization, chat, and action items run locally - unlimited and free!
 summarization_service = SummarizationService()
 
 # Transcription endpoint (authentication disabled for testing)
@@ -259,15 +271,15 @@ async def protected_route(current_user = Depends(get_current_user)):
 
 
 
-@app.get("/groq/status")
-async def groq_status():
+@app.get("/ollama/status")
+async def ollama_status():
     """
-    Endpoint to check if Groq API is accessible.
+    Endpoint to check if LOCAL Ollama is running and accessible.
 
     Returns:
         Dict[str, Any]: Status information from the SummarizationService.
     """
-    return summarization_service.check_groq_status()
+    return summarization_service.check_ollama_status()
 
 @app.post("/summarize")
 async def summarize_transcription(request: SummarizeRequest):
