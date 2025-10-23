@@ -29,15 +29,15 @@ class SummarizationService:
     # Default prompt template for summarization
     DEFAULT_PROMPT_TEMPLATE = """You are a meeting summarization assistant. Please analyze the following meeting transcription and provide:
 
-1. A brief summary (3-4 sentences)
-2. Key points discussed (bullet points)
-3. Action items (if any)
-4. Main topics covered
+        1. A brief summary (5-10 sentences)
+        2. Key points discussed (bullet points)
+        3. Action items (if any)
+        4. Main topics covered (5-10 Sentences)
 
 Meeting Transcription:
 {transcription_text}
 
-Please format your response clearly with sections for each part."""
+    Please format your response clearly with sections for each part."""
 
     def __init__(self):
         """
@@ -140,14 +140,15 @@ Please format your response clearly with sections for each part."""
         # Create conversational prompt for Ollama
         prompt = f"""You are a friendly and helpful meeting assistant AI named SumurAI. You help users understand and interact with their meeting content.
 
-You have access to the full meeting transcription with timestamps. When users ask about specific times or moments, reference the timestamps to provide accurate information. When users ask about what was said about a topic or person, search through the transcription for relevant mentions.
+            You have access to the full meeting transcription with timestamps. When users ask about specific times or moments, reference the timestamps to 
+            provide accurate information. When users ask about what was said about a topic or person, search through the transcription for relevant mentions.
 
-Meeting Context:
-{meeting_context}
+    Meeting Context:
+    {meeting_context}
 
-User: {user_question}
+    User: {user_question}
 
-SumurAI Assistant: """
+    SumurAI Assistant: """
 
         try:
             # Send POST request to LOCAL Ollama's chat API (v0.12+)
@@ -217,21 +218,21 @@ SumurAI Assistant: """
         # Create specialized prompt for extracting action items
         prompt = f"""Extract action items from this meeting transcription. Look for tasks, to-dos, assignments, or things people agreed to do.
 
-Meeting Transcription:
-{transcription_text}
+    Meeting Transcription:
+    {transcription_text}
 
-Return a JSON array where each action item has:
-- task: what needs to be done
-- priority: high, medium, or low (based on urgency or importance)
-- assigned_to: person's name if mentioned, otherwise "Unassigned"
+        Return a JSON array where each action item has:
+        - task: what needs to be done
+        - priority: high, medium, or low (based on urgency or importance)
+        - assigned_to: person's name if mentioned, otherwise "Unassigned"
 
-Return ONLY valid JSON. Example:
-[
-  {{"task": "Complete user testing by Friday", "priority": "high", "assigned_to": "Sarah Chen"}},
-  {{"task": "Update documentation", "priority": "medium", "assigned_to": "Unassigned"}}
-]
+        Return ONLY valid JSON. Example:
+            [
+            {{"task": "Complete user testing by Friday", "priority": "high", "assigned_to": "Sarah Chen"}},
+            {{"task": "Update documentation", "priority": "medium", "assigned_to": "Unassigned"}}
+            ]
 
-If no action items exist, return: []"""
+        If no action items exist, return: []"""
 
         try:
             # Send POST request to LOCAL Ollama's chat API (v0.12+)

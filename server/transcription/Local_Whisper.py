@@ -17,14 +17,14 @@ ssl._create_default_https_context = ssl._create_unverified_context
 
 
 class LocalWhisperService:
-    def __init__(self, model_size: str = "small"):
+    def __init__(self, model_size: str = "tiny"):
         """
         Initialize the Local Whisper transcription service.
 
         Args:
             model_size: Whisper model size. Options:
-                - 'tiny': Fastest, lowest accuracy (~1GB RAM, 5x faster)
-                - 'small': Good balance for CPU-only (2-3x faster, recommended)
+                - 'tiny': Fastest, lowest accuracy (~1GB RAM, 5x faster) - DEFAULT for failsafe
+                - 'small': Good balance for CPU-only (2-3x faster)
                 - 'base': Default, moderate speed/accuracy
                 - 'medium': Slower but more accurate
                 - 'large': Slowest, highest accuracy (not recommended for CPU-only)
