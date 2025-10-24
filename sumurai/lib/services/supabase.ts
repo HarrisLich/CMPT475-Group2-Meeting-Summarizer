@@ -31,8 +31,11 @@ export type ProfileData = {
     name?: string;
     email?: string;
     avatar_url?: string;
-    role?: string;       // These fields don't exist yet but we'll 
-    location?: string;   // add them in step 6
+    role?: string;
+    location?: string;
+    membership_type?: string;
+    updated_at?: string;
+    created_at?: string;
   };
   
   export const getCurrentProfile = async () => {
