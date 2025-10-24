@@ -1,63 +1,59 @@
 """
 Summarization Service Module
 
-This module provides AI-powered summarization of meeting transcriptions using Ollama.
-
+This module provides AI-powered summarization of meeting transcriptions using LOCAL Ollama.
+All operations (summarization, chat, action items) run on your machine - unlimited and free.
 """
 
 import os
 from typing import Dict, Any
 import requests
 from dotenv import load_dotenv
+import json
 
-# load environment variables from .env file
-# this allows us to configure Ollama host and model without changing code
+# Load environment variables from .env file
 load_dotenv()
+
 
 class SummarizationService:
     """
+    Ollama-based summarization service for meeting transcriptions.
+
+    All AI operations run locally - no cloud API calls, completely unlimited.
+
     Attributes:
         ollama_host (str): The URL where Ollama is running (default: http://localhost:11434)
-        model (str): The Ollama model to use for summarization (default: llama3.2)
+        model (str): The Ollama model to use (default: llama3.2:1b for speed)
     """
 
-    # default prompt template
-    # this makes it easy to see, modify, and override
-    # the {transcription_text} placeholder will be replaced with the actual transcription
+    # Default prompt template for summarization
     DEFAULT_PROMPT_TEMPLATE = """You are a meeting summarization assistant. Please analyze the following meeting transcription and provide:
 
-1. A brief summary (3-4 sentences)
-2. Key points discussed (bullet points)
-3. Action items (if any)
-4. Main topics covered
+        1. A brief summary (5-10 sentences)
+        2. Key points discussed (bullet points)
+        3. Action items (if any)
+        4. Main topics covered (5-10 Sentences)
 
 Meeting Transcription:
 {transcription_text}
 
-Please format your response clearly with sections for each part."""
+    Please format your response clearly with sections for each part."""
 
     def __init__(self):
         """
-        Initialize the SummarizationService.
+        Initialize the SummarizationService with Ollama.
 
         Reads configuration from environment variables:
         - OLLAMA_HOST: Where Ollama is running (e.g., http://localhost:11434)
-        - OLLAMA_MODEL: Which AI model to use (e.g., llama3.2, mistral)
+        - OLLAMA_MODEL: Which AI model to use (e.g., llama3.2:1b, llama3.2)
         """
-        # Get Ollama host from environment variable, default to localhost if not set
         self.ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-
-        # Get the model name from environment variable, default to llama3.2
-        self.model = os.getenv("OLLAMA_MODEL", "llama3.2")
-
-        # Always use the default prompt template
+        self.model = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
         self.prompt_template = self.DEFAULT_PROMPT_TEMPLATE
 
     def summarize_transcription(self, transcription_text: str) -> Dict[str, Any]:
         """
-        Summarize a meeting transcription using Ollama's AI models.
-
-        This method uses the prompt to create a structured summary of the provided transcription text.
+        Summarize a meeting transcription using LOCAL Ollama.
 
         Args:
             transcription_text (str): The full text transcription of the meeting
@@ -69,45 +65,45 @@ Please format your response clearly with sections for each part."""
                 - model_used (str): Which model was used
                 - transcription_length (int): Length of the input text
                 - error (str): Error message (if failed)
-
-        Example:
-            >>> service = SummarizationService()
-            >>> result = service.summarize_transcription("Meeting about project updates...")
-            >>> print(result['summary'])
         """
-
-        # Format the default prompt with the transcription text
+        # Format the prompt with the transcription text
         prompt = self.prompt_template.format(transcription_text=transcription_text)
 
         try:
-            # Send a POST request to Ollama's generate API endpoint
-            # This endpoint takes a model name and prompt, and returns AI-generated text
+            # Send POST request to LOCAL Ollama's chat API endpoint (v0.12+)
             response = requests.post(
-                f"{self.ollama_host}/api/generate",  # Ollama's API endpoint
+                f"{self.ollama_host}/api/chat",
                 json={
-                    "model": self.model,              # Which AI model to use
-                    "prompt": prompt,                 # The prompt we created above
-                    "stream": False                   # Get the full response at once (not streaming)
+                    "model": self.model,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    "stream": False  # Get full response at once
                 },
-                timeout=300  # Wait up to 5 minutes (AI can take time for long texts)
+                timeout=300  # 5 minute timeout for long transcriptions
             )
 
-            # Raise an exception if the HTTP request failed (non-200 status code)
+            # Raise exception if HTTP request failed
             response.raise_for_status()
 
-            # Parse the JSON response from Ollama
+            # Parse JSON response from Ollama
             result = response.json()
 
-            # Return a success response with the AI-generated summary
+            # Extract message content from chat response
+            message = result.get("message", {})
+            summary_text = message.get("content", "")
+
             return {
                 "success": True,
-                "summary": result.get("response", ""),           # The AI's summary
-                "model_used": self.model,                        # Which model we used
-                "transcription_length": len(transcription_text)  # Original text length
+                "summary": summary_text,
+                "model_used": self.model,
+                "transcription_length": len(transcription_text)
             }
 
         except requests.exceptions.ConnectionError:
-            # This error occurs when Ollama isn't running or isn't accessible
             return {
                 "success": False,
                 "error": "Could not connect to Ollama. Make sure Ollama is running on your machine.",
@@ -115,14 +111,12 @@ Please format your response clearly with sections for each part."""
             }
 
         except requests.exceptions.Timeout:
-            # This error occurs when the AI takes too long to respond
             return {
                 "success": False,
                 "error": "Summarization timed out. The transcription might be too long."
             }
 
         except Exception as e:
-            # Catch any other unexpected errors
             return {
                 "success": False,
                 "error": f"Summarization failed: {str(e)}"
@@ -130,10 +124,7 @@ Please format your response clearly with sections for each part."""
 
     def chat_about_meeting(self, meeting_context: str, user_question: str) -> Dict[str, Any]:
         """
-        Have a conversational interaction about a meeting using Ollama.
-
-        This method allows for natural conversation about meeting content,
-        answering questions, providing greetings, and discussing specific topics.
+        Have a conversational interaction about a meeting using LOCAL Ollama.
 
         Args:
             meeting_context (str): The meeting summary or transcription for context
@@ -146,41 +137,46 @@ Please format your response clearly with sections for each part."""
                 - model_used (str): Which model was used
                 - error (str): Error message (if failed)
         """
-
-        # Create a conversational prompt that makes Ollama act as a meeting assistant
+        # Create conversational prompt for Ollama
         prompt = f"""You are a friendly and helpful meeting assistant AI named SumurAI. You help users understand and interact with their meeting content.
 
-You have access to the full meeting transcription with timestamps. When users ask about specific times or moments, reference the timestamps to provide accurate information. When users ask about what was said about a topic or person, search through the transcription for relevant mentions.
+            You have access to the full meeting transcription with timestamps. When users ask about specific times or moments, reference the timestamps to 
+            provide accurate information. When users ask about what was said about a topic or person, search through the transcription for relevant mentions.
 
-Meeting Context:
-{meeting_context}
+    Meeting Context:
+    {meeting_context}
 
-User: {user_question}
+    User: {user_question}
 
-SumurAI Assistant: """
+    SumurAI Assistant: """
 
         try:
-            # Send a POST request to Ollama's generate API endpoint
+            # Send POST request to LOCAL Ollama's chat API (v0.12+)
             response = requests.post(
-                f"{self.ollama_host}/api/generate",
+                f"{self.ollama_host}/api/chat",
                 json={
                     "model": self.model,
-                    "prompt": prompt,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
                     "stream": False
                 },
-                timeout=120
+                timeout=120  # 2 minute timeout for chat
             )
 
-            # Raise an exception if the HTTP request failed
             response.raise_for_status()
-
-            # Parse the JSON response from Ollama
             result = response.json()
 
-            # Return a success response with the AI's conversational response
+            # Extract message content from chat response
+            message = result.get("message", {})
+            response_text = message.get("content", "")
+
             return {
                 "success": True,
-                "response": result.get("response", ""),
+                "response": response_text,
                 "model_used": self.model
             }
 
@@ -204,10 +200,7 @@ SumurAI Assistant: """
 
     def extract_action_items(self, transcription_text: str) -> Dict[str, Any]:
         """
-        Extract detailed action items from a meeting transcription using Ollama.
-
-        This method takes a transcription and uses AI to identify and structure action items
-        with details like priority, assigned person, and task description.
+        Extract detailed action items from a meeting transcription using LOCAL Ollama.
 
         Args:
             transcription_text (str): The meeting transcription text
@@ -222,66 +215,66 @@ SumurAI Assistant: """
                 - model_used (str): Which model was used
                 - error (str): Error message (if failed)
         """
-
-        # Create a specialized prompt for extracting action items
+        # Create specialized prompt for extracting action items
         prompt = f"""Extract action items from this meeting transcription. Look for tasks, to-dos, assignments, or things people agreed to do.
 
-Meeting Transcription:
-{transcription_text}
+    Meeting Transcription:
+    {transcription_text}
 
-Return a JSON array where each action item has:
-- task: what needs to be done
-- priority: high, medium, or low (based on urgency or importance)
-- assigned_to: person's name if mentioned, otherwise "Unassigned"
+        Return a JSON array where each action item has:
+        - task: what needs to be done
+        - priority: high, medium, or low (based on urgency or importance)
+        - assigned_to: person's name if mentioned, otherwise "Unassigned"
 
-Return ONLY valid JSON. Example:
-[
-  {{"task": "Complete user testing by Friday", "priority": "high", "assigned_to": "Sarah Chen"}},
-  {{"task": "Update documentation", "priority": "medium", "assigned_to": "Unassigned"}}
-]
+        Return ONLY valid JSON. Example:
+            [
+            {{"task": "Complete user testing by Friday", "priority": "high", "assigned_to": "Sarah Chen"}},
+            {{"task": "Update documentation", "priority": "medium", "assigned_to": "Unassigned"}}
+            ]
 
-If no action items exist, return: []"""
+        If no action items exist, return: []"""
 
         try:
-            # Send a POST request to Ollama's generate API endpoint
+            # Send POST request to LOCAL Ollama's chat API (v0.12+)
             response = requests.post(
-                f"{self.ollama_host}/api/generate",
+                f"{self.ollama_host}/api/chat",
                 json={
                     "model": self.model,
-                    "prompt": prompt,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
                     "stream": False
                 },
-                timeout=300  # 5 minute timeout for action item extraction
+                timeout=300  # 5 minute timeout
             )
 
-            # Raise an exception if the HTTP request failed
             response.raise_for_status()
-
-            # Parse the JSON response from Ollama
             result = response.json()
-            ai_response = result.get("response", "").strip()
 
-            # Try to parse the AI's response as JSON
-            import json
+            # Extract message content from chat response
+            message = result.get("message", {})
+            ai_response = message.get("content", "").strip()
 
-            # Clean up the response - remove markdown code blocks and extra text
+            # Parse AI response as JSON
+            # Clean up the response - remove markdown code blocks
             cleaned_response = ai_response.strip()
 
             # Remove markdown code blocks
             if "```json" in cleaned_response:
-                # Extract content between ```json and ```
                 start = cleaned_response.find("```json") + 7
                 end = cleaned_response.find("```", start)
                 if end != -1:
                     cleaned_response = cleaned_response[start:end].strip()
             elif "```" in cleaned_response:
-                # Extract content between ``` and ```
                 start = cleaned_response.find("```") + 3
                 end = cleaned_response.find("```", start)
                 if end != -1:
                     cleaned_response = cleaned_response[start:end].strip()
 
-            # Try to find JSON array in the response (look for [ and ])
+            # Find JSON array in response (look for [ and ])
             if not cleaned_response.startswith("["):
                 start_idx = cleaned_response.find("[")
                 if start_idx != -1:
@@ -289,14 +282,14 @@ If no action items exist, return: []"""
                     if end_idx != -1:
                         cleaned_response = cleaned_response[start_idx:end_idx+1]
 
-            # Parse the JSON array of action items
+            # Parse JSON array of action items
             action_items = json.loads(cleaned_response)
 
             # Validate that we got a list
             if not isinstance(action_items, list):
                 action_items = []
 
-            # Ensure all action items have the required fields
+            # Ensure all action items have required fields
             normalized_items = []
             for item in action_items:
                 if isinstance(item, dict):
@@ -306,7 +299,6 @@ If no action items exist, return: []"""
                         "assigned_to": item.get("assigned_to", "Unassigned")
                     })
 
-            # Return success response with extracted action items
             return {
                 "success": True,
                 "action_items": normalized_items,
@@ -314,7 +306,7 @@ If no action items exist, return: []"""
             }
 
         except json.JSONDecodeError:
-            # If we can't parse the JSON, return empty action items
+            # If can't parse JSON, return empty action items
             return {
                 "success": True,
                 "action_items": [],
@@ -342,8 +334,7 @@ If no action items exist, return: []"""
 
     def check_ollama_status(self) -> Dict[str, Any]:
         """
-        Check if Ollama is running and accessible.
-
+        Check if LOCAL Ollama is running and accessible.
 
         Returns:
             Dict[str, Any]: A dictionary containing:
@@ -351,29 +342,19 @@ If no action items exist, return: []"""
                 - host (str): The Ollama host URL
                 - available_models (list): List of model names (if connected)
                 - message (str): Error message (if disconnected)
-
-        Example:
-            >>> service = SummarizationService()
-            >>> status = service.check_ollama_status()
-            >>> if status['status'] == 'connected':
-            >>>     print(f"Ollama is running with models: {status['available_models']}")
         """
         try:
-            # Try to get the list of available models from Ollama
-            # The /api/tags endpoint returns all models that are downloaded
+            # Try to get list of available models from Ollama
             response = requests.get(f"{self.ollama_host}/api/tags", timeout=5)
-
-            # Raise an exception if the request failed
             response.raise_for_status()
 
-            # Parse the response to get the list of models
+            # Parse response to get models
             models = response.json().get("models", [])
 
-            # Return success status with available models
             return {
                 "status": "connected",
                 "host": self.ollama_host,
-                "available_models": [m.get("name") for m in models]  # Extract model names
+                "available_models": [m.get("name") for m in models]
             }
 
         except:

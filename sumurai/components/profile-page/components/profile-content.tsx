@@ -13,33 +13,10 @@ import { Badge } from "@/components/ui/badge";
 export default function ProfileContent() {
   return (
     <Tabs defaultValue="personal" className="space-y-6">
-      <TabsList className="grid w-full grid-cols-3">
-        <TabsTrigger value="personal">Personal</TabsTrigger>
+      <TabsList className="grid w-full grid-cols-2">
         <TabsTrigger value="account">Account</TabsTrigger>
         <TabsTrigger value="security">Security</TabsTrigger>
       </TabsList>
-
-      {/* Personal Information */}
-      <TabsContent value="personal" className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Personal Information</CardTitle>
-            <CardDescription>
-              Your personal details are managed through the profile header. Click "Edit Profile" above to update your information.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">
-                All personal information fields have been moved to the main profile editing interface for a better user experience.
-              </p>
-              <p className="text-sm text-muted-foreground mt-2">
-                Use the "Edit Profile" button in the profile header to update your personal details, contact information, and professional background.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </TabsContent>
 
       {/* Account Settings */}
       <TabsContent value="account" className="space-y-6">

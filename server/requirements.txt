@@ -6,6 +6,9 @@ python-dotenv==1.0.1
 firebase-admin==6.5.0
 pyrebase4==4.6.0
 openai-whisper
+faster-whisper
 ffmpeg-python
 requests==2.31.0
+groq==0.33.0
+pydub==0.25.1
 
