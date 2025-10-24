@@ -2,36 +2,65 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase, signIn, signUp, signOut, getCurrentUser } from '../services/supabase';
+import { supabase, signIn, signUp, signOut, getCurrentUser, ProfileData, getCurrentProfile, updateProfile, uploadAvatar } from '../services/supabase';
 
-// Define the context shape
+// Update the context shape
 type AuthContextType = {
   user: User | null;
   session: Session | null;
+  profile: ProfileData | null;
   loading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  updateUserProfile: (data: ProfileData) => Promise<void>;
+  uploadUserAvatar: (file: File) => Promise<string>;
 };
 
 // Create context with default values
 const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
+  profile: null,
   loading: true,
   error: null,
   login: async () => {},
   register: async () => {},
   logout: async () => {},
+  updateUserProfile: async () => {},
+  uploadUserAvatar: async () => "",
 });
 
 // Provider component that wraps your app and makes auth available
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Add this function to fetch profile
+  const fetchProfile = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await getCurrentProfile();
+      if (error) throw error;
+      setProfile(data);
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+    }
+  };
+
+  // Call fetchProfile after user is set
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    } else {
+      setProfile(null);
+    }
+  }, [user]);
 
   // Check for existing session on mount
   useEffect(() => {
@@ -112,16 +141,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Add update profile function
+  const updateUserProfile = async (updates: ProfileData) => {
+    try {
+      console.log("Auth context: Updating profile with:", updates);
+      const result = await updateProfile(updates);
+      console.log("Auth context: Update result:", result);
+      
+      if (result.error) {
+        console.error("Auth context: Update error:", result.error);
+        throw result.error;
+      }
+      
+      // Update local state
+      setProfile(prev => prev ? { ...prev, ...updates } : null);
+      console.log("Auth context: Local profile state updated");
+      
+    } catch (error: any) {
+      console.error("Auth context: updateUserProfile error:", error);
+      setError(error.message || "Failed to update profile");
+      throw error;
+    }
+  };
+  
+  // Add avatar upload function
+  const uploadUserAvatar = async (file: File) => {
+    try {
+      const { data, error } = await uploadAvatar(file);
+      if (error) throw error;
+      
+      // Update local profile state with new avatar
+      setProfile(prev => prev ? { ...prev, avatar_url: data } : null);
+      return data;
+      
+    } catch (error: any) {
+      setError(error.message || "Failed to upload avatar");
+      throw error;
+    }
+  };
+
   // Make the context available to all children
   return (
     <AuthContext.Provider value={{
       user,
       session,
+      profile,
       loading,
       error,
       login,
       register,
-      logout
+      logout,
+      updateUserProfile,
+      uploadUserAvatar
     }}>
       {children}
     </AuthContext.Provider>
