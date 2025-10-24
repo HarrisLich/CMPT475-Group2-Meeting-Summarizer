@@ -252,28 +252,28 @@ export default function AboutPage() {
             </p>
           </div>
 
-          <div className="space-y-6 max-w-4xl mx-auto">
+          <div className="space-y-4 max-w-3xl mx-auto">
             {teamMembers.map((member, index) => (
               <Card key={index} className="bg-gray-900/50 border-[#00F5FF]/20 hover:border-[#00F5FF]/40 transition-colors">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-6">
-                    <div className="w-20 h-20 bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] rounded-full flex items-center justify-center text-black font-bold text-xl flex-shrink-0">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] rounded-full flex items-center justify-center text-black font-bold text-lg flex-shrink-0">
                       {member.name.split(' ').map(n => n[0]).join('')}
                     </div>
                     <div className="flex-1">
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-3">
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-2">
                         <div>
-                          <h3 className="text-2xl font-bold text-white mb-1">{member.name}</h3>
-                          <p className="text-[#00F5FF] font-medium text-lg">{member.role}</p>
+                          <h3 className="text-xl font-bold text-white mb-1">{member.name}</h3>
+                          <p className="text-[#00F5FF] font-medium text-base">{member.role}</p>
                         </div>
-                        <div className="flex gap-3 mt-2 md:mt-0">
+                        <div className="flex gap-2 mt-2 md:mt-0">
                           <a
                             href={member.github}
                             className="text-gray-400 hover:text-[#00F5FF] transition-colors"
                             target="_blank"
                             rel="noopener noreferrer"
                           >
-                            <Github className="w-6 h-6" />
+                            <Github className="w-5 h-5" />
                           </a>
                           <a
                             href={member.linkedin}
@@ -281,18 +281,18 @@ export default function AboutPage() {
                             target="_blank"
                             rel="noopener noreferrer"
                           >
-                            <Linkedin className="w-6 h-6" />
+                            <Linkedin className="w-5 h-5" />
                           </a>
                           <a
                             href={`mailto:${member.email}`}
                             className="text-gray-400 hover:text-[#00F5FF] transition-colors"
                           >
-                            <Mail className="w-6 h-6" />
+                            <Mail className="w-5 h-5" />
                           </a>
                         </div>
                       </div>
 
-                      <p className="text-gray-300 leading-relaxed mb-4">
+                      <p className="text-gray-300 text-sm leading-relaxed mb-3">
                         {member.description}
                       </p>
 
@@ -300,7 +300,7 @@ export default function AboutPage() {
                         {member.skills.map((skill, skillIndex) => (
                           <span
                             key={skillIndex}
-                            className="px-3 py-1 bg-[#00F5FF]/20 text-[#00F5FF] text-sm rounded-md"
+                            className="px-2 py-1 bg-[#00F5FF]/20 text-[#00F5FF] text-xs rounded-md"
                           >
                             {skill}
                           </span>

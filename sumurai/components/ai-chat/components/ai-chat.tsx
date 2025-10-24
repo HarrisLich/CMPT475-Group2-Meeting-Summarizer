@@ -252,13 +252,15 @@ export default function AiChat() {
   };
 
   const handleNewChat = () => {
-    // Create a new empty chat
+    // Create a new empty chat without any transcript or action items
+    console.log("handleNewChat called - creating blank chat");
     const newChatId = Date.now().toString();
     const newChat: Chat = {
       id: newChatId,
       title: "New Chat",
       preview: "Start a conversation...",
       timestamp: new Date()
+      // Intentionally no transcription or actionItems - they're undefined
     };
 
     setChats(prevChats => [newChat, ...prevChats]);
@@ -302,6 +304,8 @@ export default function AiChat() {
     return chat;
   }, [chats, selectedChatId]);
 
+  console.log("Rendering AiChat - selectedChatId:", selectedChatId, "shouldShowWelcome:", !selectedChatId);
+
   return (
     <div className="flex h-screen">
       <Sidebar
@@ -312,22 +316,28 @@ export default function AiChat() {
       />
       <div className="flex flex-1 flex-col">
         {!selectedChatId ? (
-          <WelcomeScreen onSuggestionClick={handleSuggestionClick} />
+          <>
+            {console.log("Rendering WelcomeScreen")}
+            <WelcomeScreen onSuggestionClick={handleSuggestionClick} />
+          </>
         ) : (
-          <ChatInterface
-            messages={currentMessages}
-            input={input}
-            handleInputChange={handleInputChange}
-            handleSubmit={handleSubmit}
-            isLoading={isLoading}
-            chatTitle={currentChat?.title}
-            onFileUpload={handleFileUpload}
-            isUploading={isUploading}
-            uploadStatus={uploadStatus}
-            transcript={currentChat?.transcription?.fullText ?? ""}
-            transcriptSegments={currentChat?.transcription?.segments ?? []}
-            actionItems={currentChat?.actionItems ?? []}
-          />
+          <>
+            {console.log("Rendering ChatInterface for chatId:", selectedChatId)}
+            <ChatInterface
+              messages={currentMessages}
+              input={input}
+              handleInputChange={handleInputChange}
+              handleSubmit={handleSubmit}
+              isLoading={isLoading}
+              chatTitle={currentChat?.title}
+              onFileUpload={handleFileUpload}
+              isUploading={isUploading}
+              uploadStatus={uploadStatus}
+              transcript={currentChat?.transcription?.fullText ?? ""}
+              transcriptSegments={currentChat?.transcription?.segments ?? []}
+              actionItems={currentChat?.actionItems ?? []}
+            />
+          </>
         )}
       </div>
     </div>
