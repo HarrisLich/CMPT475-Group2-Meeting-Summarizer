@@ -5,7 +5,7 @@ import { Sidebar } from "./sidebar";
 import { useChat } from "@ai-sdk/react";
 import { WelcomeScreen } from "./welcome-screen";
 import { ChatInterface } from "./chat-interface";
-import { SummarizationService } from "@/lib/services/summarization";
+import { SummarizationService, RateLimitError } from "@/lib/services/summarization";
 
 // Meeting chat objects
 interface TranscriptionSegment {
@@ -118,10 +118,20 @@ export default function AiChat() {
       setCurrentMessages(prev => [...prev, aiMessage]);
     } catch (error) {
       console.error("Error:", error);
+
+      let errorContent = "Sorry, I encountered an error. Please try again.";
+
+      // Check if this is a rate limit error
+      if (error instanceof RateLimitError) {
+        errorContent = `⏳ ${error.message}\n\nPlease wait ${error.retryAfter} before sending another message.`;
+      } else if (error instanceof Error) {
+        errorContent = `Error: ${error.message}`;
+      }
+
       const errorMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "Sorry, I encountered an error. Please try again."
+        content: errorContent
       };
       setCurrentMessages(prev => [...prev, errorMessage]);
     } finally {
@@ -236,18 +246,35 @@ export default function AiChat() {
       }
     } catch (error) {
       console.error("Upload error:", error);
-      setUploadStatus(`Error: ${error instanceof Error ? error.message : "Unknown error"}`);
+
+      let errorStatus = "Error: Unknown error";
+      let errorContent = "Failed to process recording: Unknown error";
+      let isRateLimit = false;
+
+      // Check if this is a rate limit error
+      if (error instanceof RateLimitError) {
+        isRateLimit = true;
+        errorStatus = `⏳ Rate limit exceeded`;
+        errorContent = `⏳ ${error.message}\n\nGroq API rate limit has been exceeded. Please wait ${error.retryAfter} before uploading another file.\n\nTip: Try uploading again in about a minute.`;
+      } else if (error instanceof Error) {
+        errorStatus = `Error: ${error.message}`;
+        errorContent = `Failed to process recording: ${error.message}`;
+      }
+
+      setUploadStatus(errorStatus);
 
       const errorMessage = {
         id: Date.now().toString(),
         role: "assistant",
-        content: `Failed to process recording: ${error instanceof Error ? error.message : "Unknown error"}`
+        content: errorContent
       };
       setCurrentMessages(prev => [...prev, errorMessage]);
+
+      // Clear status after 8 seconds for rate limit errors, 3 seconds for others
+      const clearDelay = isRateLimit ? 8000 : 3000;
+      setTimeout(() => setUploadStatus(""), clearDelay);
     } finally {
       setIsUploading(false);
-      // Clear status after 3 seconds
-      setTimeout(() => setUploadStatus(""), 3000);
     }
   };
 
