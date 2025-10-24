@@ -29,40 +29,81 @@ export const getCurrentUser = async () => {
 
 export type ProfileData = {
     name?: string;
+    first_name?: string;
+    last_name?: string;
     email?: string;
+    phone?: string;
     avatar_url?: string;
     role?: string;
+    job_title?: string;
+    company?: string;
+    bio?: string;
     location?: string;
     membership_type?: string;
     updated_at?: string;
     created_at?: string;
   };
   
-  export const getCurrentProfile = async () => {
-    const { data: user } = await supabase.auth.getUser();
-    if (!user.user) return { data: null, error: new Error('Not authenticated') };
+export const getCurrentProfile = async () => {
+  try {
+    console.log("Supabase service: getCurrentProfile called");
     
-    return supabase
+    const { data: user } = await supabase.auth.getUser();
+    if (!user.user) {
+      console.error("Supabase service: User not authenticated");
+      return { data: null, error: new Error('Not authenticated') };
+    }
+
+    console.log("Supabase service: Getting profile for user ID:", user.user.id);
+
+    const result = await supabase
       .from('profiles')
       .select('*')
       .eq('id', user.user.id)
       .single();
-  };
+
+    console.log("Supabase service: getCurrentProfile result:", result);
+    return result;
+    
+  } catch (error) {
+    console.error("Supabase service: getCurrentProfile error:", error);
+    return { data: null, error };
+  }
+};
   
 export const updateProfile = async (updates: ProfileData) => {
-const { data: user } = await supabase.auth.getUser();
-if (!user.user) return { data: null, error: new Error('Not authenticated') };
+  try {
+    console.log("Supabase service: updateProfile called with:", updates);
+    
+    const { data: user } = await supabase.auth.getUser();
+    if (!user.user) {
+      console.error("Supabase service: User not authenticated");
+      return { data: null, error: new Error('Not authenticated') };
+    }
 
-// Add updated_at timestamp
-const updatedData = {
-    ...updates,
-    updated_at: new Date().toISOString()
-};
+    console.log("Supabase service: Authenticated user ID:", user.user.id);
 
-return supabase
-    .from('profiles')
-    .update(updatedData)
-    .eq('id', user.user.id);
+    // Add updated_at timestamp
+    const updatedData = {
+      ...updates,
+      updated_at: new Date().toISOString()
+    };
+
+    console.log("Supabase service: Updating with data:", updatedData);
+
+    const result = await supabase
+      .from('profiles')
+      .update(updatedData)
+      .eq('id', user.user.id)
+      .select(); // Add select to return the updated data
+
+    console.log("Supabase service: Update result:", result);
+    return result;
+    
+  } catch (error) {
+    console.error("Supabase service: updateProfile error:", error);
+    return { data: null, error };
+  }
 };
 
 export const uploadAvatar = async (file: File) => {

@@ -5,22 +5,29 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/lib/context/auth-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Camera, Loader2 } from "lucide-react";
 
 export default function ProfileEditForm({ onCancel }: { onCancel: () => void }) {
-  const { profile, updateUserProfile, uploadUserAvatar } = useAuth();
+  const { profile, updateUserProfile, uploadUserAvatar, error } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: profile?.name || "",
+    first_name: profile?.first_name || "",
+    last_name: profile?.last_name || "",
     email: profile?.email || "",
-    // These will be added when the columns are added to the database
+    phone: profile?.phone || "",
     role: profile?.role || "",
+    job_title: profile?.job_title || "",
+    company: profile?.company || "",
+    bio: profile?.bio || "",
     location: profile?.location || ""
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
@@ -30,12 +37,17 @@ export default function ProfileEditForm({ onCancel }: { onCancel: () => void }) 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setLocalError(null);
     
     try {
+      console.log("Submitting form data:", formData);
       await updateUserProfile(formData);
+      console.log("Profile updated successfully");
       onCancel(); // Close form after successful update
     } catch (error) {
       console.error("Error updating profile:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setLocalError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -73,6 +85,11 @@ export default function ProfileEditForm({ onCancel }: { onCancel: () => void }) 
         <CardTitle>Edit Profile</CardTitle>
       </CardHeader>
       <CardContent>
+        {(localError || error) && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-red-700 text-sm">{localError || error}</p>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="flex justify-center mb-4">
             <div className="relative">
@@ -99,54 +116,154 @@ export default function ProfileEditForm({ onCancel }: { onCancel: () => void }) 
             </div>
           </div>
 
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Display Name</Label>
-              <Input
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                disabled={isLoading}
-                placeholder="Enter your display name"
-              />
+          <div className="space-y-6">
+            {/* Basic Information */}
+            <div>
+              <h3 className="text-lg font-medium mb-4">Basic Information</h3>
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="name">Display Name</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    disabled={isLoading}
+                    placeholder="Enter your display name"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label htmlFor="first_name">First Name</Label>
+                    <Input
+                      id="first_name"
+                      name="first_name"
+                      value={formData.first_name}
+                      onChange={handleChange}
+                      disabled={isLoading}
+                      placeholder="Enter your first name"
+                    />
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <Label htmlFor="last_name">Last Name</Label>
+                    <Input
+                      id="last_name"
+                      name="last_name"
+                      value={formData.last_name}
+                      onChange={handleChange}
+                      disabled={isLoading}
+                      placeholder="Enter your last name"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                disabled={isLoading}
-                placeholder="Enter your email"
-              />
+
+            {/* Contact Information */}
+            <div>
+              <h3 className="text-lg font-medium mb-4">Contact Information</h3>
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    disabled={isLoading}
+                    placeholder="Enter your email"
+                  />
+                </div>
+                
+                <div className="grid gap-2">
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    disabled={isLoading}
+                    placeholder="e.g. +1 (555) 123-4567"
+                  />
+                </div>
+                
+                <div className="grid gap-2">
+                  <Label htmlFor="location">Location</Label>
+                  <Input
+                    id="location"
+                    name="location"
+                    value={formData.location}
+                    onChange={handleChange}
+                    disabled={isLoading}
+                    placeholder="e.g. San Francisco, CA"
+                  />
+                </div>
+              </div>
             </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="role">Role/Title</Label>
-              <Input
-                id="role"
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-                disabled={isLoading}
-                placeholder="e.g. Senior Product Designer"
-              />
+
+            {/* Professional Information */}
+            <div>
+              <h3 className="text-lg font-medium mb-4">Professional Information</h3>
+              <div className="grid gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label htmlFor="job_title">Job Title</Label>
+                    <Input
+                      id="job_title"
+                      name="job_title"
+                      value={formData.job_title}
+                      onChange={handleChange}
+                      disabled={isLoading}
+                      placeholder="e.g. Senior Product Designer"
+                    />
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <Label htmlFor="company">Company</Label>
+                    <Input
+                      id="company"
+                      name="company"
+                      value={formData.company}
+                      onChange={handleChange}
+                      disabled={isLoading}
+                      placeholder="e.g. Acme Inc."
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid gap-2">
+                  <Label htmlFor="role">Role/Position</Label>
+                  <Input
+                    id="role"
+                    name="role"
+                    value={formData.role}
+                    onChange={handleChange}
+                    disabled={isLoading}
+                    placeholder="e.g. Team Lead, Senior Developer"
+                  />
+                </div>
+              </div>
             </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="location">Location</Label>
-              <Input
-                id="location"
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                disabled={isLoading}
-                placeholder="e.g. San Francisco, CA"
-              />
+
+            {/* Bio */}
+            <div>
+              <h3 className="text-lg font-medium mb-4">About</h3>
+              <div className="grid gap-2">
+                <Label htmlFor="bio">Bio</Label>
+                <Textarea
+                  id="bio"
+                  name="bio"
+                  value={formData.bio}
+                  onChange={handleChange}
+                  disabled={isLoading}
+                  placeholder="Tell us about yourself..."
+                  rows={4}
+                />
+              </div>
             </div>
           </div>
           

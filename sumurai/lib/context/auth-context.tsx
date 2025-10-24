@@ -144,13 +144,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Add update profile function
   const updateUserProfile = async (updates: ProfileData) => {
     try {
-      const { error } = await updateProfile(updates);
-      if (error) throw error;
+      console.log("Auth context: Updating profile with:", updates);
+      const result = await updateProfile(updates);
+      console.log("Auth context: Update result:", result);
+      
+      if (result.error) {
+        console.error("Auth context: Update error:", result.error);
+        throw result.error;
+      }
       
       // Update local state
       setProfile(prev => prev ? { ...prev, ...updates } : null);
+      console.log("Auth context: Local profile state updated");
       
     } catch (error: any) {
+      console.error("Auth context: updateUserProfile error:", error);
       setError(error.message || "Failed to update profile");
       throw error;
     }

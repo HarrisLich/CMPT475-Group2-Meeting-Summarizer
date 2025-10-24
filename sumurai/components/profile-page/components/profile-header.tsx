@@ -55,8 +55,11 @@ export default function ProfileHeader() {
               <h1 className="text-2xl font-bold">{profile?.name || "User"}</h1>
               <Badge variant="secondary">{getMembershipBadge()}</Badge>
             </div>
-            {profile?.role && (
-              <p className="text-muted-foreground">{profile.role}</p>
+            {(profile?.job_title || profile?.role) && (
+              <p className="text-muted-foreground">{profile.job_title || profile.role}</p>
+            )}
+            {profile?.company && (
+              <p className="text-muted-foreground text-sm">at {profile.company}</p>
             )}
             <div className="text-muted-foreground flex flex-wrap gap-4 text-sm">
               {profile?.email && (
