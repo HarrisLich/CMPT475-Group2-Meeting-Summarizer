@@ -46,13 +46,13 @@ export default function AboutPage() {
       email: "member4@example.com"
     },
     {
-      name: "Harris Lich",
-      role: "role",
-      description: "Dev blurb",
-      skills: ["skill1", "skill2", "skill3"],
+      name: "Harris Lichstein",
+      role: "Project Management",
+      description: "I'm a passionate full-stack engineer with a strong background in real time data integration, microservices architecture, and DevOps. I love building scalable systems from the ground up and I'm always looking for new ways to solve complex problems.",
+      skills: ["Docker", "PostgreSQL", "RabbitMQ", "Node.js", "Svelte", "AWS", "CI/CD"],
       github: "https://github.com/harrislich",
-      linkedin: "https://linkedin.com/in/harrislich",
-      email: "harris.lich@example.com"
+      linkedin: "https://www.linkedin.com/in/harris-lichstein-620b84291/",
+      email: "harris.lichstein@gmail.com"
     },
     {
       name: "Joshua Chenoweth",
