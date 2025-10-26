@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ArrowRight } from 'lucide-react';
-import { authService, type User } from '@/lib/services/auth';
+import { useAuth } from '@/lib/context/auth-context';
 
 interface HeaderProps {
   showAuthDialog?: boolean;
@@ -13,37 +13,12 @@ interface HeaderProps {
 
 export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderProps = {}) {
   const router = useRouter();
-  const [authLoading, setAuthLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const { user, session, loading: authLoading, login, register, logout } = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
   const [isRegister, setIsRegister] = useState(false);
-  const [formData, setFormData] = useState({ username: '', password: '', confirmPassword: '' });
+  const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '' });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-
-  // Check authentication status on mount
-  useEffect(() => {
-    const checkAuth = async () => {
-      setAuthLoading(true);
-      try {
-        const isAuth = await authService.checkAuthStatus();
-        setIsAuthenticated(isAuth);
-        if (isAuth) {
-          const user = authService.getUser();
-          setCurrentUser(user);
-        }
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        setIsAuthenticated(false);
-        setCurrentUser(null);
-      } finally {
-        setAuthLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, []);
 
   // Sync external dialog control
   useEffect(() => {
@@ -74,25 +49,25 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
     setIsLoading(true);
     setError('');
 
+    // Validate form data
+    if (!formData.email || !formData.password) {
+      setError('Email and password are required');
+      setIsLoading(false);
+      return;
+    }
+
+    if (isRegister && formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      let result;
       if (isRegister) {
-        result = await authService.registerUser(formData);
+        await register(formData.email, formData.password);
       } else {
-        result = await authService.loginUser(formData);
+        await login(formData.email, formData.password);
       }
-
-      authService.saveUser(result.user);
-      setCurrentUser(result.user);
-      setIsAuthenticated(true);
-
-      if (result.firebase_config) {
-        localStorage.setItem('firebase_config', JSON.stringify(result.firebase_config));
-      }
-
-      const sessionToken = `session_${result.user.uid}_${Date.now()}`;
-      authService.saveToken(sessionToken);
-      authService.saveSessionData();
 
       closeDialog();
       router.push('/profiling');
@@ -109,9 +84,7 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
 
   const handleLogout = async () => {
     try {
-      await authService.logoutUser();
-      setIsAuthenticated(false);
-      setCurrentUser(null);
+      await logout();
       router.push('/');
     } catch (error) {
       console.error('Logout failed:', error);
@@ -150,10 +123,10 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
           <div className="flex items-center space-x-4 ml-auto">
             {authLoading ? (
               <div className="w-8 h-8 border-2 border-[#00F5FF] border-t-transparent rounded-full animate-spin"></div>
-            ) : isAuthenticated && currentUser ? (
+            ) : user && session ? (
               <>
                 <span className="text-white text-sm">
-                  Welcome, {currentUser.display_name || currentUser.email}
+                  Welcome, {user.email}
                 </span>
                 <Button
                   onClick={() => router.push('/profiling')}
@@ -202,16 +175,16 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
             )}
 
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-2">
-                Username
+              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
+                Email
               </label>
               <input
-                id="username"
-                type="text"
+                id="email"
+                type="email"
                 className="w-full px-3 py-2 bg-[#1A1A1A] border border-[#333333] rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#00F5FF] focus:border-transparent"
-                placeholder="Enter your username"
-                value={formData.username}
-                onChange={handleInputChange('username')}
+                placeholder="Enter your email"
+                value={formData.email}
+                onChange={handleInputChange('email')}
                 required
               />
             </div>
