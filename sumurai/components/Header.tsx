@@ -124,6 +124,13 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
     setFormData(prev => ({ ...prev, [field]: e.target.value }));
   };
 
+  // password validation
+  const meetsMinLength = formData.password.length >= 6;
+  const passwordsMatch =
+    formData.password.length > 0 &&
+    formData.confirmPassword.length > 0 &&
+    formData.password === formData.confirmPassword;
+
   const handleLogout = async () => {
     try {
       await authService.logoutUser();
@@ -262,13 +269,39 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
                   onChange={handleInputChange('confirmPassword')}
                   required
                 />
+
+                {/* Simple Password Requirements */}
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <span
+                    className={`flex items-center justify-center px-2 py-1 text-xs rounded transition-all duration-200 ease-in-out ${
+                      meetsMinLength
+                        ? 'bg-[#06B6D4]/20 text-[#06B6D4]'
+                        : 'bg-gray-800/50 text-gray-500 opacity-60'
+                    }`}
+                  >
+                    6 characters minimum
+                  </span>
+                  <span
+                    className={`flex items-center justify-center px-2 py-1 text-xs rounded transition-all duration-200 ease-in-out ${
+                      passwordsMatch
+                        ? 'bg-[#06B6D4]/20 text-[#06B6D4]'
+                        : 'bg-gray-800/50 text-gray-500 opacity-60'
+                    }`}
+                  >
+                    Passwords match
+                  </span>
+                </div>
               </div>
             )}
 
             <Button
               type="submit"
-              disabled={isLoading}
-              className="w-full bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black font-semibold py-2 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isLoading || (isRegister && (!meetsMinLength || !passwordsMatch))}
+              className={`w-full font-semibold py-2 mt-6 ${
+                isRegister && (!meetsMinLength || !passwordsMatch)
+                  ? 'bg-gray-800/50 text-gray-500 opacity-60 cursor-not-allowed transition-all duration-500 ease-out'
+                  : 'bg-[#06B6D4] hover:bg-[#0891B2] text-black transition-all duration-700 ease-in delay-200'
+              } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {isLoading ? (
                 <div className="flex items-center space-x-2">

@@ -167,9 +167,21 @@ export default function DemoPage() {
                       <source src={audioUrl || '/demo-audio.mp3'} type="audio/mpeg" />
                       Your browser does not support the audio element.
                     </audio>
-                    <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
-                      <Clock className="w-4 h-4" />
-                      <span>{transcriptionResult?.filename || 'Demo Audio (0:10)'}</span>
+                    <div className="mt-4 flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <Clock className="w-4 h-4" />
+                        <span>{transcriptionResult?.filename || "Demo Audio (0:10)"}</span>
+                      </div>
+                      {!transcriptionResult && (
+                        <a
+                          href="/demo-audio.mp3"
+                          download="sumurai-demo-audio.mp3"
+                          className="flex items-center gap-1 text-[#06B6D4] hover:text-[#00F5FF] transition-colors"
+                        >
+                          <Download className="w-4 h-4" />
+                          <span>Download Sample</span>
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>
