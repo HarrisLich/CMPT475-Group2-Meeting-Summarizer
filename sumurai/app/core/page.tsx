@@ -5,6 +5,7 @@ import { Upload, FileText, CheckCircle, Share2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import AiChat from '@/components/ai-chat/components/ai-chat';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 export default function CorePage() {
   const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
@@ -23,7 +24,8 @@ export default function CorePage() {
   };
 
   return (
-    <div className="h-screen bg-[#111111] text-white overflow-hidden">
+    <ProtectedRoute>
+      <div className="h-screen bg-[#111111] text-white overflow-hidden">
       {/* Welcome Dialog */}
       <Dialog open={showWelcomeDialog} onOpenChange={setShowWelcomeDialog}>
         <DialogContent className="bg-[#1A1A1A] border-[#333333] text-white max-w-2xl">
@@ -120,5 +122,6 @@ export default function CorePage() {
         <AiChat />
       </div>
     </div>
+    </ProtectedRoute>
   );
 }
