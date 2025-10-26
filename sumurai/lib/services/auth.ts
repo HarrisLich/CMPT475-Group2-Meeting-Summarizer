@@ -1,11 +1,11 @@
 interface RegisterData {
-  username: string;
+  email: string;
   password: string;
   confirmPassword: string;
 }
 
 interface LoginData {
-  username: string;
+  email: string;
   password: string;
 }
 
@@ -67,9 +67,9 @@ class AuthService {
     return this.makeRequest<AuthResponse>('/auth/register', {
       method: 'POST',
       body: JSON.stringify({
-        email: formData.username, // Using username as email
+        email: formData.email,
         password: formData.password,
-        display_name: formData.username,
+        display_name: formData.email.split('@')[0], // Use email username as display name
       }),
     });
   }
@@ -78,7 +78,7 @@ class AuthService {
     return this.makeRequest<AuthResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({
-        email: formData.username, // Using username as email
+        email: formData.email,
         password: formData.password,
       }),
     });

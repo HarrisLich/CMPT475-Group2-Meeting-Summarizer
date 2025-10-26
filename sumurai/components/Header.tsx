@@ -18,9 +18,11 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [isRegister, setIsRegister] = useState(false);
-  const [formData, setFormData] = useState({ username: '', password: '', confirmPassword: '' });
+  const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '' });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showVerificationDialog, setShowVerificationDialog] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
 
   // Check authentication status on mount
   useEffect(() => {
@@ -78,8 +80,23 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
       let result;
       if (isRegister) {
         result = await authService.registerUser(formData);
+
+        // Check if email verification is needed
+        if (!result.user.email_verified) {
+          setRegisteredEmail(formData.email);
+          closeDialog();
+          setShowVerificationDialog(true);
+          setFormData({ email: '', password: '', confirmPassword: '' });
+          return;
+        }
       } else {
         result = await authService.loginUser(formData);
+
+        // Check if user has verified their email before allowing login
+        if (!result.user.email_verified) {
+          setError('Please verify your email before logging in. Check your inbox for the verification link.');
+          return;
+        }
       }
 
       authService.saveUser(result.user);
@@ -202,16 +219,16 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
             )}
 
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-2">
-                Username
+              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
+                Email
               </label>
               <input
-                id="username"
-                type="text"
+                id="email"
+                type="email"
                 className="w-full px-3 py-2 bg-[#1A1A1A] border border-[#333333] rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#00F5FF] focus:border-transparent"
-                placeholder="Enter your username"
-                value={formData.username}
-                onChange={handleInputChange('username')}
+                placeholder="Enter your email"
+                value={formData.email}
+                onChange={handleInputChange('email')}
                 required
               />
             </div>
@@ -273,6 +290,56 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
               </button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Email Verification Dialog */}
+      <Dialog open={showVerificationDialog} onOpenChange={setShowVerificationDialog}>
+        <DialogContent className="bg-[#111111] border-[#333333] text-white max-w-md w-full">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center mb-4">
+              Verify Your Email
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="flex justify-center mb-4">
+              <div className="w-16 h-16 bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] rounded-full flex items-center justify-center">
+                <svg
+                  className="w-8 h-8 text-black"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
+                </svg>
+              </div>
+            </div>
+
+            <div className="text-center space-y-3">
+              <p className="text-gray-300">
+                We've sent a verification email to:
+              </p>
+              <p className="text-[#00F5FF] font-semibold text-lg">
+                {registeredEmail}
+              </p>
+              <p className="text-gray-400 text-sm">
+                Please check your inbox and click the verification link to activate your account and begin using Sumurai.
+              </p>
+            </div>
+
+            <Button
+              onClick={() => {setShowVerificationDialog(false); openLogin();}}
+              className="w-full bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black font-semibold py-2 mt-4"
+            >
+              Got it!
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </>
