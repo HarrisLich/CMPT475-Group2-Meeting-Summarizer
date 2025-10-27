@@ -66,26 +66,21 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
 
     try {
       if (isRegister) {
-        result = await authService.registerUser(formData);
+        // Register the user
+        await register(formData.email, formData.password);
 
-        // Check if email verification is needed
-        if (!result.user.email_verified) {
-          setRegisteredEmail(formData.email);
-          closeDialog();
-          setShowVerificationDialog(true);
-          setFormData({ email: '', password: '', confirmPassword: '' });
-          return;
-        }
+        // Show verification dialog after successful registration
+        setRegisteredEmail(formData.email);
+        closeDialog();
+        setShowVerificationDialog(true);
+        setFormData({ email: '', password: '', confirmPassword: '' });
+        return;
       } else {
-        result = await authService.loginUser(formData);
-
-        // Check if user has verified their email before allowing login
-        if (!result.user.email_verified) {
-          setError('Please verify your email before logging in. Check your inbox for the verification link.');
-          return;
-        }
+        // Login the user
+        await login(formData.email, formData.password);
       }
 
+      // After successful login, redirect to profiling
       closeDialog();
       router.push('/profiling');
     } catch (err: any) {
