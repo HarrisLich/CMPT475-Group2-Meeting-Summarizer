@@ -19,6 +19,8 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
   const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '' });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showVerificationDialog, setShowVerificationDialog] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
 
   // Sync external dialog control
   useEffect(() => {
@@ -64,9 +66,24 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
 
     try {
       if (isRegister) {
-        await register(formData.email, formData.password);
+        result = await authService.registerUser(formData);
+
+        // Check if email verification is needed
+        if (!result.user.email_verified) {
+          setRegisteredEmail(formData.email);
+          closeDialog();
+          setShowVerificationDialog(true);
+          setFormData({ email: '', password: '', confirmPassword: '' });
+          return;
+        }
       } else {
-        await login(formData.email, formData.password);
+        result = await authService.loginUser(formData);
+
+        // Check if user has verified their email before allowing login
+        if (!result.user.email_verified) {
+          setError('Please verify your email before logging in. Check your inbox for the verification link.');
+          return;
+        }
       }
 
       closeDialog();
@@ -81,6 +98,13 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
   const handleInputChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({ ...prev, [field]: e.target.value }));
   };
+
+  // password validation
+  const meetsMinLength = formData.password.length >= 6;
+  const passwordsMatch =
+    formData.password.length > 0 &&
+    formData.confirmPassword.length > 0 &&
+    formData.password === formData.confirmPassword;
 
   const handleLogout = async () => {
     try {
@@ -218,13 +242,39 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
                   onChange={handleInputChange('confirmPassword')}
                   required
                 />
+
+                {/* Simple Password Requirements */}
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <span
+                    className={`flex items-center justify-center px-2 py-1 text-xs rounded transition-all duration-200 ease-in-out ${
+                      meetsMinLength
+                        ? 'bg-[#06B6D4]/20 text-[#06B6D4]'
+                        : 'bg-gray-800/50 text-gray-500 opacity-60'
+                    }`}
+                  >
+                    6 characters minimum
+                  </span>
+                  <span
+                    className={`flex items-center justify-center px-2 py-1 text-xs rounded transition-all duration-200 ease-in-out ${
+                      passwordsMatch
+                        ? 'bg-[#06B6D4]/20 text-[#06B6D4]'
+                        : 'bg-gray-800/50 text-gray-500 opacity-60'
+                    }`}
+                  >
+                    Passwords match
+                  </span>
+                </div>
               </div>
             )}
 
             <Button
               type="submit"
-              disabled={isLoading}
-              className="w-full bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black font-semibold py-2 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isLoading || (isRegister && (!meetsMinLength || !passwordsMatch))}
+              className={`w-full font-semibold py-2 mt-6 ${
+                isRegister && (!meetsMinLength || !passwordsMatch)
+                  ? 'bg-gray-800/50 text-gray-500 opacity-60 cursor-not-allowed transition-all duration-500 ease-out'
+                  : 'bg-[#06B6D4] hover:bg-[#0891B2] text-black transition-all duration-700 ease-in delay-200'
+              } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {isLoading ? (
                 <div className="flex items-center space-x-2">
@@ -246,6 +296,56 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
               </button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Email Verification Dialog */}
+      <Dialog open={showVerificationDialog} onOpenChange={setShowVerificationDialog}>
+        <DialogContent className="bg-[#111111] border-[#333333] text-white max-w-md w-full">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center mb-4">
+              Verify Your Email
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="flex justify-center mb-4">
+              <div className="w-16 h-16 bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] rounded-full flex items-center justify-center">
+                <svg
+                  className="w-8 h-8 text-black"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
+                </svg>
+              </div>
+            </div>
+
+            <div className="text-center space-y-3">
+              <p className="text-gray-300">
+                We've sent a verification email to:
+              </p>
+              <p className="text-[#00F5FF] font-semibold text-lg">
+                {registeredEmail}
+              </p>
+              <p className="text-gray-400 text-sm">
+                Please check your inbox and click the verification link to activate your account and begin using Sumurai.
+              </p>
+            </div>
+
+            <Button
+              onClick={() => {setShowVerificationDialog(false); openLogin();}}
+              className="w-full bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black font-semibold py-2 mt-4"
+            >
+              Got it!
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </>

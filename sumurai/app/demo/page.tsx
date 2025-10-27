@@ -167,9 +167,21 @@ export default function DemoPage() {
                       <source src={audioUrl || '/demo-audio.mp3'} type="audio/mpeg" />
                       Your browser does not support the audio element.
                     </audio>
-                    <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
-                      <Clock className="w-4 h-4" />
-                      <span>{transcriptionResult?.filename || 'Demo Audio (0:10)'}</span>
+                    <div className="mt-4 flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <Clock className="w-4 h-4" />
+                        <span>{transcriptionResult?.filename || "Demo Audio (0:10)"}</span>
+                      </div>
+                      {!transcriptionResult && (
+                        <a
+                          href="/demo-audio.mp3"
+                          download="sumurai-demo-audio.mp3"
+                          className="flex items-center gap-1 text-[#06B6D4] hover:text-[#00F5FF] transition-colors"
+                        >
+                          <Download className="w-4 h-4" />
+                          <span>Download Sample</span>
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -401,15 +413,15 @@ export default function DemoPage() {
                 onClick={() => router.push('/core')}
                 className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black text-lg px-8 py-6"
               >
-                Try SumurAI Now
+                Meet Sumurai
               </Button>
               <Button
                 size="lg"
                 variant="outline"
-                onClick={() => router.push('/')}
+                onClick={() => router.push('/about')}
                 className="border-[#00F5FF] text-[#00F5FF] hover:bg-[#00F5FF] hover:text-black text-lg px-8 py-6"
               >
-                Learn More
+                Meet the Team
               </Button>
             </div>
           </div>
