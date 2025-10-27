@@ -8,8 +8,6 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Copy, Share, ThumbsUp, ThumbsDown, Send, Paperclip, Mic, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
-import ReactMarkdown from 'react-markdown';
-
 
 interface Message {
   id: string;
@@ -174,9 +172,7 @@ export function ChatInterface({
                       </Avatar>
                       <div className="flex-1 max-w-[85%]">
                         <div className="bg-[#1A1A1A] rounded-lg p-4 border border-[#333333] shadow-lg hover:shadow-xl transition-all duration-300">
-                          <div className="text-sm text-white prose prose-invert prose-sm max-w-none">
-                            <ReactMarkdown>{message.content}</ReactMarkdown>
-                          </div>
+                          <p className="text-sm text-white whitespace-pre-wrap leading-relaxed">{message.content}</p>
                         </div>
                       </div>
                     </>
@@ -187,9 +183,7 @@ export function ChatInterface({
                       </Avatar>
                       <div className="flex-1 max-w-[85%]">
                         <div className="bg-[#111111] rounded-lg p-4 border border-[#333333] shadow-lg hover:shadow-xl transition-all duration-300">
-                          <div className="text-sm text-white mb-3 prose prose-invert prose-sm max-w-none">
-                            <ReactMarkdown>{message.content}</ReactMarkdown>
-                          </div>
+                          <p className="text-sm text-white mb-3 whitespace-pre-wrap leading-relaxed">{message.content}</p>
                           <div className="flex items-center gap-2 pt-3 border-t border-[#333333]">
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:bg-[#1A1A1A] hover:text-[#00F5FF] transition-all duration-200">
                               <Copy className="h-3.5 w-3.5" />
