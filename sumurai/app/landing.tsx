@@ -227,7 +227,7 @@ function Landing() {
                   className="text-lg px-8 py-6 border-2 border-[#333333] text-white hover:bg-[#1A1A1A] hover:text-[#00F5FF] transition-colors"
                 >
                   <Mic className="w-5 h-5 mr-2" />
-                  Watch Demo
+                  Try Demo
                 </Button>
               </>
             ) : (
@@ -247,7 +247,7 @@ function Landing() {
                   className="text-lg px-8 py-6 border-2 border-[#333333] text-white hover:bg-[#1A1A1A] hover:text-[#00F5FF] transition-colors"
                 >
                   <Mic className="w-5 h-5 mr-2" />
-                  Watch Demo
+                  Try Demo
                 </Button>
               </>
             )}

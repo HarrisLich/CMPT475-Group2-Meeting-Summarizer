@@ -413,15 +413,15 @@ export default function DemoPage() {
                 onClick={() => router.push('/core')}
                 className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black text-lg px-8 py-6"
               >
-                Try SumurAI Now
+                Meet Sumurai
               </Button>
               <Button
                 size="lg"
                 variant="outline"
-                onClick={() => router.push('/')}
+                onClick={() => router.push('/about')}
                 className="border-[#00F5FF] text-[#00F5FF] hover:bg-[#00F5FF] hover:text-black text-lg px-8 py-6"
               >
-                Learn More
+                Meet the Team
               </Button>
             </div>
           </div>
