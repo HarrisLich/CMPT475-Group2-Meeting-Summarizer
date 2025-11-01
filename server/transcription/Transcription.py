@@ -143,3 +143,32 @@ class TranscriptionService:
             "application/octet-stream"
         ]
         return content_type in allowed_types
+    
+    def transcribe_with_speakers(self, file_content, filename, hf_token=None):
+        from .SpeakerDiarization import SpeakerDiarizationService
+        
+        # First get regular transcription
+        transcription_result = self.transcribe_file(file_content, filename)
+        
+        # Then get speaker diarization
+        diarization_service = SpeakerDiarizationService(hf_token=hf_token)
+        speaker_segments = diarization_service.process_audio(file_content, filename)
+        
+        # Combine results - match each transcription segment with speakers
+        for segment in transcription_result["segments"]:
+            start_time = segment["start"]
+            end_time = segment["end"]
+            
+            # Find overlapping speaker segments
+            speakers = []
+            for spk in speaker_segments:
+                if spk["start"] < end_time and spk["end"] > start_time:
+                    speakers.append(spk["speaker"])
+            
+            # Use most frequent speaker if multiple
+            if speakers:
+                segment["speaker"] = max(set(speakers), key=speakers.count)
+            else:
+                segment["speaker"] = "UNKNOWN"
+        
+        return transcription_result
