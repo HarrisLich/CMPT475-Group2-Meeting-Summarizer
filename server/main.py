@@ -399,3 +399,22 @@ async def extract_action_items(request: ActionItemsRequest):
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
+    
+@app.post("/transcribe-with-speakers")
+async def transcribe_with_speakers(
+    audio_file: UploadFile = File(...),
+    hf_token: str = Form(...)
+):
+    if not transcription_service.is_supported_file_type(audio_file.content_type):
+        raise HTTPException(status_code=400, detail=f"Unsupported file type: {audio_file.content_type}")
+
+    try:
+        # Read file content
+        content = await audio_file.read()
+
+        # Transcribe with speaker diarization
+        result = transcription_service.transcribe_with_speakers(content, audio_file.filename, hf_token)
+        
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
