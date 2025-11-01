@@ -584,13 +584,42 @@ async def get_conversation(
     conversation_id: str,
     current_user = Depends(get_current_user)
 ):
-    """Get a specific conversation by ID"""
+    """Get a specific conversation by ID with all related data"""
     try:
         supabase = get_supabase()
-        result = supabase.get_conversation_by_id(conversation_id)
-        if not result.data:
+
+        # Get the conversation
+        conv_result = supabase.get_conversation_by_id(conversation_id)
+        if not conv_result.data:
             raise HTTPException(status_code=404, detail="Conversation not found")
-        return {"success": True, "conversation": result.data[0]}
+
+        conversation = conv_result.data[0]
+        meeting_id = conversation.get("meeting_id")
+
+        # Prepare response with conversation data
+        response = {
+            "success": True,
+            "conversation": conversation
+        }
+
+        # If there's a meeting_id, fetch related data
+        if meeting_id:
+            try:
+                # Get transcription
+                transcription_result = supabase.get_meeting_transcription(meeting_id)
+                if transcription_result.data:
+                    response["transcription"] = transcription_result.data[0]
+
+                # Get summary
+                summary_result = supabase.get_meeting_summary(meeting_id)
+                if summary_result.data:
+                    response["summary"] = summary_result.data[0]
+
+            except Exception as e:
+                print(f"[WARNING] Failed to fetch meeting data: {str(e)}")
+                # Don't fail the request, just return conversation without extras
+
+        return response
     except HTTPException:
         raise
     except Exception as e:

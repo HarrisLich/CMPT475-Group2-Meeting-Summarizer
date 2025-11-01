@@ -359,11 +359,39 @@ export default function AiChat() {
   const handleSelectChat = async (chatId: string) => {
     console.log("[SELECT] Selecting chat:", chatId);
     setSelectedChatId(chatId);
+
+    // Find the chat to get its conversationId
+    const selectedChat = chats.find(chat => chat.id === chatId);
+
+    // If this is a newly created chat that's already selected, just show current messages
+    if (chatId === selectedChatId && currentMessages.length > 0) {
+      console.log("[SELECT] Chat is already selected with messages, skipping reload");
+      return;
+    }
+
+    // If the chat has no conversationId (shouldn't happen, but defensive check)
+    if (!selectedChat?.conversationId) {
+      console.warn("[SELECT] Chat has no conversationId, cannot load messages from database");
+      // If this chat has transcription data, it means it was just uploaded
+      // and messages are already in local state
+      if (selectedChat?.transcription) {
+        console.log("[SELECT] Using local chat data instead of fetching from database");
+        return;
+      }
+      setCurrentMessages([{
+        id: Date.now().toString(),
+        role: "assistant",
+        content: "This conversation is not yet available. Please try refreshing the page."
+      }]);
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // Load messages for this conversation
-      const messagesData = await SummarizationService.getConversationMessages(chatId);
+      // Load messages for this conversation using the conversationId
+      console.log("[SELECT] Loading messages for conversationId:", selectedChat.conversationId);
+      const messagesData = await SummarizationService.getConversationMessages(selectedChat.conversationId);
       console.log("[SELECT] Loaded messages:", messagesData);
 
       // Transform database messages to local format
@@ -376,12 +404,46 @@ export default function AiChat() {
       setCurrentMessages(transformedMessages);
       console.log("[SELECT] Messages loaded successfully:", transformedMessages.length);
 
-      // Optionally: Load full conversation details (transcription, action items)
-      // This can be done lazily when needed or eagerly here
-      const currentChat = chats.find(chat => chat.id === chatId);
-      if (currentChat && !currentChat.transcription) {
-        console.log("[SELECT] Chat has no transcription data, will load when needed");
-        // We could load the transcription here if needed
+      // Load full conversation details if not already loaded (transcription, action items)
+      if (!selectedChat.transcription) {
+        console.log("[SELECT] Loading full conversation details...");
+        try {
+          const conversationData = await SummarizationService.getConversation(selectedChat.conversationId);
+          console.log("[SELECT] Conversation data:", conversationData);
+
+          // Update the chat in state with transcription and action items
+          if (conversationData.transcription || conversationData.summary) {
+            setChats(prevChats =>
+              prevChats.map(chat => {
+                if (chat.id === chatId) {
+                  const updatedChat = { ...chat };
+
+                  // Add transcription if available
+                  if (conversationData.transcription) {
+                    updatedChat.transcription = {
+                      fullText: conversationData.transcription.transcription_text,
+                      segments: [], // We don't have segments from DB, could parse if needed
+                      fileName: conversationData.conversation.title
+                    };
+                  }
+
+                  // Add action items if available (would need to fetch separately or parse from summary)
+                  // For now, we'll leave action items empty since they're not stored in DB yet
+                  if (!updatedChat.actionItems) {
+                    updatedChat.actionItems = [];
+                  }
+
+                  console.log("[SELECT] Updated chat with transcription data");
+                  return updatedChat;
+                }
+                return chat;
+              })
+            );
+          }
+        } catch (detailsError) {
+          console.error("[SELECT] Failed to load conversation details:", detailsError);
+          // Don't fail the whole operation, just log the error
+        }
       }
 
     } catch (error) {
