@@ -329,7 +329,7 @@ export class SummarizationService {
   }
 
   /**
-   * Get a specific conversation by ID
+   * Get a specific conversation by ID with transcription and summary
    */
   static async getConversation(conversationId: string): Promise<any> {
     const headers = await this.getAuthHeaders();
@@ -345,7 +345,8 @@ export class SummarizationService {
     }
 
     const data = await response.json();
-    return data.conversation;
+    // Return the entire response which includes conversation, transcription, and summary
+    return data;
   }
 
   /**

@@ -38,13 +38,15 @@ class SupabaseService:
 
         return self.client.table("meetings").insert(meeting_data).execute()
         
-    def save_transcription(self, meeting_id, transcription_text, audio_url=None):
+    def save_transcription(self, meeting_id, transcription_text, audio_url=None, segments=None):
         transcription_data = {
             "meeting_id": meeting_id,
             "transcription_text": transcription_text
         }
         if audio_url is not None:
             transcription_data["audio_url"] = audio_url
+        if segments is not None:
+            transcription_data["segments"] = segments
 
         return self.client.table("transcriptions").insert(transcription_data).execute()
         

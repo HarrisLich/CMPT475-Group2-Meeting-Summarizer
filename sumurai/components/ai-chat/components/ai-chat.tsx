@@ -422,9 +422,16 @@ export default function AiChat() {
                   if (conversationData.transcription) {
                     updatedChat.transcription = {
                       fullText: conversationData.transcription.transcription_text,
-                      segments: [], // We don't have segments from DB, could parse if needed
-                      fileName: conversationData.conversation.title
+                      segments: conversationData.transcription.segments || [], // Load segments from DB
+                      fileName: conversationData.conversation?.title || "Meeting Transcript"
                     };
+                    console.log("[SELECT] Updated chat with transcription:", {
+                      hasFullText: !!updatedChat.transcription.fullText,
+                      textLength: updatedChat.transcription.fullText?.length,
+                      segmentsCount: updatedChat.transcription.segments?.length || 0
+                    });
+                  } else {
+                    console.warn("[SELECT] No transcription data found in response");
                   }
 
                   // Add action items if available (would need to fetch separately or parse from summary)
@@ -433,12 +440,13 @@ export default function AiChat() {
                     updatedChat.actionItems = [];
                   }
 
-                  console.log("[SELECT] Updated chat with transcription data");
                   return updatedChat;
                 }
                 return chat;
               })
             );
+          } else {
+            console.warn("[SELECT] No transcription or summary data in conversation response");
           }
         } catch (detailsError) {
           console.error("[SELECT] Failed to load conversation details:", detailsError);

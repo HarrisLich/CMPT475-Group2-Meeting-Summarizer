@@ -257,6 +257,7 @@ async def transcribe_audio(
 
         # Generate summary from transcription
         transcription_text = result.get("transcription", "")
+        segments = result.get("segments", [])
         if transcription_text and len(transcription_text.strip()) > 0:
             # Save transcription to database if we have a meeting_id
             if meeting_id and user_id:
@@ -265,7 +266,8 @@ async def transcribe_audio(
                     transcription_result = supabase.save_transcription(
                         meeting_id=meeting_id,
                         transcription_text=transcription_text,
-                        audio_url=None  # We can add audio URL storage later if needed
+                        audio_url=None,  # We can add audio URL storage later if needed
+                        segments=segments  # Save the timestamp segments
                     )
                     transcription_id = transcription_result.data[0]['id']
                     print(f"[DB] Transcription saved with ID: {transcription_id}")
