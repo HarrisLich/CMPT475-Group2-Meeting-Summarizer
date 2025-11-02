@@ -6,6 +6,7 @@ import { useChat } from "@ai-sdk/react";
 import { WelcomeScreen } from "./welcome-screen";
 import { ChatInterface } from "./chat-interface";
 import { SummarizationService, RateLimitError } from "@/lib/services/summarization";
+import { useAuth } from "@/lib/context/auth-context";
 
 // Meeting chat objects
 interface TranscriptionSegment {
@@ -26,6 +27,7 @@ interface Chat {
   title: string;
   preview: string;
   timestamp: Date;
+  conversationId?: string; // Supabase conversation ID for message persistence
   transcription?: {
     fullText: string;
     segments: TranscriptionSegment[];
@@ -35,6 +37,7 @@ interface Chat {
 }
 
 export default function AiChat() {
+  const { user, session, loading: authLoading } = useAuth(); // Get authenticated user
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [chats, setChats] = useState<Chat[]>([]);
 
@@ -43,6 +46,55 @@ export default function AiChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>("");
+
+  // Log auth context when component loads and when it changes
+  useEffect(() => {
+    console.log("=== AI Chat Auth Context ===");
+    console.log("Auth Loading:", authLoading);
+    console.log("User:", user);
+    console.log("User ID:", user?.id);
+    console.log("User Email:", user?.email);
+    console.log("Session:", session);
+    console.log("============================");
+  }, [user, session, authLoading]);
+
+  // Load user's conversations from database when authenticated
+  useEffect(() => {
+    const loadUserConversations = async () => {
+      if (!user?.id || authLoading) {
+        console.log("[LOAD] Skipping conversation load - user not ready", { userId: user?.id, authLoading });
+        return;
+      }
+
+      console.log("[LOAD] Loading conversations for user:", user.id);
+
+      try {
+        const conversations = await SummarizationService.getUserConversations(user.id);
+        console.log("[LOAD] Loaded conversations:", conversations);
+
+        // Transform database conversations to Chat format
+        const transformedChats: Chat[] = conversations.map(conv => ({
+          id: conv.id,
+          conversationId: conv.id,
+          title: conv.title,
+          preview: "Click to view conversation...",
+          timestamp: new Date(conv.updated_at || conv.created_at),
+          // Transcription and messages will be loaded when user selects the chat
+        }));
+
+        setChats(transformedChats);
+        console.log("[LOAD] Conversations loaded successfully:", transformedChats.length);
+      } catch (error) {
+        console.error("[LOAD] Failed to load conversations:", error);
+        if (error instanceof Error) {
+          console.error("[LOAD] Error details:", error.message);
+        }
+        // Don't show error to user, just log it
+      }
+    };
+
+    loadUserConversations();
+  }, [user, authLoading]);
 
   useEffect(() => {
     // Reset messages when chat changes
@@ -104,9 +156,12 @@ export default function AiChat() {
       }
 
       // Use the chat endpoint for conversational interaction
+      console.log("Sending chat request with conversationId:", currentChat?.conversationId, "userId:", user?.id);
       const response = await SummarizationService.chatWithMeeting(
         meetingContext,
-        userQuestion
+        userQuestion,
+        currentChat?.conversationId,
+        user?.id
       );
 
       const aiMessage = {
@@ -169,7 +224,8 @@ export default function AiChat() {
       await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for UX
 
       setUploadStatus("Transcribing with Whisper (this may take 2-3 minutes)...");
-      const transcriptionData = await SummarizationService.transcribeAudio(file);
+      console.log("Sending transcription request with user ID:", user?.id || "NOT AUTHENTICATED");
+      const transcriptionData = await SummarizationService.transcribeAudio(file, user?.id);
       console.log("Transcription data received:", transcriptionData);
 
       // Step 2: Analyze transcription
@@ -178,9 +234,14 @@ export default function AiChat() {
 
       // Step 3 & 4: Run summary and action items extraction in parallel
       setUploadStatus("Generating summary with AI...");
+      console.log("Sending summarization request with user ID:", user?.id || "NOT AUTHENTICATED");
       const [summaryData, actionItemsData] = await Promise.all([
-        SummarizationService.summarizeText(transcriptionData.transcription),
-        SummarizationService.extractActionItems(transcriptionData.transcription)
+        SummarizationService.summarizeText(transcriptionData.transcription, user?.id),
+        SummarizationService.extractActionItems(
+          transcriptionData.transcription,
+          (transcriptionData as any).conversation_id,
+          user?.id
+        )
       ]);
       console.log("Summary data received:", summaryData);
       console.log("Action items data received:", actionItemsData);
@@ -192,6 +253,7 @@ export default function AiChat() {
         const chatData = {
           title: file.name.replace(/\.(mp3|wav|m4a|flac|ogg|webm)$/i, ''),
           preview: summaryData.summary.substring(0, 50) + "...",
+          conversationId: (transcriptionData as any).conversation_id, // Extract conversation_id from backend
           transcription: {
             fullText: transcriptionData.transcription,
             segments: transcriptionData.segments || [],
@@ -204,7 +266,7 @@ export default function AiChat() {
             assignedTo: item.assigned_to || "Unassigned"
           })) : []
         };
-        console.log("Complete chat data:", chatData);
+        console.log("Complete chat data (including conversationId):", chatData);
 
         // Use React 18's automatic batching or use a callback to ensure state updates happen together
         if (isNewChat) {
@@ -232,7 +294,7 @@ export default function AiChat() {
           );
         }
 
-        // Add summary as AI message
+        // Add summary as AI message (this is already saved to DB via /transcribe endpoint)
         const aiMessage = {
           id: Date.now().toString(),
           role: "assistant",
@@ -241,6 +303,9 @@ export default function AiChat() {
 
         setCurrentMessages(prev => [...prev, aiMessage]);
         setUploadStatus("Complete! Your meeting has been summarized.");
+
+        // Note: The conversation and initial summary message are already saved to the database
+        // by the /transcribe endpoint, so they will persist across page refreshes
       } else {
         throw new Error(summaryData.error || "Summarization failed");
       }
@@ -295,8 +360,124 @@ export default function AiChat() {
     setCurrentMessages([]);
   };
 
-  const handleSelectChat = (chatId: string) => {
+  const handleSelectChat = async (chatId: string) => {
+    console.log("[SELECT] Selecting chat:", chatId);
     setSelectedChatId(chatId);
+
+    // Find the chat to get its conversationId
+    const selectedChat = chats.find(chat => chat.id === chatId);
+
+    // If this is a newly created chat that's already selected, just show current messages
+    if (chatId === selectedChatId && currentMessages.length > 0) {
+      console.log("[SELECT] Chat is already selected with messages, skipping reload");
+      return;
+    }
+
+    // If the chat has no conversationId (shouldn't happen, but defensive check)
+    if (!selectedChat?.conversationId) {
+      console.warn("[SELECT] Chat has no conversationId, cannot load messages from database");
+      // If this chat has transcription data, it means it was just uploaded
+      // and messages are already in local state
+      if (selectedChat?.transcription) {
+        console.log("[SELECT] Using local chat data instead of fetching from database");
+        return;
+      }
+      setCurrentMessages([{
+        id: Date.now().toString(),
+        role: "assistant",
+        content: "This conversation is not yet available. Please try refreshing the page."
+      }]);
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Load messages for this conversation using the conversationId
+      console.log("[SELECT] Loading messages for conversationId:", selectedChat.conversationId);
+      const messagesData = await SummarizationService.getConversationMessages(selectedChat.conversationId);
+      console.log("[SELECT] Loaded messages:", messagesData);
+
+      // Transform database messages to local format
+      const transformedMessages = messagesData.map(msg => ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.content
+      }));
+
+      setCurrentMessages(transformedMessages);
+      console.log("[SELECT] Messages loaded successfully:", transformedMessages.length);
+
+      // Load full conversation details if not already loaded (transcription, action items)
+      if (!selectedChat.transcription) {
+        console.log("[SELECT] Loading full conversation details...");
+        try {
+          const conversationData = await SummarizationService.getConversation(selectedChat.conversationId);
+          console.log("[SELECT] Conversation data:", conversationData);
+
+          // Update the chat in state with transcription and action items
+          if (conversationData.transcription || conversationData.summary) {
+            setChats(prevChats =>
+              prevChats.map(chat => {
+                if (chat.id === chatId) {
+                  const updatedChat = { ...chat };
+
+                  // Add transcription if available
+                  if (conversationData.transcription) {
+                    updatedChat.transcription = {
+                      fullText: conversationData.transcription.transcription_text,
+                      segments: conversationData.transcription.segments || [], // Load segments from DB
+                      fileName: conversationData.conversation?.title || "Meeting Transcript"
+                    };
+                    console.log("[SELECT] Updated chat with transcription:", {
+                      hasFullText: !!updatedChat.transcription.fullText,
+                      textLength: updatedChat.transcription.fullText?.length,
+                      segmentsCount: updatedChat.transcription.segments?.length || 0
+                    });
+                  } else {
+                    console.warn("[SELECT] No transcription data found in response");
+                  }
+
+                  // Add action items if available from database
+                  if (conversationData.action_items && conversationData.action_items.length > 0) {
+                    updatedChat.actionItems = conversationData.action_items.map((item: any) => ({
+                      id: item.id,
+                      priority: item.priority || "medium",
+                      task: item.task,
+                      assignedTo: item.assigned_to || "Unassigned"
+                    }));
+                    console.log("[SELECT] Updated chat with action items:", updatedChat.actionItems?.length);
+                  } else {
+                    updatedChat.actionItems = [];
+                    console.log("[SELECT] No action items found for this conversation");
+                  }
+
+                  return updatedChat;
+                }
+                return chat;
+              })
+            );
+          } else {
+            console.warn("[SELECT] No transcription or summary data in conversation response");
+          }
+        } catch (detailsError) {
+          console.error("[SELECT] Failed to load conversation details:", detailsError);
+          // Don't fail the whole operation, just log the error
+        }
+      }
+
+    } catch (error) {
+      console.error("[SELECT] Failed to load messages:", error);
+      // Show error to user
+      const errorMessage = {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: "Failed to load conversation history. Please try again."
+      };
+      setCurrentMessages([errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSuggestionClick = (suggestion: string) => {
