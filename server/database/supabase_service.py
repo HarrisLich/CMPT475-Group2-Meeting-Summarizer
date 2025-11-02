@@ -115,6 +115,34 @@ class SupabaseService:
         """Get the summary for a meeting"""
         return self.client.table("summaries").select("*").eq("meeting_id", meeting_id).execute()
 
+    # Action items functions
+    def save_action_items(self, conversation_id, action_items):
+        """Save action items for a conversation"""
+        # Transform action items to match database schema
+        action_items_data = []
+        for item in action_items:
+            # Use defaults only if values are None or empty string
+            priority = item.get("priority")
+            if not priority:  # Catches None, empty string, etc.
+                priority = "medium"
+
+            assigned_to = item.get("assigned_to")
+            if not assigned_to:
+                assigned_to = "Unassigned"
+
+            action_items_data.append({
+                "conversation_id": conversation_id,
+                "task": item.get("task"),
+                "priority": priority,
+                "assigned_to": assigned_to
+            })
+
+        return self.client.table("action_items").insert(action_items_data).execute()
+
+    def get_conversation_action_items(self, conversation_id):
+        """Get all action items for a conversation"""
+        return self.client.table("action_items").select("*").eq("conversation_id", conversation_id).order("created_at", desc=False).execute()
+
 
 def get_supabase():
     global _instance

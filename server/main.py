@@ -41,6 +41,8 @@ class ActionItemsRequest(BaseModel):
     Extracts structured action items from a meeting transcription.
     """
     transcription_text: str
+    conversation_id: str = None
+    user_id: str = None
 
 class ConversationCreate(BaseModel):
     """Request model for creating a new conversation"""
@@ -526,6 +528,15 @@ async def extract_action_items(request: ActionItemsRequest):
         # Call the action items extraction method from summarization service
         result = summarization_service.extract_action_items(request.transcription_text)
 
+        # Debug logging to see what the LLM is returning
+        print(f"[ACTION ITEMS DEBUG] Raw result: {result}")
+        if result.get("action_items"):
+            for idx, item in enumerate(result.get("action_items")):
+                print(f"[ACTION ITEMS DEBUG] Item {idx}: {item}")
+                print(f"[ACTION ITEMS DEBUG]   - task: {item.get('task')}")
+                print(f"[ACTION ITEMS DEBUG]   - priority: {item.get('priority')} (type: {type(item.get('priority'))})")
+                print(f"[ACTION ITEMS DEBUG]   - assigned_to: {item.get('assigned_to')}")
+
         # Check if extraction was successful
         if not result.get("success"):
             error_type = result.get("error_type", "api_error")
@@ -545,6 +556,20 @@ async def extract_action_items(request: ActionItemsRequest):
                     status_code=503,
                     detail=result.get("error", "Action item extraction failed.")
                 )
+
+        # Save action items to database if conversation_id and user_id are provided
+        if request.conversation_id and request.user_id and result.get("action_items"):
+            try:
+                supabase = get_supabase()
+                action_items_result = supabase.save_action_items(
+                    conversation_id=request.conversation_id,
+                    action_items=result.get("action_items")
+                )
+                print(f"[ACTION ITEMS] Saved {len(result.get('action_items'))} action items to conversation {request.conversation_id}: {action_items_result.data}")
+            except Exception as db_error:
+                print(f"[ACTION ITEMS] Warning: Failed to save action items to database: {str(db_error)}")
+                # Continue and return result even if database save fails
+
         return result
 
     except HTTPException:
@@ -620,6 +645,15 @@ async def get_conversation(
             except Exception as e:
                 print(f"[WARNING] Failed to fetch meeting data: {str(e)}")
                 # Don't fail the request, just return conversation without extras
+
+        # Get action items for this conversation
+        try:
+            action_items_result = supabase.get_conversation_action_items(conversation_id)
+            if action_items_result.data:
+                response["action_items"] = action_items_result.data
+        except Exception as e:
+            print(f"[WARNING] Failed to fetch action items: {str(e)}")
+            # Don't fail the request, just return conversation without action items
 
         return response
     except HTTPException:

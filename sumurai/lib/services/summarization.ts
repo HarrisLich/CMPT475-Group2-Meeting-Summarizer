@@ -213,7 +213,7 @@ export class SummarizationService {
   /**
    * Extract structured action items from a meeting transcription
    */
-  static async extractActionItems(transcriptionText: string): Promise<ActionItemsResponse> {
+  static async extractActionItems(transcriptionText: string, conversationId?: string, userId?: string): Promise<ActionItemsResponse> {
     const response = await fetch(`${API_URL}/extract-action-items`, {
       method: 'POST',
       headers: {
@@ -221,6 +221,8 @@ export class SummarizationService {
       },
       body: JSON.stringify({
         transcription_text: transcriptionText,
+        conversation_id: conversationId,
+        user_id: userId,
       }),
     });
 

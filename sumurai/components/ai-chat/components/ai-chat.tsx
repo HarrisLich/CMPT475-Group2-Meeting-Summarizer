@@ -237,7 +237,11 @@ export default function AiChat() {
       console.log("Sending summarization request with user ID:", user?.id || "NOT AUTHENTICATED");
       const [summaryData, actionItemsData] = await Promise.all([
         SummarizationService.summarizeText(transcriptionData.transcription, user?.id),
-        SummarizationService.extractActionItems(transcriptionData.transcription)
+        SummarizationService.extractActionItems(
+          transcriptionData.transcription,
+          (transcriptionData as any).conversation_id,
+          user?.id
+        )
       ]);
       console.log("Summary data received:", summaryData);
       console.log("Action items data received:", actionItemsData);
@@ -434,10 +438,18 @@ export default function AiChat() {
                     console.warn("[SELECT] No transcription data found in response");
                   }
 
-                  // Add action items if available (would need to fetch separately or parse from summary)
-                  // For now, we'll leave action items empty since they're not stored in DB yet
-                  if (!updatedChat.actionItems) {
+                  // Add action items if available from database
+                  if (conversationData.action_items && conversationData.action_items.length > 0) {
+                    updatedChat.actionItems = conversationData.action_items.map((item: any) => ({
+                      id: item.id,
+                      priority: item.priority || "medium",
+                      task: item.task,
+                      assignedTo: item.assigned_to || "Unassigned"
+                    }));
+                    console.log("[SELECT] Updated chat with action items:", updatedChat.actionItems?.length);
+                  } else {
                     updatedChat.actionItems = [];
+                    console.log("[SELECT] No action items found for this conversation");
                   }
 
                   return updatedChat;
