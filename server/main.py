@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Form
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from transcription.Transcription import TranscriptionService
@@ -397,18 +397,22 @@ async def extract_action_items(request: ActionItemsRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Action item extraction failed: {str(e)}")
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
-    
 @app.post("/transcribe-with-speakers")
 async def transcribe_with_speakers(
-    audio_file: UploadFile = File(...),
-    hf_token: str = Form(...)
+    audio_file: UploadFile = File(...)
 ):
     if not transcription_service.is_supported_file_type(audio_file.content_type):
         raise HTTPException(status_code=400, detail=f"Unsupported file type: {audio_file.content_type}")
 
     try:
+        # Get HuggingFace token from environment
+        hf_token = os.getenv("HUGGINGFACE_TOKEN")
+        if not hf_token:
+            raise HTTPException(
+                status_code=500, 
+                detail="HuggingFace token not configured. Please set HUGGINGFACE_TOKEN environment variable."
+            )
+
         # Read file content
         content = await audio_file.read()
 
@@ -418,3 +422,6 @@ async def transcribe_with_speakers(
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
