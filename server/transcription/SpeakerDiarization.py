@@ -3,6 +3,8 @@ import torch
 import tempfile
 import os
 from pathlib import Path
+import warnings
+warnings.filterwarnings("ignore", message="torchcodec is not installed correctly")
 
 class SpeakerDiarizationService:
     def __init__(self, hf_token=None):
@@ -15,8 +17,9 @@ class SpeakerDiarizationService:
                 raise ValueError("HuggingFace token is required for speaker diarization")
             
             self._pipeline = Pipeline.from_pretrained(
-                "pyannote/speaker-diarization",
-                use_auth_token=self.hf_token
+                "pyannote/speaker-diarization@2.1",
+                token=self.hf_token,
+                
             )
         return self._pipeline
 
