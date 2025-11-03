@@ -5,7 +5,9 @@ import { Sidebar } from "./sidebar";
 import { useChat } from "@ai-sdk/react";
 import { WelcomeScreen } from "./welcome-screen";
 import { ChatInterface } from "./chat-interface";
-import { SummarizationService, RateLimitError } from "@/lib/services/summarization";
+import { SummarizationService, RateLimitError, transcribeWithSpeakers } from "@/lib/services/summarization";
+import SpeakerMapping from "@/components/speaker-mapping/speaker-mapping";
+import TranscriptionWithSpeakers from "@/components/transcription/transcription-with-speakers";
 
 // Meeting chat objects
 interface TranscriptionSegment {
@@ -43,6 +45,10 @@ export default function AiChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>("");
+  
+  // Speaker diarization states
+  const [showSpeakerMapping, setShowSpeakerMapping] = useState(false);
+  const [speakersMapped, setSpeakersMapped] = useState(false);
 
   useEffect(() => {
     // Reset messages when chat changes
@@ -164,12 +170,13 @@ export default function AiChat() {
     setUploadStatus("Uploading file...");
 
     try {
-      // Step 1: Transcribe the audio
+      // Step 1: Transcribe the audio (with optional speaker diarization)
       setUploadStatus("Processing audio file...");
       await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for UX
 
-      setUploadStatus("Transcribing with Whisper (this may take 2-3 minutes)...");
-      const transcriptionData = await SummarizationService.transcribeAudio(file);
+      // Always use speaker diarization
+      setUploadStatus("Transcribing with speaker identification (this may take 3-5 minutes)...");
+      const transcriptionData = await SummarizationService.transcribeWithSpeakers(file, "");
       console.log("Transcription data received:", transcriptionData);
 
       // Step 2: Analyze transcription
@@ -240,7 +247,14 @@ export default function AiChat() {
         };
 
         setCurrentMessages(prev => [...prev, aiMessage]);
-        setUploadStatus("Complete! Your meeting has been summarized.");
+        
+        // Check if speakers were detected and show speaker mapping
+        if (transcriptionData.segments?.some((s: any) => s.speaker)) {
+          setShowSpeakerMapping(true);
+          setUploadStatus("Transcription complete! Please assign speaker names.");
+        } else {
+          setUploadStatus("Complete! Your meeting has been summarized.");
+        }
       } else {
         throw new Error(summaryData.error || "Summarization failed");
       }
@@ -364,6 +378,22 @@ export default function AiChat() {
               transcriptSegments={currentChat?.transcription?.segments ?? []}
               actionItems={currentChat?.actionItems ?? []}
             />
+            
+            {/* Speaker Mapping Overlay */}
+            {showSpeakerMapping && selectedChatId && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="max-w-2xl w-full max-h-[80vh] overflow-auto">
+                  <SpeakerMapping
+                    meetingId={selectedChatId}
+                    onComplete={() => {
+                      setShowSpeakerMapping(false);
+                      setSpeakersMapped(true);
+                      setUploadStatus("Complete! Speaker names assigned.");
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
