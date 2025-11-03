@@ -255,4 +255,62 @@ export class SummarizationService {
 
     return this.summarizeText(contextualPrompt);
   }
+  /**
+   * Transcribe audio with speaker diarization
+   */
+  static async transcribeWithSpeakers(audioFile: File, _unused?: string): Promise<TranscriptionResponse> {
+    const formData = new FormData();
+    formData.append('audio_file', audioFile);
+    
+    const response = await fetch(`${API_URL}/transcribe-with-speakers`, {
+      method: 'POST',
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Speaker transcription failed: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  }
+
+  /**
+   * Get unique speakers from a meeting
+   */
+  static async getSpeakers(meetingId: string) {
+    const response = await fetch(`${API_URL}/meetings/${meetingId}/speakers`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to get speakers: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  }
+
+  /**
+   * Save speaker name mappings for a meeting
+   */
+  static async saveSpeakerMappings(meetingId: string, mappings: Record<string, string>) {
+    const response = await fetch(`${API_URL}/meetings/${meetingId}/speaker-mappings`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        meeting_id: meetingId,
+        mappings
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to save speaker mappings: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  }
 }
+
+// Export standalone functions for backward compatibility
+export const transcribeWithSpeakers = SummarizationService.transcribeWithSpeakers;
+export const getSpeakers = SummarizationService.getSpeakers;
+export const saveSpeakerMappings = SummarizationService.saveSpeakerMappings;
