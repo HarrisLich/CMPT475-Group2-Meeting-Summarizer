@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Copy, Share, ThumbsUp, ThumbsDown, Send, Paperclip, Mic, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
+import { Copy, Share, ThumbsUp, ThumbsDown, Send, Paperclip, Mic, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Download, FileText, ListChecks, FileStack } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -58,6 +58,8 @@ export function ChatInterface({
   const [rightPanelCollapsed, setRightPanelCollapsed] = React.useState(false);
   const [transcriptCollapsed, setTranscriptCollapsed] = React.useState(false);
   const [actionItemsCollapsed, setActionItemsCollapsed] = React.useState(false);
+  const [downloadMenuOpen, setDownloadMenuOpen] = React.useState(false);
+  const downloadButtonRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     console.log("ChatInterface props:", {
@@ -67,6 +69,23 @@ export function ChatInterface({
     });
   }, [transcript, transcriptSegments, actionItems]);
 
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (downloadButtonRef.current && !downloadButtonRef.current.contains(event.target as Node)) {
+        setDownloadMenuOpen(false);
+      }
+    };
+
+    if (downloadMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [downloadMenuOpen]);
+
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && onFileUpload) {
@@ -74,6 +93,12 @@ export function ChatInterface({
     }
     // Reset input so same file can be selected again
     e.target.value = '';
+  };
+
+  const handleDownload = (type: 'summary' | 'transcript' | 'action-items' | 'all') => {
+    console.log(`Download requested: ${type}`);
+    // TODO: Implement download logic in output-download service
+    setDownloadMenuOpen(false);
   };
 
   return (
@@ -103,18 +128,67 @@ export function ChatInterface({
           <ScrollArea className="flex-1 h-full overflow-y-auto">
             {/* Floating Header */}
             <div className="sticky top-0 z-10 px-6 pt-6 pb-3 bg-gradient-to-b from-[#111111] via-[#111111]/95 to-transparent">
-              <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-[#333333] bg-[#1A1A1A] shadow-lg">
-                {chatTitle && (
-                  <>
-                    <h2 className="text-lg font-bold bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] bg-clip-text text-transparent leading-none">
-                      {chatTitle}
-                    </h2>
-                    <div className="h-5 w-px bg-[#333333]"></div>
-                  </>
-                )}
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-semibold text-white uppercase tracking-wide leading-none">Summary</h3>
+              <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-[#333333] bg-[#1A1A1A] shadow-lg">
+                <div className="flex items-center gap-3">
+                  {chatTitle && (
+                    <>
+                      <h2 className="text-lg font-bold bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] bg-clip-text text-transparent leading-none">
+                        {chatTitle}
+                      </h2>
+                      <div className="h-5 w-px bg-[#333333]"></div>
+                    </>
+                  )}
                 </div>
+
+                {/* Export/Download Button with Dropdown */}
+                {messages && messages.length > 0 && (
+                  <div className="relative" ref={downloadButtonRef}>
+                    <Button
+                      onClick={() => setDownloadMenuOpen(!downloadMenuOpen)}
+                      variant="ghost"
+                      className="h-8 w-8 p-0 flex items-center justify-center text-gray-300 hover:text-white hover:bg-[#00F5FF]/10 border border-[#333333] hover:border-[#00F5FF]/50 transition-all"
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+
+                    {/* Dropdown Menu */}
+                    {downloadMenuOpen && (
+                      <div className="absolute right-0 mt-2 w-56 bg-[#1A1A1A] border border-[#333333] rounded-lg shadow-xl overflow-hidden z-50">
+                        <div className="py-1">
+                          <button
+                            onClick={() => handleDownload('summary')}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#00F5FF]/10 hover:text-white transition-colors"
+                          >
+                            <FileText className="h-4 w-4 text-[#00F5FF]" />
+                            <span>Export Summary</span>
+                          </button>
+                          <button
+                            onClick={() => handleDownload('transcript')}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#00F5FF]/10 hover:text-white transition-colors"
+                          >
+                            <FileText className="h-4 w-4 text-[#00F5FF]" />
+                            <span>Export Transcript</span>
+                          </button>
+                          <button
+                            onClick={() => handleDownload('action-items')}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#00F5FF]/10 hover:text-white transition-colors"
+                          >
+                            <ListChecks className="h-4 w-4 text-[#00F5FF]" />
+                            <span>Export Action Items</span>
+                          </button>
+                          <div className="border-t border-[#333333] my-1"></div>
+                          <button
+                            onClick={() => handleDownload('all')}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-white font-semibold hover:bg-[#00F5FF]/20 transition-colors"
+                          >
+                            <FileStack className="h-4 w-4 text-[#00F5FF]" />
+                            <span>Export All</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           <div className="px-6 pb-6 pt-3">
@@ -192,8 +266,8 @@ export function ChatInterface({
                               remarkPlugins={[remarkGfm]}
                               components={{
                                 h1: ({node, ...props}) => <h1 className="text-3xl font-extrabold text-[#00F5FF] mb-4" {...props} />,
-                                h2: ({node, ...props}) => <h2 className="text-xl font-extrabold text-[#00F5FF] mb-3 mt-5" {...props} />,
-                                h3: ({node, ...props}) => <h3 className="text-lg font-bold text-white mb-2 mt-4" {...props} />,
+                                h2: ({node, ...props}) => <h2 className="text-xl font-extrabold text-[#00F5FF] mb-3" {...props} />,
+                                h3: ({node, ...props}) => <h3 className="text-lg font-bold text-[#00F5FF] mb-2 mt-4" {...props} />,
                                 p: ({node, ...props}) => <p className="text-gray-200 mb-3 leading-relaxed" {...props} />,
                                 ul: ({node, ...props}) => <ul className="list-disc ml-6 my-3 space-y-1" {...props} />,
                                 ol: ({node, ...props}) => <ol className="list-decimal ml-6 my-3 space-y-1" {...props} />,
@@ -285,13 +359,6 @@ export function ChatInterface({
                   </span>
                 </div>
               )}
-              {isUploading && (
-                <div className="absolute inset-y-0 left-14 flex items-center pointer-events-none">
-                  <span className="text-[#00F5FF] text-sm font-medium">
-                    {uploadStatus}
-                  </span>
-                </div>
-              )}
               <style jsx>{`
                 @keyframes gradient-x {
                   0%, 100% {
@@ -338,32 +405,37 @@ export function ChatInterface({
                 </h3>
               </div>
             <div className="px-6 pb-6">
-              <div className="space-y-3">
-                {transcript && transcript.length > 0 ? (
-                  transcriptSegments.length > 0 ? (
-                    transcriptSegments.map((segment, index) => (
-                      <div key={index} className="bg-[#1A1A1A] rounded-lg p-3 border border-[#333333] hover:shadow-lg transition-all duration-300">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xs font-mono text-[#00F5FF] font-semibold">
-                            {Math.floor(segment.start / 60)}:{String(Math.floor(segment.start % 60)).padStart(2, '0')} - {Math.floor(segment.end / 60)}:{String(Math.floor(segment.end % 60)).padStart(2, '0')}
+              {transcript && transcript.length > 0 ? (
+                transcriptSegments.length > 0 ? (
+                  <div className="space-y-0 border-l-2 border-[#333333]">
+                    {transcriptSegments.map((segment, index) => (
+                      <div
+                        key={index}
+                        className="flex gap-3 py-2 px-4 border-b border-[#333333]/30 hover:bg-[#1A1A1A]/50 transition-colors group"
+                      >
+                        <div className="flex-shrink-0 pt-0.5">
+                          <span className="text-xs font-mono text-[#00F5FF]/70 group-hover:text-[#00F5FF] transition-colors">
+                            {Math.floor(segment.start / 60)}:{String(Math.floor(segment.start % 60)).padStart(2, '0')}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-300 leading-relaxed">{segment.text}</p>
+                        <p className="text-sm text-gray-300 leading-relaxed flex-1">
+                          {segment.text}
+                        </p>
                       </div>
-                    ))
-                  ) : (
-                    <div className="bg-[#1A1A1A] rounded-lg p-4 border border-[#333333]">
-                      <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{transcript}</p>
-                    </div>
-                  )
-                ) : (
-                  <div className="flex items-center justify-center h-32">
-                    <p className="text-sm text-gray-400 text-center max-w-xs">
-                      Upload a meeting recording to see the transcript.
-                    </p>
+                    ))}
                   </div>
-                )}
-              </div>
+                ) : (
+                  <div className="border-l-2 border-[#333333] pl-4">
+                    <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{transcript}</p>
+                  </div>
+                )
+              ) : (
+                <div className="flex items-center justify-center h-32">
+                  <p className="text-sm text-gray-400 text-center max-w-xs">
+                    Upload a meeting recording to see the transcript.
+                  </p>
+                </div>
+              )}
             </div>
           </ScrollArea>
         </div>

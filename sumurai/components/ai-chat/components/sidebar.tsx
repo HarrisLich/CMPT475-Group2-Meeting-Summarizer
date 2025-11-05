@@ -32,9 +32,10 @@ interface SidebarProps {
   selectedChatId: string | null;
   onNewChat: () => void;
   onSelectChat: (chatId: string) => void;
+  isUploading?: boolean;
 }
 
-export function Sidebar({ chats, selectedChatId, onNewChat, onSelectChat }: SidebarProps) {
+export function Sidebar({ chats, selectedChatId, onNewChat, onSelectChat, isUploading = false }: SidebarProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -48,7 +49,7 @@ export function Sidebar({ chats, selectedChatId, onNewChat, onSelectChat }: Side
   return (
     <div className={cn(
       "bg-[#111111] flex flex-col border-r border-[#333333] h-full transition-all duration-300 relative",
-      isCollapsed ? "w-16" : "w-72"
+      isCollapsed ? "w-16" : "w-75"
     )}>
       {/* Collapse/Expand Handle */}
       <div
@@ -135,12 +136,14 @@ export function Sidebar({ chats, selectedChatId, onNewChat, onSelectChat }: Side
                   key={chat.id}
                   variant="ghost"
                   onClick={() => onSelectChat(chat.id)}
+                  disabled={isUploading}
                   className={cn(
                     "h-auto w-full p-3 text-left rounded-lg transition-all duration-300",
                     selectedChatId === chat.id
                       ? "bg-[#1A1A1A] border border-[#333333] shadow-lg hover:shadow-xl"
                       : "hover:bg-[#1A1A1A] border border-transparent hover:border-[#333333]",
-                    isCollapsed ? "justify-center" : "justify-start"
+                    isCollapsed ? "justify-center" : "justify-start",
+                    isUploading && "opacity-50 cursor-not-allowed"
                   )}
                   title={isCollapsed ? chat.title : undefined}
                 >

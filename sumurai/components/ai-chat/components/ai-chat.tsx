@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Sidebar } from "./sidebar";
 import { useChat } from "@ai-sdk/react";
 import { WelcomeScreen } from "./welcome-screen";
@@ -34,6 +34,7 @@ interface Chat {
     fileName?: string;
   };
   actionItems?: ActionItem[];
+  messages?: any[]; // Cached messages for instant switching
 }
 
 export default function AiChat() {
@@ -46,6 +47,9 @@ export default function AiChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>("");
+
+  // Track if conversations have been loaded to prevent unnecessary refetches
+  const conversationsLoadedRef = useRef(false);
 
   // Log auth context when component loads and when it changes
   useEffect(() => {
@@ -66,6 +70,12 @@ export default function AiChat() {
         return;
       }
 
+      // Skip if we've already loaded conversations (prevents re-fetch on tab focus)
+      if (conversationsLoadedRef.current) {
+        console.log("[LOAD] Conversations already loaded, skipping refetch");
+        return;
+      }
+
       console.log("[LOAD] Loading conversations for user:", user.id);
 
       try {
@@ -82,8 +92,33 @@ export default function AiChat() {
           // Transcription and messages will be loaded when user selects the chat
         }));
 
-        setChats(transformedChats);
-        console.log("[LOAD] Conversations loaded successfully:", transformedChats.length);
+        // MERGE with existing cached data instead of replacing
+        // This prevents losing cached messages/transcriptions when tab regains focus
+        setChats(prevChats => {
+          // If no previous chats, just use the fresh data
+          if (prevChats.length === 0) {
+            return transformedChats;
+          }
+
+          // Merge: keep cached data (messages, transcription, action items) from prevChats
+          return transformedChats.map(freshChat => {
+            const existingChat = prevChats.find(c => c.id === freshChat.id);
+            if (existingChat) {
+              // Preserve cached data while updating metadata
+              return {
+                ...freshChat,
+                messages: existingChat.messages,
+                transcription: existingChat.transcription,
+                actionItems: existingChat.actionItems
+              };
+            }
+            return freshChat;
+          });
+        });
+
+        // Mark conversations as loaded to prevent unnecessary refetches
+        conversationsLoadedRef.current = true;
+        console.log("[LOAD] Conversations loaded and merged with cache successfully:", transformedChats.length);
       } catch (error) {
         console.error("[LOAD] Failed to load conversations:", error);
         if (error instanceof Error) {
@@ -96,10 +131,8 @@ export default function AiChat() {
     loadUserConversations();
   }, [user, authLoading]);
 
-  useEffect(() => {
-    // Reset messages when chat changes
-    setCurrentMessages([]);
-  }, [selectedChatId]);
+  // Note: We DON'T reset messages here anymore because handleSelectChat
+  // manages message loading. Resetting here causes a flash of empty content.
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
@@ -116,7 +149,20 @@ export default function AiChat() {
       content: input
     };
 
-    setCurrentMessages(prev => [...prev, userMessage]);
+    setCurrentMessages(prev => {
+      const updatedMessages = [...prev, userMessage];
+
+      // Update cached messages in the chat object
+      setChats(prevChats =>
+        prevChats.map(chat =>
+          chat.id === selectedChatId
+            ? { ...chat, messages: updatedMessages }
+            : chat
+        )
+      );
+
+      return updatedMessages;
+    });
     const userQuestion = input;
 
     // Update chat title if it's the first message
@@ -170,7 +216,20 @@ export default function AiChat() {
         content: response.response
       };
 
-      setCurrentMessages(prev => [...prev, aiMessage]);
+      setCurrentMessages(prev => {
+        const updatedMessages = [...prev, aiMessage];
+
+        // Update cached messages in the chat object
+        setChats(prevChats =>
+          prevChats.map(chat =>
+            chat.id === selectedChatId
+              ? { ...chat, messages: updatedMessages }
+              : chat
+          )
+        );
+
+        return updatedMessages;
+      });
     } catch (error) {
       console.error("Error:", error);
 
@@ -188,7 +247,21 @@ export default function AiChat() {
         role: "assistant",
         content: errorContent
       };
-      setCurrentMessages(prev => [...prev, errorMessage]);
+
+      setCurrentMessages(prev => {
+        const updatedMessages = [...prev, errorMessage];
+
+        // Update cached messages in the chat object even for errors
+        setChats(prevChats =>
+          prevChats.map(chat =>
+            chat.id === selectedChatId
+              ? { ...chat, messages: updatedMessages }
+              : chat
+          )
+        );
+
+        return updatedMessages;
+      });
     } finally {
       setIsLoading(false);
     }
@@ -233,10 +306,13 @@ export default function AiChat() {
       const transcriptionData = await SummarizationService.transcribeAudio(file, user?.id);
       console.log("Transcription data received:", transcriptionData);
 
-      // Check which service was used
+      // Check which service was used and update status to show the method
       const wasGroq = (transcriptionData as any).service === "groq";
       const transcriptionMethod = wasGroq ? "Groq Whisper API ⚡" : "Local Whisper 🖥️";
       console.log(`✓ Processing completed using: ${transcriptionMethod}`);
+
+      // Update status to show which transcription service was used
+      setUploadStatus(`✓ Transcribed with ${transcriptionMethod} → Finalizing...`);
 
       const summaryData = transcriptionData.summary;
       const actionItemsFromBackend = transcriptionData.action_items || [];
@@ -245,7 +321,17 @@ export default function AiChat() {
       console.log("Action items received from backend:", actionItemsFromBackend);
 
       if (summaryData?.success && summaryData.summary) {
-        // Prepare the complete chat data with transcription and action items
+        // Add summary as AI message (this is already saved to DB via /transcribe endpoint)
+        console.log("[DEBUG] Summary content being displayed:", summaryData.summary);
+        console.log("[DEBUG] First 200 chars:", summaryData.summary.substring(0, 200));
+
+        const aiMessage = {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: summaryData.summary
+        };
+
+        // Prepare the complete chat data with transcription, action items, AND messages for caching
         const chatData = {
           title: file.name.replace(/\.(mp3|wav|m4a|flac|ogg|webm)$/i, ''),
           preview: summaryData.summary.substring(0, 50) + "...",
@@ -260,9 +346,10 @@ export default function AiChat() {
             priority: item.priority || "medium",
             task: item.task || item,
             assignedTo: item.assigned_to || "Unassigned"
-          })) : []
+          })) : [],
+          messages: [aiMessage] // Cache the initial summary message
         };
-        console.log("Complete chat data (including conversationId):", chatData);
+        console.log("Complete chat data (including conversationId and cached messages):", chatData);
 
         // Use React 18's automatic batching or use a callback to ensure state updates happen together
         if (isNewChat) {
@@ -289,16 +376,6 @@ export default function AiChat() {
             )
           );
         }
-
-        // Add summary as AI message (this is already saved to DB via /transcribe endpoint)
-        console.log("[DEBUG] Summary content being displayed:", summaryData.summary);
-        console.log("[DEBUG] First 200 chars:", summaryData.summary.substring(0, 200));
-
-        const aiMessage = {
-          id: Date.now().toString(),
-          role: "assistant",
-          content: summaryData.summary
-        };
 
         setCurrentMessages(prev => [...prev, aiMessage]);
         setUploadStatus(`✅ Complete! Meeting processed with ${transcriptionMethod}`);
@@ -361,7 +438,6 @@ export default function AiChat() {
 
   const handleSelectChat = async (chatId: string) => {
     console.log("[SELECT] Selecting chat:", chatId);
-    setSelectedChatId(chatId);
 
     // Find the chat to get its conversationId
     const selectedChat = chats.find(chat => chat.id === chatId);
@@ -379,8 +455,10 @@ export default function AiChat() {
       // and messages are already in local state
       if (selectedChat?.transcription) {
         console.log("[SELECT] Using local chat data instead of fetching from database");
+        setSelectedChatId(chatId);
         return;
       }
+      setSelectedChatId(chatId);
       setCurrentMessages([{
         id: Date.now().toString(),
         role: "assistant",
@@ -389,84 +467,96 @@ export default function AiChat() {
       return;
     }
 
+    // CHECK CACHE FIRST - If we've already loaded this chat, use cached data for INSTANT switching
+    if (selectedChat.messages && selectedChat.transcription) {
+      console.log("[SELECT] ⚡ Using cached data for instant switch");
+      setSelectedChatId(chatId);
+      setCurrentMessages(selectedChat.messages);
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // Load messages for this conversation using the conversationId
-      console.log("[SELECT] Loading messages for conversationId:", selectedChat.conversationId);
-      const messagesData = await SummarizationService.getConversationMessages(selectedChat.conversationId);
+      // Load messages AND conversation details IN PARALLEL for faster loading
+      console.log("[SELECT] Loading messages and conversation details in parallel for conversationId:", selectedChat.conversationId);
+
+      const needsTranscription = !selectedChat.transcription;
+      const needsMessages = !selectedChat.messages;
+
+      // Start both requests simultaneously (skip if already cached)
+      const messagesPromise = needsMessages
+        ? SummarizationService.getConversationMessages(selectedChat.conversationId)
+        : Promise.resolve(selectedChat.messages || []);
+      const conversationPromise = needsTranscription
+        ? SummarizationService.getConversation(selectedChat.conversationId)
+        : Promise.resolve(null);
+
+      // Wait for both to complete
+      const [messagesData, conversationData] = await Promise.all([messagesPromise, conversationPromise]);
+
       console.log("[SELECT] Loaded messages:", messagesData);
+      console.log("[SELECT] Loaded conversation data:", conversationData);
 
       // Transform database messages to local format
-      const transformedMessages = messagesData.map(msg => ({
+      const transformedMessages = Array.isArray(messagesData) ? messagesData.map(msg => ({
         id: msg.id,
         role: msg.role,
         content: msg.content
-      }));
+      })) : messagesData;
 
-      setCurrentMessages(transformedMessages);
-      console.log("[SELECT] Messages loaded successfully:", transformedMessages.length);
+      // Update chat with ALL data (messages, transcription, action items) for caching
+      setChats(prevChats =>
+        prevChats.map(chat => {
+          if (chat.id === chatId) {
+            const updatedChat = { ...chat };
 
-      // Load full conversation details if not already loaded (transcription, action items)
-      if (!selectedChat.transcription) {
-        console.log("[SELECT] Loading full conversation details...");
-        try {
-          const conversationData = await SummarizationService.getConversation(selectedChat.conversationId);
-          console.log("[SELECT] Conversation data:", conversationData);
+            // Cache messages for instant switching next time
+            updatedChat.messages = transformedMessages;
 
-          // Update the chat in state with transcription and action items
-          if (conversationData.transcription || conversationData.summary) {
-            setChats(prevChats =>
-              prevChats.map(chat => {
-                if (chat.id === chatId) {
-                  const updatedChat = { ...chat };
+            // Add transcription if available
+            if (conversationData?.transcription) {
+              updatedChat.transcription = {
+                fullText: conversationData.transcription.transcription_text,
+                segments: conversationData.transcription.segments || [],
+                fileName: conversationData.conversation?.title || "Meeting Transcript"
+              };
+              console.log("[SELECT] Cached transcription:", {
+                hasFullText: !!updatedChat.transcription.fullText,
+                textLength: updatedChat.transcription.fullText?.length,
+                segmentsCount: updatedChat.transcription.segments?.length || 0
+              });
+            }
 
-                  // Add transcription if available
-                  if (conversationData.transcription) {
-                    updatedChat.transcription = {
-                      fullText: conversationData.transcription.transcription_text,
-                      segments: conversationData.transcription.segments || [], // Load segments from DB
-                      fileName: conversationData.conversation?.title || "Meeting Transcript"
-                    };
-                    console.log("[SELECT] Updated chat with transcription:", {
-                      hasFullText: !!updatedChat.transcription.fullText,
-                      textLength: updatedChat.transcription.fullText?.length,
-                      segmentsCount: updatedChat.transcription.segments?.length || 0
-                    });
-                  } else {
-                    console.warn("[SELECT] No transcription data found in response");
-                  }
+            // Add action items if available from database
+            if (conversationData?.action_items && conversationData.action_items.length > 0) {
+              updatedChat.actionItems = conversationData.action_items.map((item: any) => ({
+                id: item.id,
+                priority: item.priority || "medium",
+                task: item.task,
+                assignedTo: item.assigned_to || "Unassigned"
+              }));
+              console.log("[SELECT] Cached action items:", updatedChat.actionItems?.length);
+            } else if (!updatedChat.actionItems) {
+              updatedChat.actionItems = [];
+            }
 
-                  // Add action items if available from database
-                  if (conversationData.action_items && conversationData.action_items.length > 0) {
-                    updatedChat.actionItems = conversationData.action_items.map((item: any) => ({
-                      id: item.id,
-                      priority: item.priority || "medium",
-                      task: item.task,
-                      assignedTo: item.assigned_to || "Unassigned"
-                    }));
-                    console.log("[SELECT] Updated chat with action items:", updatedChat.actionItems?.length);
-                  } else {
-                    updatedChat.actionItems = [];
-                    console.log("[SELECT] No action items found for this conversation");
-                  }
-
-                  return updatedChat;
-                }
-                return chat;
-              })
-            );
-          } else {
-            console.warn("[SELECT] No transcription or summary data in conversation response");
+            return updatedChat;
           }
-        } catch (detailsError) {
-          console.error("[SELECT] Failed to load conversation details:", detailsError);
-          // Don't fail the whole operation, just log the error
-        }
-      }
+          return chat;
+        })
+      );
+
+      // NOW set the selected chat ID and messages together
+      // This ensures transcription/action items are loaded BEFORE the chat becomes active
+      setSelectedChatId(chatId);
+      setCurrentMessages(transformedMessages);
+      console.log("[SELECT] Chat fully loaded, cached, and selected:", transformedMessages.length, "messages");
 
     } catch (error) {
       console.error("[SELECT] Failed to load messages:", error);
+      // Set chat ID even on error so user knows which chat they tried to open
+      setSelectedChatId(chatId);
       // Show error to user
       const errorMessage = {
         id: Date.now().toString(),
@@ -520,6 +610,7 @@ export default function AiChat() {
         selectedChatId={selectedChatId}
         onNewChat={handleNewChat}
         onSelectChat={handleSelectChat}
+        isUploading={isUploading}
       />
       <div className="flex flex-1 flex-col">
         {!selectedChatId ? (

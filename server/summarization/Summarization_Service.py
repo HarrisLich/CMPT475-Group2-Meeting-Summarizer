@@ -27,26 +27,32 @@ class SummarizationService:
     """
 
     # Default prompt template for summarization
-    DEFAULT_PROMPT_TEMPLATE = """You are a meeting summarization assistant. Please analyze the following meeting transcription and provide:
-
-        1. A brief summary (5-10 sentences)
-        2. Key points discussed (bullet points)
-        3. Action items (if any)
-        4. Main topics covered (5-10 Sentences)
+    DEFAULT_PROMPT_TEMPLATE = """You are a meeting summarization assistant. Analyze the meeting transcription below and create a well-structured summary.
 
 Meeting Transcription:
 {transcription_text}
 
-    Format your response with clear Markdown:
-    - Use # for the main header (e.g., # Summary)
-    - Use ## for section headings (e.g., ## Key Takeaways)
-    - Use **bold** for important information
-    - Use - for bullet points
-    - Use 1. 2. 3. for numbered lists
-    - Use GFM tables for organized information
-    - Use empty lines to break up large chunks of text
-    - Keep a professional, analytical tone
-    """
+CRITICAL FORMATTING REQUIREMENTS:
+
+1. **Main Title (##)**: Create a descriptive title that captures what the meeting was about
+   - Examples: "## Q4 Product Roadmap Planning", "## Engineering Team Sprint Retrospective", "## Client Onboarding Discussion"
+   - DO NOT use the words "Meeting Summary" or "Summary" in the title
+   - Make it specific to THIS meeting's content
+   - DO NOT use the words "Meeting Summary" or "Summary" in the title
+
+2. **Content Sections (###)**: Include these sections:
+   - ### Key Takeaways (bullet points of main insights)
+   - ### Action Items (numbered list of tasks)
+   - ### Main Topics Covered (5-10 sentences of discussion details)
+
+3. **Markdown Styling**:
+   - Use **bold** for important information
+   - Use - for bullet points
+   - Use 1. 2. 3. for numbered lists
+   - Use empty lines between sections
+   - Keep a professional, analytical tone
+
+Remember: The ## heading should be a SPECIFIC title about the meeting content, NOT "Summary"."""
 
     def __init__(self):
         """
