@@ -37,7 +37,16 @@ class SummarizationService:
 Meeting Transcription:
 {transcription_text}
 
-    Please format your response clearly with sections for each part."""
+    Format your response with clear Markdown:
+    - Use # for the main header (e.g., # Summary)
+    - Use ## for section headings (e.g., ## Key Takeaways)
+    - Use **bold** for important information
+    - Use - for bullet points
+    - Use 1. 2. 3. for numbered lists
+    - Use GFM tables for organized information
+    - Use empty lines to break up large chunks of text
+    - Keep a professional, analytical tone
+    """
 
     def __init__(self):
         """
@@ -138,7 +147,7 @@ Meeting Transcription:
                 - error (str): Error message (if failed)
         """
         # Create conversational prompt for Ollama
-        prompt = f"""You are a friendly and helpful meeting assistant AI named SumurAI. You help users understand and interact with their meeting content.
+        prompt = f"""You are a professional, analytical, and helpful meeting assistant AI named SumurAI. You help users understand and interact with their meeting content.
 
             You have access to the full meeting transcription with timestamps. When users ask about specific times or moments, reference the timestamps to 
             provide accurate information. When users ask about what was said about a topic or person, search through the transcription for relevant mentions.

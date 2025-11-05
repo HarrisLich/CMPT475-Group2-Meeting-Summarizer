@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Copy, Share, ThumbsUp, ThumbsDown, Send, Paperclip, Mic, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Message {
   id: string;
@@ -101,7 +102,7 @@ export function ChatInterface({
           )}
           <ScrollArea className="flex-1 h-full overflow-y-auto">
             {/* Floating Header */}
-            <div className="sticky top-0 z-10 px-6 pt-6 pb-6 bg-gradient-to-b from-[#111111] via-[#111111]/95 to-transparent">
+            <div className="sticky top-0 z-10 px-6 pt-6 pb-3 bg-gradient-to-b from-[#111111] via-[#111111]/95 to-transparent">
               <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-[#333333] bg-[#1A1A1A] shadow-lg">
                 {chatTitle && (
                   <>
@@ -116,7 +117,7 @@ export function ChatInterface({
                 </div>
               </div>
             </div>
-          <div className="px-6 pb-6">
+          <div className="px-6 pb-6 pt-3">
             <div className="space-y-4">
               {messages && messages.length === 0 && !isLoading && !isUploading ? (
                 <div className="flex flex-col items-center justify-center gap-4 min-h-[600px]">
@@ -173,8 +174,8 @@ export function ChatInterface({
                       </Avatar>
                       <div className="flex-1 max-w-[85%]">
                         <div className="bg-[#1A1A1A] rounded-lg p-4 border border-[#333333] shadow-lg hover:shadow-xl transition-all duration-300">
-                          <div className="text-sm text-white prose prose-invert prose-sm max-w-none">
-                            <ReactMarkdown>{message.content}</ReactMarkdown>
+                          <div className="text-sm text-white prose prose-invert prose-sm max-w-none prose-headings:text-white prose-headings:font-bold prose-h1:text-xl prose-h2:text-lg prose-h3:text-base prose-p:text-gray-200 prose-li:text-gray-200 prose-strong:text-[#00F5FF] prose-ul:list-disc prose-ol:list-decimal prose-li:marker:text-[#06B6D4]">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
                           </div>
                         </div>
                       </div>
@@ -186,8 +187,24 @@ export function ChatInterface({
                       </Avatar>
                       <div className="flex-1 max-w-[85%]">
                         <div className="bg-[#111111] rounded-lg p-4 border border-[#333333] shadow-lg hover:shadow-xl transition-all duration-300">
-                          <div className="text-sm text-white mb-3 prose prose-invert prose-sm max-w-none">
-                            <ReactMarkdown>{message.content}</ReactMarkdown>
+                          <div className="text-sm text-white mb-3">
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                h1: ({node, ...props}) => <h1 className="text-3xl font-extrabold text-[#00F5FF] mb-4" {...props} />,
+                                h2: ({node, ...props}) => <h2 className="text-xl font-extrabold text-[#00F5FF] mb-3 mt-5" {...props} />,
+                                h3: ({node, ...props}) => <h3 className="text-lg font-bold text-white mb-2 mt-4" {...props} />,
+                                p: ({node, ...props}) => <p className="text-gray-200 mb-3 leading-relaxed" {...props} />,
+                                ul: ({node, ...props}) => <ul className="list-disc ml-6 my-3 space-y-1" {...props} />,
+                                ol: ({node, ...props}) => <ol className="list-decimal ml-6 my-3 space-y-1" {...props} />,
+                                li: ({node, ...props}) => <li className="text-gray-200" {...props} />,
+                                strong: ({node, ...props}) => <strong className="text-[#00F5FF] font-bold" {...props} />,
+                                em: ({node, ...props}) => <em className="text-gray-300 italic" {...props} />,
+                                code: ({node, ...props}) => <code className="bg-[#1A1A1A] px-1 py-0.5 rounded text-[#00F5FF] text-xs" {...props} />
+                              }}
+                            >
+                              {message.content}
+                            </ReactMarkdown>
                           </div>
                           <div className="flex items-center gap-2 pt-3 border-t border-[#333333]">
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:bg-[#1A1A1A] hover:text-[#00F5FF] transition-all duration-200">

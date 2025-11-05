@@ -48,7 +48,7 @@ export function Sidebar({ chats, selectedChatId, onNewChat, onSelectChat }: Side
   return (
     <div className={cn(
       "bg-[#111111] flex flex-col border-r border-[#333333] h-full transition-all duration-300 relative",
-      isCollapsed ? "w-16" : "w-70"
+      isCollapsed ? "w-16" : "w-72"
     )}>
       {/* Collapse/Expand Handle */}
       <div

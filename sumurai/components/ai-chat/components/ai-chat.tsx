@@ -216,50 +216,46 @@ export default function AiChat() {
     }
 
     setIsUploading(true);
-    setUploadStatus("Uploading file...");
+    setUploadStatus("📤 Uploading audio file...");
 
     try {
-      // Step 1: Transcribe the audio
-      setUploadStatus("Processing audio file...");
-      await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for UX
+      // Note: The /transcribe endpoint does EVERYTHING in one call:
+      // - Audio transcription (Groq Whisper or Local)
+      // - AI summarization (Ollama)
+      // - Action items extraction (Ollama)
+      // We can't update status during processing, so show one comprehensive message
 
-      setUploadStatus("Transcribing with Whisper (this may take 2-3 minutes)...");
+      setUploadStatus("🎧 Validating audio format...");
+      await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UX
+
+      setUploadStatus("⚡ Processing meeting (transcription → summary → action items)...");
       console.log("Sending transcription request with user ID:", user?.id || "NOT AUTHENTICATED");
       const transcriptionData = await SummarizationService.transcribeAudio(file, user?.id);
       console.log("Transcription data received:", transcriptionData);
 
-      // Step 2: Analyze transcription
-      setUploadStatus("Analyzing transcription...");
-      await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UX
+      // Check which service was used
+      const wasGroq = (transcriptionData as any).service === "groq";
+      const transcriptionMethod = wasGroq ? "Groq Whisper API ⚡" : "Local Whisper 🖥️";
+      console.log(`✓ Processing completed using: ${transcriptionMethod}`);
 
-      // Step 3 & 4: Run summary and action items extraction in parallel
-      setUploadStatus("Generating summary with AI...");
-      console.log("Sending summarization request with user ID:", user?.id || "NOT AUTHENTICATED");
-      const [summaryData, actionItemsData] = await Promise.all([
-        SummarizationService.summarizeText(transcriptionData.transcription, user?.id),
-        SummarizationService.extractActionItems(
-          transcriptionData.transcription,
-          (transcriptionData as any).conversation_id,
-          user?.id
-        )
-      ]);
+      const summaryData = transcriptionData.summary;
+      const actionItemsFromBackend = transcriptionData.action_items || [];
+
       console.log("Summary data received:", summaryData);
-      console.log("Action items data received:", actionItemsData);
+      console.log("Action items received from backend:", actionItemsFromBackend);
 
-      setUploadStatus("Finalizing...");
-
-      if (summaryData.success) {
+      if (summaryData?.success && summaryData.summary) {
         // Prepare the complete chat data with transcription and action items
         const chatData = {
           title: file.name.replace(/\.(mp3|wav|m4a|flac|ogg|webm)$/i, ''),
           preview: summaryData.summary.substring(0, 50) + "...",
-          conversationId: (transcriptionData as any).conversation_id, // Extract conversation_id from backend
+          conversationId: transcriptionData.conversation_id,
           transcription: {
             fullText: transcriptionData.transcription,
             segments: transcriptionData.segments || [],
             fileName: file.name
           },
-          actionItems: actionItemsData.success ? actionItemsData.action_items?.map((item: any, index: number) => ({
+          actionItems: Array.isArray(actionItemsFromBackend) ? actionItemsFromBackend.map((item: any, index: number) => ({
             id: `${targetChatId}-${index}`,
             priority: item.priority || "medium",
             task: item.task || item,
@@ -295,6 +291,9 @@ export default function AiChat() {
         }
 
         // Add summary as AI message (this is already saved to DB via /transcribe endpoint)
+        console.log("[DEBUG] Summary content being displayed:", summaryData.summary);
+        console.log("[DEBUG] First 200 chars:", summaryData.summary.substring(0, 200));
+
         const aiMessage = {
           id: Date.now().toString(),
           role: "assistant",
@@ -302,12 +301,12 @@ export default function AiChat() {
         };
 
         setCurrentMessages(prev => [...prev, aiMessage]);
-        setUploadStatus("Complete! Your meeting has been summarized.");
+        setUploadStatus(`✅ Complete! Meeting processed with ${transcriptionMethod}`);
 
         // Note: The conversation and initial summary message are already saved to the database
         // by the /transcribe endpoint, so they will persist across page refreshes
       } else {
-        throw new Error(summaryData.error || "Summarization failed");
+        throw new Error(summaryData?.error || "Summarization failed");
       }
     } catch (error) {
       console.error("Upload error:", error);
