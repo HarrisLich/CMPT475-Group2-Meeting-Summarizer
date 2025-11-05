@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Form
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from transcription.Transcription import TranscriptionService
@@ -23,6 +23,7 @@ class SummarizeRequest(BaseModel):
 
     """
     transcription_text: str
+    user_id: str = None
 
 class ChatRequest(BaseModel):
     """
@@ -31,6 +32,8 @@ class ChatRequest(BaseModel):
     """
     meeting_context: str
     user_question: str
+    conversation_id: str = None
+    user_id: str = None
 
 class ActionItemsRequest(BaseModel):
     """
@@ -38,6 +41,27 @@ class ActionItemsRequest(BaseModel):
     Extracts structured action items from a meeting transcription.
     """
     transcription_text: str
+    conversation_id: str = None
+    user_id: str = None
+
+class ConversationCreate(BaseModel):
+    """Request model for creating a new conversation"""
+    meeting_id: str
+    title: str
+    model_version: str = "llama3.2:3b"
+
+class MessageCreate(BaseModel):
+    """Request model for saving a message to a conversation"""
+    conversation_id: str
+    role: str  # 'user' or 'assistant'
+    content: str
+    token_count: int = None
+
+class SummaryCreate(BaseModel):
+    """Request model for saving a meeting summary"""
+    meeting_id: str
+    summary_text: str
+    key_points: list = None
 
 # Create FastAPI instance
 app = FastAPI(
@@ -89,8 +113,15 @@ summarization_service = SummarizationService()
 # Transcription endpoint (authentication disabled for testing)
 @app.post("/transcribe")
 async def transcribe_audio(
-    audio_file: UploadFile = File(...)
+    audio_file: UploadFile = File(...),
+    user_id: str = Form(None)
 ):
+    # Log user_id if provided
+    if user_id:
+        print(f"[TRANSCRIBE] User ID received: {user_id}")
+    else:
+        print("[TRANSCRIBE] No user_id provided")
+
     # Validate file type
     if not transcription_service.is_supported_file_type(audio_file.content_type):
         raise HTTPException(status_code=400, detail=f"Unsupported file type: {audio_file.content_type}")
@@ -190,9 +221,62 @@ async def transcribe_audio(
             "name": "Test User"
         }
 
+        # Save to database if user_id is provided
+        meeting_id = None
+        conversation_id = None
+        transcription_id = None
+
+        if user_id:
+            try:
+                supabase = get_supabase()
+
+                # Step 1: Save meeting to database
+                print(f"[DB] Saving meeting for user {user_id}")
+                meeting_result = supabase.save_meeting(
+                    user_id=user_id,
+                    title=audio_file.filename
+                )
+                meeting_id = meeting_result.data[0]['id']
+                print(f"[DB] Meeting saved with ID: {meeting_id}")
+                result["meeting_id"] = meeting_id
+
+                # Step 1.5: Create conversation for this meeting
+                print(f"[DB] Creating conversation for meeting {meeting_id}")
+                conversation_result = supabase.create_conversation(
+                    user_id=user_id,
+                    meeting_id=meeting_id,
+                    title=audio_file.filename.replace('.mp3', '').replace('.wav', '').replace('.m4a', ''),
+                    model_version="llama3.2:3b"
+                )
+                conversation_id = conversation_result.data[0]['id']
+                print(f"[DB] Conversation created with ID: {conversation_id}")
+                result["conversation_id"] = conversation_id
+
+            except Exception as db_error:
+                print(f"[DB ERROR] Failed to save meeting/conversation: {str(db_error)}")
+                # Don't fail the request, just log the error
+                result["db_warning"] = f"Meeting data could not be saved: {str(db_error)}"
+
         # Generate summary from transcription
         transcription_text = result.get("transcription", "")
+        segments = result.get("segments", [])
         if transcription_text and len(transcription_text.strip()) > 0:
+            # Save transcription to database if we have a meeting_id
+            if meeting_id and user_id:
+                try:
+                    print(f"[DB] Saving transcription for meeting {meeting_id}")
+                    transcription_result = supabase.save_transcription(
+                        meeting_id=meeting_id,
+                        transcription_text=transcription_text,
+                        audio_url=None,  # We can add audio URL storage later if needed
+                        segments=segments  # Save the timestamp segments
+                    )
+                    transcription_id = transcription_result.data[0]['id']
+                    print(f"[DB] Transcription saved with ID: {transcription_id}")
+                    result["transcription_id"] = transcription_id
+                except Exception as db_error:
+                    print(f"[DB ERROR] Failed to save transcription: {str(db_error)}")
+
             summary_result = summarization_service.summarize_transcription(transcription_text)
 
             # Check if summarization failed due to rate limiting
@@ -210,6 +294,38 @@ async def transcribe_audio(
                     result["summary"] = summary_result
             else:
                 result["summary"] = summary_result
+
+                # Step 3: Save summary to database if we have a meeting_id
+                if meeting_id and user_id and summary_result.get("success"):
+                    try:
+                        print(f"[DB] Saving summary for meeting {meeting_id}")
+                        summary_text = summary_result.get("summary", "")
+                        # Save summary to database
+                        summary_db_result = supabase.save_summary(
+                            meeting_id=meeting_id,
+                            summary_text=summary_text,
+                            key_points=None  # We can parse key points from summary later if needed
+                        )
+                        summary_id = summary_db_result.data[0]['id']
+                        print(f"[DB] Summary saved with ID: {summary_id}")
+                        result["summary_id"] = summary_id
+
+                        # Step 4: Save the summary as an initial assistant message in the conversation
+                        if conversation_id:
+                            try:
+                                print(f"[DB] Saving initial summary message to conversation {conversation_id}")
+                                message_result = supabase.save_message(
+                                    conversation_id=conversation_id,
+                                    role="assistant",
+                                    content=summary_text,
+                                    token_count=None
+                                )
+                                print(f"[DB] Initial message saved with ID: {message_result.data[0]['id']}")
+                            except Exception as msg_error:
+                                print(f"[DB ERROR] Failed to save initial message: {str(msg_error)}")
+
+                    except Exception as db_error:
+                        print(f"[DB ERROR] Failed to save summary: {str(db_error)}")
         else:
             result["summary"] = {
                 "success": False,
@@ -283,6 +399,12 @@ async def ollama_status():
 
 @app.post("/summarize")
 async def summarize_transcription(request: SummarizeRequest):
+    # Log user_id if provided
+    if request.user_id:
+        print(f"[SUMMARIZE] User ID received: {request.user_id}")
+    else:
+        print("[SUMMARIZE] No user_id provided")
+
     if not request.transcription_text or len(request.transcription_text.strip()) == 0:
         raise HTTPException(status_code=400,
                             detail="transcription_text cannot be empty.")
@@ -326,6 +448,25 @@ async def chat_about_meeting(request: ChatRequest):
         raise HTTPException(status_code=400,
                             detail="user_question cannot be empty.")
     try:
+        print(f"[CHAT] Received chat request with conversation_id: {request.conversation_id}, user_id: {request.user_id}")
+
+        # Save user message to database if conversation_id is provided
+        if request.conversation_id:
+            try:
+                supabase = get_supabase()
+                user_message_result = supabase.save_message(
+                    conversation_id=request.conversation_id,
+                    role="user",
+                    content=request.user_question,
+                    token_count=None
+                )
+                print(f"[CHAT] User message saved to conversation {request.conversation_id}: {user_message_result.data}")
+            except Exception as db_error:
+                print(f"[CHAT] Warning: Failed to save user message to database: {str(db_error)}")
+                # Continue with chat even if database save fails
+        else:
+            print("[CHAT] No conversation_id provided, skipping user message save")
+
         # Call the chat method from summarization service
         result = summarization_service.chat_about_meeting(
             request.meeting_context,
@@ -351,6 +492,22 @@ async def chat_about_meeting(request: ChatRequest):
                     status_code=503,
                     detail=result.get("error", "Chat failed.")
                 )
+
+        # Save assistant message to database if conversation_id is provided
+        if request.conversation_id and result.get("response"):
+            try:
+                supabase = get_supabase()
+                assistant_message_result = supabase.save_message(
+                    conversation_id=request.conversation_id,
+                    role="assistant",
+                    content=result.get("response"),
+                    token_count=None
+                )
+                print(f"[CHAT] Assistant message saved to conversation {request.conversation_id}: {assistant_message_result.data}")
+            except Exception as db_error:
+                print(f"[CHAT] Warning: Failed to save assistant message to database: {str(db_error)}")
+                # Continue and return result even if database save fails
+
         return result
 
     except HTTPException:
@@ -371,6 +528,15 @@ async def extract_action_items(request: ActionItemsRequest):
         # Call the action items extraction method from summarization service
         result = summarization_service.extract_action_items(request.transcription_text)
 
+        # Debug logging to see what the LLM is returning
+        print(f"[ACTION ITEMS DEBUG] Raw result: {result}")
+        if result.get("action_items"):
+            for idx, item in enumerate(result.get("action_items")):
+                print(f"[ACTION ITEMS DEBUG] Item {idx}: {item}")
+                print(f"[ACTION ITEMS DEBUG]   - task: {item.get('task')}")
+                print(f"[ACTION ITEMS DEBUG]   - priority: {item.get('priority')} (type: {type(item.get('priority'))})")
+                print(f"[ACTION ITEMS DEBUG]   - assigned_to: {item.get('assigned_to')}")
+
         # Check if extraction was successful
         if not result.get("success"):
             error_type = result.get("error_type", "api_error")
@@ -390,12 +556,220 @@ async def extract_action_items(request: ActionItemsRequest):
                     status_code=503,
                     detail=result.get("error", "Action item extraction failed.")
                 )
+
+        # Save action items to database if conversation_id and user_id are provided
+        if request.conversation_id and request.user_id and result.get("action_items"):
+            try:
+                supabase = get_supabase()
+                action_items_result = supabase.save_action_items(
+                    conversation_id=request.conversation_id,
+                    action_items=result.get("action_items")
+                )
+                print(f"[ACTION ITEMS] Saved {len(result.get('action_items'))} action items to conversation {request.conversation_id}: {action_items_result.data}")
+            except Exception as db_error:
+                print(f"[ACTION ITEMS] Warning: Failed to save action items to database: {str(db_error)}")
+                # Continue and return result even if database save fails
+
         return result
 
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Action item extraction failed: {str(e)}")
+
+# Conversation/Chat History Endpoints
+@app.post("/conversations")
+async def create_conversation(
+    request: ConversationCreate,
+    current_user = Depends(get_current_user)
+):
+    """Create a new conversation for chat history"""
+    try:
+        supabase = get_supabase()
+        result = supabase.create_conversation(
+            user_id=current_user["id"],
+            meeting_id=request.meeting_id,
+            title=request.title,
+            model_version=request.model_version
+        )
+        return {"success": True, "conversation": result.data[0]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create conversation: {str(e)}")
+
+@app.get("/conversations")
+async def get_user_conversations(current_user = Depends(get_current_user)):
+    """Get all conversations for the authenticated user"""
+    try:
+        supabase = get_supabase()
+        result = supabase.get_user_conversations(current_user["id"])
+        return {"success": True, "conversations": result.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch conversations: {str(e)}")
+
+@app.get("/conversations/{conversation_id}")
+async def get_conversation(
+    conversation_id: str,
+    current_user = Depends(get_current_user)
+):
+    """Get a specific conversation by ID with all related data"""
+    try:
+        supabase = get_supabase()
+
+        # Get the conversation
+        conv_result = supabase.get_conversation_by_id(conversation_id)
+        if not conv_result.data:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+
+        conversation = conv_result.data[0]
+        meeting_id = conversation.get("meeting_id")
+
+        # Prepare response with conversation data
+        response = {
+            "success": True,
+            "conversation": conversation
+        }
+
+        # If there's a meeting_id, fetch related data
+        if meeting_id:
+            try:
+                # Get transcription
+                transcription_result = supabase.get_meeting_transcription(meeting_id)
+                if transcription_result.data:
+                    response["transcription"] = transcription_result.data[0]
+
+                # Get summary
+                summary_result = supabase.get_meeting_summary(meeting_id)
+                if summary_result.data:
+                    response["summary"] = summary_result.data[0]
+
+            except Exception as e:
+                print(f"[WARNING] Failed to fetch meeting data: {str(e)}")
+                # Don't fail the request, just return conversation without extras
+
+        # Get action items for this conversation
+        try:
+            action_items_result = supabase.get_conversation_action_items(conversation_id)
+            if action_items_result.data:
+                response["action_items"] = action_items_result.data
+        except Exception as e:
+            print(f"[WARNING] Failed to fetch action items: {str(e)}")
+            # Don't fail the request, just return conversation without action items
+
+        return response
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch conversation: {str(e)}")
+
+@app.put("/conversations/{conversation_id}/title")
+async def update_conversation_title(
+    conversation_id: str,
+    title: str,
+    current_user = Depends(get_current_user)
+):
+    """Update the title of a conversation"""
+    try:
+        supabase = get_supabase()
+        result = supabase.update_conversation_title(conversation_id, title)
+        return {"success": True, "conversation": result.data[0]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update conversation title: {str(e)}")
+
+@app.put("/conversations/{conversation_id}/archive")
+async def archive_conversation(
+    conversation_id: str,
+    archived: bool = True,
+    current_user = Depends(get_current_user)
+):
+    """Archive or unarchive a conversation"""
+    try:
+        supabase = get_supabase()
+        result = supabase.archive_conversation(conversation_id, archived)
+        return {"success": True, "conversation": result.data[0]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to archive conversation: {str(e)}")
+
+@app.post("/messages")
+async def save_message(
+    request: MessageCreate,
+    current_user = Depends(get_current_user)
+):
+    """Save a message to a conversation"""
+    try:
+        supabase = get_supabase()
+        result = supabase.save_message(
+            conversation_id=request.conversation_id,
+            role=request.role,
+            content=request.content,
+            token_count=request.token_count
+        )
+        return {"success": True, "message": result.data[0]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save message: {str(e)}")
+
+@app.get("/conversations/{conversation_id}/messages")
+async def get_conversation_messages(
+    conversation_id: str,
+    current_user = Depends(get_current_user)
+):
+    """Get all messages for a conversation"""
+    try:
+        supabase = get_supabase()
+        result = supabase.get_conversation_messages(conversation_id)
+        return {"success": True, "messages": result.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch messages: {str(e)}")
+
+@app.post("/summaries")
+async def save_summary(
+    request: SummaryCreate,
+    current_user = Depends(get_current_user)
+):
+    """Save a meeting summary"""
+    try:
+        supabase = get_supabase()
+        result = supabase.save_summary(
+            meeting_id=request.meeting_id,
+            summary_text=request.summary_text,
+            key_points=request.key_points
+        )
+        return {"success": True, "summary": result.data[0]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save summary: {str(e)}")
+
+@app.get("/meetings/{meeting_id}/summary")
+async def get_meeting_summary(
+    meeting_id: str,
+    current_user = Depends(get_current_user)
+):
+    """Get the summary for a meeting"""
+    try:
+        supabase = get_supabase()
+        result = supabase.get_meeting_summary(meeting_id)
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Summary not found")
+        return {"success": True, "summary": result.data[0]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch summary: {str(e)}")
+
+@app.get("/meetings/{meeting_id}/transcription")
+async def get_meeting_transcription(
+    meeting_id: str,
+    current_user = Depends(get_current_user)
+):
+    """Get the transcription for a meeting"""
+    try:
+        supabase = get_supabase()
+        result = supabase.get_meeting_transcription(meeting_id)
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Transcription not found")
+        return {"success": True, "transcription": result.data[0]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch transcription: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
