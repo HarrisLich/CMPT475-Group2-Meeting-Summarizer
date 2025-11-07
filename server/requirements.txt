@@ -1,14 +1,21 @@
+# Core FastAPI dependencies
 fastapi==0.115.6
 uvicorn[standard]==0.32.1
 pydantic==2.10.3
 python-multipart==0.0.20
 python-dotenv==1.0.1
-firebase-admin==6.5.0
-pyrebase4==4.6.0
-openai-whisper
-faster-whisper
-ffmpeg-python
 requests==2.31.0
+
+# Database & Authentication (Supabase)
+supabase>=2.0.0
+
+# Transcription services
 groq==0.33.0
+faster-whisper
+
+# Audio processing
 pydub==0.25.1
 
+# Speaker diarization (pyannote.audio requires PyTorch)
+pyannote.audio>=3.0.0
+torch>=2.0.0
