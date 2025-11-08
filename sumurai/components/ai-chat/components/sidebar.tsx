@@ -16,7 +16,8 @@ import {
   HelpCircle,
   User,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,13 +33,15 @@ interface SidebarProps {
   selectedChatId: string | null;
   onNewChat: () => void;
   onSelectChat: (chatId: string) => void;
+  onDeleteChat?: (chatId: string) => void;
   isUploading?: boolean;
 }
 
-export function Sidebar({ chats, selectedChatId, onNewChat, onSelectChat, isUploading = false }: SidebarProps) {
+export function Sidebar({ chats, selectedChatId, onNewChat, onSelectChat, onDeleteChat, isUploading = false }: SidebarProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [chatToDelete, setChatToDelete] = useState<string | null>(null);
 
   const filteredChats = chats.filter(
     (chat) =>
@@ -132,35 +135,83 @@ export function Sidebar({ chats, selectedChatId, onNewChat, onSelectChat, isUplo
           <ScrollArea className="h-full">
             <div className="space-y-1 px-2 pb-4">
               {filteredChats.map((chat) => (
-                <Button
-                  key={chat.id}
-                  variant="ghost"
-                  onClick={() => onSelectChat(chat.id)}
-                  disabled={isUploading}
-                  className={cn(
-                    "h-auto w-full p-3 text-left rounded-lg transition-all duration-300",
-                    selectedChatId === chat.id
-                      ? "bg-[#1A1A1A] border border-[#333333] shadow-lg hover:shadow-xl"
-                      : "hover:bg-[#1A1A1A] border border-transparent hover:border-[#333333]",
-                    isCollapsed ? "justify-center" : "justify-start",
-                    isUploading && "opacity-50 cursor-not-allowed"
-                  )}
-                  title={isCollapsed ? chat.title : undefined}
-                >
-                  {isCollapsed ? (
-                    <MessageCircle className="h-4 w-4 text-gray-400" />
-                  ) : (
-                    <div className="flex w-full items-start gap-2">
-                      <MessageCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-400" />
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium text-white">{chat.title}</div>
-                        <div className="mt-0.5 truncate text-xs text-gray-400">
-                          {chat.preview}
+                <div key={chat.id} className="relative group">
+                  <div className="flex items-center gap-1">
+                    {/* Delete icon - outside the button to avoid nesting */}
+                    {!isCollapsed && onDeleteChat && chatToDelete !== chat.id && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setChatToDelete(chat.id);
+                        }}
+                        className="p-2 rounded hover:bg-red-600/20 text-red-500 hover:text-red-400 transition-colors flex-shrink-0"
+                        title="Delete chat"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+
+                    {/* Chat button */}
+                    <Button
+                      variant="ghost"
+                      onClick={() => onSelectChat(chat.id)}
+                      disabled={isUploading}
+                      className={cn(
+                        "h-auto flex-1 p-3 text-left rounded-lg transition-all duration-300",
+                        selectedChatId === chat.id
+                          ? "bg-[#1A1A1A] border border-[#333333] shadow-lg hover:shadow-xl"
+                          : "hover:bg-[#1A1A1A] border border-transparent hover:border-[#333333]",
+                        isCollapsed ? "justify-center" : "justify-start",
+                        isUploading && "opacity-50 cursor-not-allowed"
+                      )}
+                      title={isCollapsed ? chat.title : undefined}
+                    >
+                      {isCollapsed ? (
+                        <MessageCircle className="h-4 w-4 text-gray-400" />
+                      ) : (
+                        <div className="flex w-full items-start gap-2">
+                          <MessageCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-400" />
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-medium text-white">{chat.title}</div>
+                            <div className="mt-0.5 truncate text-xs text-gray-400">
+                              {chat.preview}
+                            </div>
+                          </div>
                         </div>
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Confirmation UI - completely outside the Button component */}
+                  {!isCollapsed && chatToDelete === chat.id && onDeleteChat && (
+                    <div className="mt-2 ml-12 flex items-center gap-2 px-3">
+                      <div className="text-xs text-red-400 font-medium">
+                        Are you sure?
                       </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteChat(chat.id);
+                          setChatToDelete(null);
+                        }}
+                        className="px-2 py-1 rounded-md bg-red-600 hover:bg-red-700 text-white text-xs font-medium transition-colors"
+                        title="Confirm delete"
+                      >
+                        Delete
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setChatToDelete(null);
+                        }}
+                        className="px-2 py-1 rounded-md bg-gray-600 hover:bg-gray-700 text-white text-xs font-medium transition-colors"
+                        title="Cancel"
+                      >
+                        Cancel
+                      </button>
                     </div>
                   )}
-                </Button>
+                </div>
               ))}
             </div>
           </ScrollArea>

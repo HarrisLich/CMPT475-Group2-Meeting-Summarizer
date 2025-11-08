@@ -82,6 +82,45 @@ class SupabaseService:
         """Archive or unarchive a conversation"""
         return self.client.table("conversations").update({"archived": archived}).eq("id", conversation_id).execute()
 
+    def delete_conversation(self, conversation_id):
+        """
+        Delete a conversation and ALL associated data including:
+        - Messages
+        - Action items
+        - Meeting
+        - Transcription
+        - Summary
+
+        This is a complete cleanup to avoid wasted database space.
+        """
+        # Get the conversation to find the meeting_id
+        conversation = self.client.table("conversations").select("meeting_id").eq("id", conversation_id).execute()
+
+        if not conversation.data:
+            raise ValueError(f"Conversation {conversation_id} not found")
+
+        meeting_id = conversation.data[0].get("meeting_id")
+
+        # Delete conversation-related records
+        self.client.table("messages").delete().eq("conversation_id", conversation_id).execute()
+        self.client.table("action_items").delete().eq("conversation_id", conversation_id).execute()
+
+        # Delete the conversation
+        self.client.table("conversations").delete().eq("id", conversation_id).execute()
+
+        # If there's a meeting, delete all meeting-related records
+        if meeting_id:
+            # Delete transcription
+            self.client.table("transcriptions").delete().eq("meeting_id", meeting_id).execute()
+
+            # Delete summary
+            self.client.table("summaries").delete().eq("meeting_id", meeting_id).execute()
+
+            # Finally, delete the meeting itself
+            self.client.table("meetings").delete().eq("id", meeting_id).execute()
+
+        return {"success": True, "deleted_conversation_id": conversation_id, "deleted_meeting_id": meeting_id}
+
     # Message functions
     def save_message(self, conversation_id, role, content, token_count=None):
         """Save a message to a conversation (role: 'user' or 'assistant')"""

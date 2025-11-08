@@ -747,6 +747,30 @@ async def archive_conversation(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to archive conversation: {str(e)}")
 
+@app.delete("/conversations/{conversation_id}")
+async def delete_conversation(
+    conversation_id: str,
+    current_user = Depends(get_current_user)
+):
+    """
+    Delete a conversation and ALL associated data to avoid wasted database space.
+    This permanently removes:
+    - The conversation record
+    - All messages in the conversation
+    - All action items for the conversation
+    - The associated meeting
+    - The meeting transcription
+    - The meeting summary
+    """
+    try:
+        supabase = get_supabase()
+        result = supabase.delete_conversation(conversation_id)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete conversation: {str(e)}")
+
 @app.post("/messages")
 async def save_message(
     request: MessageCreate,
