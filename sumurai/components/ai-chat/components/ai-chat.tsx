@@ -588,6 +588,48 @@ export default function AiChat() {
     }]);
   };
 
+  const handleDeleteChat = async (chatId: string) => {
+    console.log("[DELETE] Deleting chat:", chatId);
+
+    // Find the chat to get its conversationId
+    const chatToDelete = chats.find(chat => chat.id === chatId);
+
+    if (!chatToDelete?.conversationId) {
+      console.log("[DELETE] Chat has no conversationId, removing from local state only");
+      // If no conversationId (local-only chat), just remove from state
+      setChats(prevChats => prevChats.filter(chat => chat.id !== chatId));
+
+      // If this was the selected chat, clear selection
+      if (selectedChatId === chatId) {
+        setSelectedChatId(null);
+        setCurrentMessages([]);
+      }
+      return;
+    }
+
+    try {
+      // Delete from database
+      console.log("[DELETE] Deleting conversation from database:", chatToDelete.conversationId);
+      await SummarizationService.deleteConversation(chatToDelete.conversationId);
+      console.log("[DELETE] Successfully deleted from database");
+
+      // Remove from local state
+      setChats(prevChats => prevChats.filter(chat => chat.id !== chatId));
+
+      // If this was the selected chat, clear selection
+      if (selectedChatId === chatId) {
+        setSelectedChatId(null);
+        setCurrentMessages([]);
+      }
+
+      console.log("[DELETE] Chat deleted successfully");
+    } catch (error) {
+      console.error("[DELETE] Failed to delete chat:", error);
+      // Show error to user
+      alert(`Failed to delete chat: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   // Get current chat data - useMemo ensures this recalculates when chats or selectedChatId changes
   const currentChat = useMemo(() => {
     const chat = chats.find(chat => chat.id === selectedChatId);
@@ -610,6 +652,7 @@ export default function AiChat() {
         selectedChatId={selectedChatId}
         onNewChat={handleNewChat}
         onSelectChat={handleSelectChat}
+        onDeleteChat={handleDeleteChat}
         isUploading={isUploading}
       />
       <div className="flex flex-1 flex-col">

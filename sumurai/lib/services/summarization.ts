@@ -385,4 +385,27 @@ export class SummarizationService {
     const data = await response.json();
     return data.transcription;
   }
+
+  /**
+   * Delete a conversation and all associated data
+   * This permanently removes the conversation, messages, action items, meeting, transcription, and summary
+   */
+  static async deleteConversation(conversationId: string): Promise<any> {
+    const headers = await this.getAuthHeaders();
+
+    const response = await fetch(`${API_URL}/conversations/${conversationId}`, {
+      method: 'DELETE',
+      headers,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error('Conversation not found');
+      }
+      throw new Error(`Failed to delete conversation: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
 }
