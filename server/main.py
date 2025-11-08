@@ -11,6 +11,7 @@ from auth import auth_router, get_current_user
 from summarization import SummarizationService
 from pydantic import BaseModel
 import os
+import time
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -116,6 +117,9 @@ async def transcribe_audio(
     audio_file: UploadFile = File(...),
     user_id: str = Form(None)
 ):
+    # START TIMER - Track total processing time from upload to completion
+    start_time = time.time()
+
     # Log user_id if provided
     if user_id:
         print(f"[TRANSCRIBE] User ID received: {user_id}")
@@ -279,6 +283,14 @@ async def transcribe_audio(
 
             summary_result = summarization_service.summarize_transcription(transcription_text)
 
+            # DEBUG: Print raw LLM output to see markdown formatting
+            if summary_result.get("success"):
+                print(f"\n{'='*80}")
+                print("[DEBUG] RAW LLM SUMMARY OUTPUT:")
+                print(f"{'='*80}")
+                print(summary_result.get("summary", ""))
+                print(f"{'='*80}\n")
+
             # Check if summarization failed due to rate limiting
             if not summary_result.get("success"):
                 error_type = summary_result.get("error_type", "api_error")
@@ -326,11 +338,57 @@ async def transcribe_audio(
 
                     except Exception as db_error:
                         print(f"[DB ERROR] Failed to save summary: {str(db_error)}")
+
+            # Step 5: Extract action items from transcription
+            action_items_start = time.time()
+            print(f"[AI] Extracting action items...")
+            action_items_result = summarization_service.extract_action_items(transcription_text)
+            action_items_duration = time.time() - action_items_start
+
+            if action_items_result.get("success"):
+                result["action_items"] = action_items_result.get("action_items", [])
+                print(f"[AI] Extracted {len(result['action_items'])} action items in {action_items_duration:.2f}s")
+
+                # Save action items to database if we have conversation_id
+                if conversation_id and user_id and len(result["action_items"]) > 0:
+                    try:
+                        supabase = get_supabase()
+                        print(f"[DB] Saving {len(result['action_items'])} action items to database...")
+                        supabase.save_action_items(
+                            conversation_id=conversation_id,
+                            action_items=result["action_items"]
+                        )
+                        print(f"[DB] ✓ All action items saved successfully")
+                    except Exception as db_error:
+                        print(f"[DB ERROR] Failed to save action items: {str(db_error)}")
+            else:
+                result["action_items"] = {
+                    "success": False,
+                    "error": action_items_result.get("error", "Failed to extract action items")
+                }
+                print(f"[AI] Action items extraction failed: {action_items_result.get('error')}")
+
         else:
             result["summary"] = {
                 "success": False,
                 "error": "No transcription text available for summarization"
             }
+
+        # END TIMER - Log total processing time after ALL operations complete
+        end_time = time.time()
+        total_time = end_time - start_time
+        print(f"\n{'='*60}")
+        print(f"[TIMING] ✓ ALL PROCESSING COMPLETE")
+        print(f"[TIMING] Total time: {total_time:.2f} seconds ({total_time/60:.2f} minutes)")
+        print(f"[TIMING] File: {audio_file.filename}")
+        print(f"[TIMING] User: {user_id or 'anonymous'}")
+        print(f"[TIMING] Components:")
+        print(f"[TIMING]   - Transcription: Completed")
+        print(f"[TIMING]   - Summarization: Completed")
+        print(f"[TIMING]   - Action Items: Completed")
+        print(f"[TIMING]   - Database Saves: Completed")
+        print(f"[TIMING] Status: Ready to send to frontend")
+        print(f"{'='*60}\n")
 
         return result
 
@@ -772,4 +830,4 @@ async def get_meeting_transcription(
         raise HTTPException(status_code=500, detail=f"Failed to fetch transcription: {str(e)}")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

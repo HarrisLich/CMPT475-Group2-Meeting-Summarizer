@@ -23,6 +23,21 @@ export interface TranscriptionResponse {
   }>;
   language?: string;
   filename?: string;
+  conversation_id?: string;
+  meeting_id?: string;
+  transcription_id?: string;
+  summary?: {
+    success: boolean;
+    summary: string;
+    model_used?: string;
+    error?: string;
+    error_type?: string;
+  };
+  action_items?: Array<{
+    task: string;
+    priority: string;
+    assigned_to: string;
+  }>;
 }
 
 export interface SummarizationResponse {
