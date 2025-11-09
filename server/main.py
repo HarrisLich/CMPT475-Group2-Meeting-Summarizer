@@ -345,6 +345,7 @@ async def transcribe_audio(
         meeting_id = None
         conversation_id = None
         transcription_id = None
+        generated_title = None
 
         if user_id:
             try:
@@ -360,27 +361,45 @@ async def transcribe_audio(
                 print(f"[DB] Meeting saved with ID: {meeting_id}")
                 result["meeting_id"] = meeting_id
 
-                # Step 1.5: Create conversation for this meeting
-                print(f"[DB] Creating conversation for meeting {meeting_id}")
-                conversation_result = supabase.create_conversation(
-                    user_id=user_id,
-                    meeting_id=meeting_id,
-                    title=audio_file.filename.replace('.mp3', '').replace('.wav', '').replace('.m4a', ''),
-                    model_version="llama3.2:3b"
-                )
-                conversation_id = conversation_result.data[0]['id']
-                print(f"[DB] Conversation created with ID: {conversation_id}")
-                result["conversation_id"] = conversation_id
-
             except Exception as db_error:
-                print(f"[DB ERROR] Failed to save meeting/conversation: {str(db_error)}")
-                # Don't fail the request, just log the error
+                print(f"[DB ERROR] Failed to save meeting: {str(db_error)}")
                 result["db_warning"] = f"Meeting data could not be saved: {str(db_error)}"
 
         # Generate summary from transcription
         transcription_text = result.get("transcription", "")
         segments = result.get("segments", [])
         if transcription_text and len(transcription_text.strip()) > 0:
+            # Generate AI title from transcription if we have user_id
+            if user_id and meeting_id:
+                try:
+                    print(f"[AI] Generating meeting title from transcription...")
+                    title_result = summarization_service.generate_meeting_title(transcription_text)
+                    if title_result.get("success"):
+                        generated_title = title_result.get("title")
+                        print(f"[AI] Generated title: {generated_title}")
+                        result["generated_title"] = generated_title
+                    else:
+                        print(f"[AI] Title generation failed: {title_result.get('error')}")
+                        generated_title = audio_file.filename.replace('.mp3', '').replace('.wav', '').replace('.m4a', '')
+                except Exception as title_error:
+                    print(f"[AI ERROR] Failed to generate title: {str(title_error)}")
+                    generated_title = audio_file.filename.replace('.mp3', '').replace('.wav', '').replace('.m4a', '')
+
+                # Create conversation with generated title
+                try:
+                    print(f"[DB] Creating conversation for meeting {meeting_id}")
+                    conversation_result = supabase.create_conversation(
+                        user_id=user_id,
+                        meeting_id=meeting_id,
+                        title=generated_title,
+                        model_version="llama3.2:3b"
+                    )
+                    conversation_id = conversation_result.data[0]['id']
+                    print(f"[DB] Conversation created with ID: {conversation_id}")
+                    result["conversation_id"] = conversation_id
+                except Exception as db_error:
+                    print(f"[DB ERROR] Failed to create conversation: {str(db_error)}")
+
             # Save transcription to database if we have a meeting_id
             if meeting_id and user_id:
                 try:
@@ -388,8 +407,8 @@ async def transcribe_audio(
                     transcription_result = supabase.save_transcription(
                         meeting_id=meeting_id,
                         transcription_text=transcription_text,
-                        audio_url=None,  # We can add audio URL storage later if needed
-                        segments=segments  # Save the timestamp segments
+                        audio_url=None,
+                        segments=segments
                     )
                     transcription_id = transcription_result.data[0]['id']
                     print(f"[DB] Transcription saved with ID: {transcription_id}")
