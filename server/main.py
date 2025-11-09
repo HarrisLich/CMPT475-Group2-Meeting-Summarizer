@@ -64,11 +64,81 @@ class SummaryCreate(BaseModel):
     summary_text: str
     key_points: list = None
 
-# Create FastAPI instance
+# Create FastAPI instance with comprehensive OpenAPI metadata
 app = FastAPI(
     title="Meeting Summarizer API",
-    description="Simple API for meeting summarization",
-    version="1.0.0"
+    description="""
+    ## Meeting Summarizer API
+
+    A comprehensive API for transcribing, summarizing, and analyzing meeting recordings using AI.
+
+    ### Features
+    - **Audio Transcription**: Upload audio/video files for automatic transcription using Groq Whisper API with local fallback
+    - **AI Summarization**: Generate structured meeting summaries using local Ollama LLM (unlimited and free)
+    - **Action Items Extraction**: Automatically identify and extract action items from meetings
+    - **Conversational Chat**: Ask questions about your meetings and get intelligent responses
+    - **Chat History Management**: Store and retrieve conversation history with full CRUD operations
+    - **Authentication**: Secure endpoints with Supabase authentication and JWT tokens
+
+    ### Technology Stack
+    - **Transcription**: Hybrid approach using Groq Whisper API (cloud) + Local Whisper (fallback)
+    - **AI Processing**: Ollama (local LLM - llama3.2:1b)
+    - **Database**: Supabase (PostgreSQL)
+    - **Authentication**: Supabase Auth with JWT
+    - **File Processing**: Automatic audio compression for large files (>25MB)
+
+    ### Rate Limits
+    - Groq API: Subject to Groq's rate limits (automatically falls back to local Whisper)
+    - Local Ollama: No rate limits (runs locally)
+    - File Upload: Maximum 500MB before compression, compressed to <25MB
+
+    ### Authentication
+    Most endpoints require authentication via Supabase JWT token. Include the token in the `Authorization` header:
+    ```
+    Authorization: Bearer <your_jwt_token>
+    ```
+
+    To get a token, use the `/auth/login` or `/auth/register` endpoints.
+    """,
+    version="1.0.0",
+    contact={
+        "name": "Meeting Summarizer Team",
+        "email": "support@meetingsummarizer.com",
+    },
+    license_info={
+        "name": "MIT License",
+        "url": "https://opensource.org/licenses/MIT",
+    },
+    openapi_tags=[
+        {
+            "name": "Health",
+            "description": "Health check and status endpoints"
+        },
+        {
+            "name": "Audio Processing",
+            "description": "Upload and transcribe audio/video files"
+        },
+        {
+            "name": "AI Processing",
+            "description": "Summarization, chat, and action items extraction using AI"
+        },
+        {
+            "name": "Conversations",
+            "description": "Manage conversations and chat history"
+        },
+        {
+            "name": "Messages",
+            "description": "Manage messages within conversations"
+        },
+        {
+            "name": "Meetings",
+            "description": "Retrieve meeting summaries and transcriptions"
+        },
+        {
+            "name": "Testing",
+            "description": "Internal testing and debugging endpoints"
+        },
+    ]
 )
 
 # Configure CORS
@@ -90,12 +160,24 @@ app.add_middleware(
 app.include_router(auth_router)
 
 # Root endpoint
-@app.get("/")
+@app.get(
+    "/",
+    tags=["Health"],
+    summary="API Root",
+    description="Simple root endpoint to verify the API is running and accessible.",
+    response_description="Returns a welcome message confirming the API is operational"
+)
 async def root():
     return {"message": "Meeting Summarizer API is running!"}
 
 # Health check endpoint
-@app.get("/health")
+@app.get(
+    "/health",
+    tags=["Health"],
+    summary="Health Check",
+    description="Check the health status of the Meeting Summarizer API service. Use this endpoint for monitoring and health checks.",
+    response_description="Returns the current health status of the service"
+)
 async def health_check():
     return {"status": "healthy", "service": "meeting-summarizer"}
 
@@ -112,10 +194,44 @@ transcription_service = HybridTranscriptionService(
 summarization_service = SummarizationService()
 
 # Transcription endpoint (authentication disabled for testing)
-@app.post("/transcribe")
+@app.post(
+    "/transcribe",
+    tags=["Audio Processing"],
+    summary="Transcribe Audio/Video File",
+    description="""
+    Upload an audio or video file for automatic transcription and AI analysis.
+
+    ### Process Flow
+    1. **Upload**: Submit audio/video file (MP3, WAV, MP4, M4A, FLAC)
+    2. **Compression**: Files >25MB are automatically compressed to ~20MB
+    3. **Transcription**: Uses hybrid approach (Groq Whisper API → Local Whisper fallback)
+    4. **AI Analysis**: Generates summary and extracts action items
+    5. **Database**: Saves meeting, transcription, summary, conversation, and action items
+
+    ### File Requirements
+    - **Supported Formats**: MP3, WAV, MP4, M4A, FLAC
+    - **Maximum Size**: 500MB (before compression)
+    - **Target Size**: <25MB (after automatic compression if needed)
+
+    ### Response Includes
+    - Full transcription with timestamps
+    - AI-generated summary with key takeaways
+    - Extracted action items with priorities
+    - Meeting ID, conversation ID, and database IDs for reference
+
+    ### Error Handling
+    - **413**: File too large (>500MB or compression failed)
+    - **429**: Rate limit exceeded (Groq API)
+    - **500**: Transcription or processing failed
+
+    ### Optional Authentication
+    Provide `user_id` to save the meeting to the database. Without `user_id`, transcription still works but data is not persisted.
+        """,
+    response_description="Transcription result with text, summary, action items, and database IDs"
+)
 async def transcribe_audio(
-    audio_file: UploadFile = File(...),
-    user_id: str = Form(None)
+    audio_file: UploadFile = File(..., description="Audio or video file to transcribe (MP3, WAV, MP4, M4A, FLAC)"),
+    user_id: str = Form(None, description="Optional user ID to save meeting to database")
 ):
     # START TIMER - Track total processing time from upload to completion
     start_time = time.time()
@@ -399,26 +515,39 @@ async def transcribe_audio(
         print(f"Full traceback:\n{error_trace}")
         raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
 
-@app.get("/test/public")
+@app.get(
+    "/test/public",
+    tags=["Testing"],
+    summary="Test Public Database Access",
+    description="Internal testing endpoint to verify public database access. Not for production use.",
+    include_in_schema=False  # Hide from production docs
+)
 async def test_public():
     try:
         supabase = get_supabase()
         # Try a very basic operation first
         # Try a simple query - this will likely be blocked by RLS unless you've configured public access
         result = supabase.client.table("ai_generate_cleaned_summaries").select("*").execute()
-        
+
         return {
-            "success": True, 
+            "success": True,
             "count": len(result.data),
             "data": result.data
 
         }
-        
+
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
         return {"success": False, "error": str(e), "trace": error_trace}
-@app.get("/test/tables")
+
+@app.get(
+    "/test/tables",
+    tags=["Testing"],
+    summary="Test Database Tables Access",
+    description="Internal testing endpoint to verify database table access. Not for production use.",
+    include_in_schema=False  # Hide from production docs
+)
 async def test_tables():
     try:
         supabase = get_supabase()
@@ -438,14 +567,38 @@ async def test_tables():
         error_trace = traceback.format_exc()
         return {"success": False, "error": str(e), "trace": error_trace}
 
-@app.get("/protected-route")
+@app.get(
+    "/protected-route",
+    tags=["Testing"],
+    summary="Test Protected Route",
+    description="Test endpoint to verify Supabase authentication is working correctly.",
+    include_in_schema=False  # Hide from production docs
+)
 async def protected_route(current_user = Depends(get_current_user)):
     # This endpoint is now protected with Supabase auth
     return {"message": "This is protected", "user": current_user}
 
 
 
-@app.get("/ollama/status")
+@app.get(
+    "/ollama/status",
+    tags=["AI Processing"],
+    summary="Check Ollama Status",
+    description="""
+Check if the local Ollama service is running and accessible.
+
+Ollama is used for all AI processing (summarization, chat, action items extraction) and runs locally on your machine.
+
+### Returns
+- **available**: Boolean indicating if Ollama is running
+- **models**: List of available Ollama models
+- **error**: Error message if Ollama is not accessible
+
+### Note
+All AI features require Ollama to be running locally. If this endpoint returns `available: false`, start Ollama with `ollama serve`.
+    """,
+    response_description="Ollama service status and available models"
+)
 async def ollama_status():
     """
     Endpoint to check if LOCAL Ollama is running and accessible.
@@ -455,7 +608,30 @@ async def ollama_status():
     """
     return summarization_service.check_ollama_status()
 
-@app.post("/summarize")
+@app.post(
+    "/summarize",
+    tags=["AI Processing"],
+    summary="Generate Meeting Summary",
+    description="""
+Generate an AI-powered summary from a meeting transcription.
+
+### Process
+Uses local Ollama LLM (llama3.2:1b) to create a structured markdown summary with:
+- **Title**: Descriptive meeting title
+- **Key Takeaways**: Main points and decisions
+- **Action Items**: Tasks identified in the meeting
+- **Main Topics Covered**: Discussion areas
+
+### Features
+- **Local Processing**: Runs entirely on your machine (unlimited, free, private)
+- **No Rate Limits**: Uses local Ollama, not cloud APIs
+- **Structured Output**: Consistent markdown formatting
+
+### Optional Database Save
+Provide `user_id` to save the summary to the database for future reference.
+    """,
+    response_description="Generated summary with structured content"
+)
 async def summarize_transcription(request: SummarizeRequest):
     # Log user_id if provided
     if request.user_id:
@@ -496,7 +672,35 @@ async def summarize_transcription(request: SummarizeRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Summarization failed: {str(e)}")
 
-@app.post("/chat")
+@app.post(
+    "/chat",
+    tags=["AI Processing"],
+    summary="Chat About Meeting",
+    description="""
+Have a conversational interaction about a meeting using AI.
+
+### Features
+- **Ask Questions**: Query specific details from the meeting
+- **Get Clarifications**: Understand complex topics discussed
+- **Contextual Responses**: AI maintains context of the meeting
+- **Chat History**: Messages are saved to the conversation for future reference
+
+### How It Works
+1. Provide meeting context (transcription or summary)
+2. Ask your question
+3. AI responds based on the meeting content
+4. Both user and assistant messages are saved to the database
+
+### Use Cases
+- "What decisions were made about the budget?"
+- "Who was assigned to the marketing task?"
+- "Summarize the discussion about Project X"
+
+### Chat History
+Provide `conversation_id` to save messages to the conversation history. Without it, the chat still works but messages aren't persisted.
+    """,
+    response_description="AI response to your question about the meeting"
+)
 async def chat_about_meeting(request: ChatRequest):
     """
     Have a conversational interaction about a meeting.
@@ -573,7 +777,36 @@ async def chat_about_meeting(request: ChatRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
 
-@app.post("/extract-action-items")
+@app.post(
+    "/extract-action-items",
+    tags=["AI Processing"],
+    summary="Extract Action Items",
+    description="""
+Automatically extract structured action items from a meeting transcription using AI.
+
+### What It Extracts
+- **Tasks**: Clear action items mentioned in the meeting
+- **Priorities**: High, Medium, or Low priority for each task
+- **Assignments**: Who is responsible for each task (if mentioned)
+- **Due Dates**: Deadlines mentioned in the meeting (if specified)
+
+### Output Format
+Returns a structured JSON array of action items with fields:
+- `task`: Description of the action item
+- `priority`: Priority level (high/medium/low)
+- `assigned_to`: Person responsible (or "Unassigned")
+- `due_date`: Deadline (or null if not mentioned)
+
+### Use Cases
+- Automatically generate task lists from meeting notes
+- Track follow-up actions and assignments
+- Ensure nothing falls through the cracks
+
+### Database Storage
+Provide `conversation_id` and `user_id` to save action items to the database for tracking and updates.
+    """,
+    response_description="List of extracted action items with task details, priorities, and assignments"
+)
 async def extract_action_items(request: ActionItemsRequest):
     """
     Extract structured action items from a meeting transcription.
@@ -636,7 +869,29 @@ async def extract_action_items(request: ActionItemsRequest):
         raise HTTPException(status_code=500, detail=f"Action item extraction failed: {str(e)}")
 
 # Conversation/Chat History Endpoints
-@app.post("/conversations")
+@app.post(
+    "/conversations",
+    tags=["Conversations"],
+    summary="Create Conversation",
+    description="""
+Create a new conversation for storing chat history about a meeting.
+
+### Purpose
+Conversations link chat messages to specific meetings, allowing you to:
+- Track discussion history about a meeting
+- Maintain context across multiple chat sessions
+- Organize messages by meeting
+
+### Required Fields
+- `meeting_id`: ID of the meeting this conversation is about
+- `title`: Descriptive title for the conversation
+- `model_version`: AI model used (default: llama3.2:3b)
+
+### Authentication
+Requires valid Supabase JWT token. Conversation is automatically linked to the authenticated user.
+    """,
+    response_description="Created conversation with ID and metadata"
+)
 async def create_conversation(
     request: ConversationCreate,
     current_user = Depends(get_current_user)
@@ -654,7 +909,30 @@ async def create_conversation(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create conversation: {str(e)}")
 
-@app.get("/conversations")
+@app.get(
+    "/conversations",
+    tags=["Conversations"],
+    summary="Get User Conversations",
+    description="""
+Retrieve all conversations for the authenticated user.
+
+### Returns
+List of all conversations including:
+- Conversation metadata (ID, title, created date)
+- Associated meeting information
+- Archive status
+- Model version used
+
+### Use Cases
+- Display user's conversation history
+- List all meetings with chat interactions
+- Filter archived vs active conversations
+
+### Authentication
+Requires valid Supabase JWT token. Only returns conversations owned by the authenticated user.
+    """,
+    response_description="List of user's conversations with metadata"
+)
 async def get_user_conversations(current_user = Depends(get_current_user)):
     """Get all conversations for the authenticated user"""
     try:
@@ -664,7 +942,34 @@ async def get_user_conversations(current_user = Depends(get_current_user)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch conversations: {str(e)}")
 
-@app.get("/conversations/{conversation_id}")
+@app.get(
+    "/conversations/{conversation_id}",
+    tags=["Conversations"],
+    summary="Get Conversation Details",
+    description="""
+Get detailed information about a specific conversation including all related data.
+
+### Returns
+Complete conversation package with:
+- **Conversation**: Metadata (ID, title, dates, model)
+- **Transcription**: Full meeting transcription with timestamps
+- **Summary**: AI-generated meeting summary
+- **Action Items**: Extracted tasks and assignments
+
+### Use Cases
+- Display full meeting context for chat
+- Load conversation history with all related data
+- Review meeting details and AI outputs
+
+### Authentication
+Requires valid Supabase JWT token. Can only access your own conversations.
+
+### Error Responses
+- **404**: Conversation not found
+- **500**: Database error
+    """,
+    response_description="Conversation with transcription, summary, and action items"
+)
 async def get_conversation(
     conversation_id: str,
     current_user = Depends(get_current_user)
@@ -719,7 +1024,23 @@ async def get_conversation(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch conversation: {str(e)}")
 
-@app.put("/conversations/{conversation_id}/title")
+@app.put(
+    "/conversations/{conversation_id}/title",
+    tags=["Conversations"],
+    summary="Update Conversation Title",
+    description="""
+Update the title of an existing conversation.
+
+### Use Cases
+- Rename conversations for better organization
+- Update titles to reflect conversation content
+- Maintain meaningful conversation names
+
+### Authentication
+Requires valid Supabase JWT token. Can only update your own conversations.
+    """,
+    response_description="Updated conversation with new title"
+)
 async def update_conversation_title(
     conversation_id: str,
     title: str,
@@ -733,7 +1054,29 @@ async def update_conversation_title(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update conversation title: {str(e)}")
 
-@app.put("/conversations/{conversation_id}/archive")
+@app.put(
+    "/conversations/{conversation_id}/archive",
+    tags=["Conversations"],
+    summary="Archive/Unarchive Conversation",
+    description="""
+Archive or unarchive a conversation to organize your chat history.
+
+### Parameters
+- `archived`: Set to `true` to archive, `false` to unarchive (default: true)
+
+### Use Cases
+- Hide old conversations from active view
+- Organize conversations without deleting them
+- Restore archived conversations when needed
+
+### Note
+Archived conversations are not deleted - they can be restored by setting `archived=false`.
+
+### Authentication
+Requires valid Supabase JWT token. Can only archive your own conversations.
+    """,
+    response_description="Updated conversation with new archive status"
+)
 async def archive_conversation(
     conversation_id: str,
     archived: bool = True,
@@ -747,7 +1090,43 @@ async def archive_conversation(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to archive conversation: {str(e)}")
 
-@app.delete("/conversations/{conversation_id}")
+@app.delete(
+    "/conversations/{conversation_id}",
+    tags=["Conversations"],
+    summary="Delete Conversation",
+    description="""
+**Permanently delete** a conversation and ALL associated data.
+
+### ⚠️ Warning: This Action is Irreversible
+
+This endpoint completely removes:
+- ✗ The conversation record
+- ✗ All messages in the conversation
+- ✗ All action items for the conversation
+- ✗ The associated meeting
+- ✗ The meeting transcription
+- ✗ The meeting summary
+
+### Why Delete Everything?
+To avoid wasted database space and orphaned records. When you delete a conversation, all related data is cleaned up automatically.
+
+### Use Cases
+- Remove unwanted meetings and chat history
+- Clean up test data
+- Free up database storage
+
+### Alternative
+Consider using the **archive** endpoint instead if you want to hide conversations without permanently deleting them.
+
+### Authentication
+Requires valid Supabase JWT token. Can only delete your own conversations.
+
+### Error Responses
+- **404**: Conversation not found
+- **500**: Database error during deletion
+    """,
+    response_description="Deletion confirmation message"
+)
 async def delete_conversation(
     conversation_id: str,
     current_user = Depends(get_current_user)
@@ -771,7 +1150,36 @@ async def delete_conversation(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete conversation: {str(e)}")
 
-@app.post("/messages")
+@app.post(
+    "/messages",
+    tags=["Messages"],
+    summary="Save Message",
+    description="""
+Save a message to a conversation's chat history.
+
+### Message Types
+- **user**: Messages from the user asking questions
+- **assistant**: AI-generated responses
+
+### Fields
+- `conversation_id`: ID of the conversation
+- `role`: Either "user" or "assistant"
+- `content`: The message text
+- `token_count`: Optional token usage tracking
+
+### Use Cases
+- Store chat history for later reference
+- Track conversation flow between user and AI
+- Enable conversation replay and analysis
+
+### Note
+The `/chat` endpoint automatically saves messages when `conversation_id` is provided. Use this endpoint only if you need manual message storage.
+
+### Authentication
+Requires valid Supabase JWT token.
+    """,
+    response_description="Saved message with ID and metadata"
+)
 async def save_message(
     request: MessageCreate,
     current_user = Depends(get_current_user)
@@ -789,7 +1197,30 @@ async def save_message(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save message: {str(e)}")
 
-@app.get("/conversations/{conversation_id}/messages")
+@app.get(
+    "/conversations/{conversation_id}/messages",
+    tags=["Messages"],
+    summary="Get Conversation Messages",
+    description="""
+Retrieve all messages in a conversation's chat history.
+
+### Returns
+Chronologically ordered list of messages including:
+- Message ID and timestamp
+- Role (user or assistant)
+- Message content
+- Token count (if tracked)
+
+### Use Cases
+- Display full chat history
+- Load previous conversation context
+- Analyze conversation flow
+
+### Authentication
+Requires valid Supabase JWT token. Can only access messages from your own conversations.
+    """,
+    response_description="List of messages in chronological order"
+)
 async def get_conversation_messages(
     conversation_id: str,
     current_user = Depends(get_current_user)
@@ -802,7 +1233,26 @@ async def get_conversation_messages(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch messages: {str(e)}")
 
-@app.post("/summaries")
+@app.post(
+    "/summaries",
+    tags=["Meetings"],
+    summary="Save Meeting Summary",
+    description="""
+Save an AI-generated summary for a meeting.
+
+### Fields
+- `meeting_id`: ID of the meeting
+- `summary_text`: The summary content (markdown formatted)
+- `key_points`: Optional list of key takeaways
+
+### Note
+The `/transcribe` endpoint automatically generates and saves summaries. Use this endpoint only if you need to manually save or update summaries.
+
+### Authentication
+Requires valid Supabase JWT token.
+    """,
+    response_description="Saved summary with ID and metadata"
+)
 async def save_summary(
     request: SummaryCreate,
     current_user = Depends(get_current_user)
@@ -819,7 +1269,34 @@ async def save_summary(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save summary: {str(e)}")
 
-@app.get("/meetings/{meeting_id}/summary")
+@app.get(
+    "/meetings/{meeting_id}/summary",
+    tags=["Meetings"],
+    summary="Get Meeting Summary",
+    description="""
+Retrieve the AI-generated summary for a specific meeting.
+
+### Returns
+Summary data including:
+- Summary text (markdown formatted)
+- Key points extracted
+- Creation timestamp
+- Meeting ID reference
+
+### Use Cases
+- Display meeting summary without full conversation context
+- Export meeting summaries
+- Quick meeting overview
+
+### Authentication
+Requires valid Supabase JWT token. Can only access summaries for your own meetings.
+
+### Error Responses
+- **404**: Summary not found for this meeting
+- **500**: Database error
+    """,
+    response_description="Meeting summary with key points"
+)
 async def get_meeting_summary(
     meeting_id: str,
     current_user = Depends(get_current_user)
@@ -836,7 +1313,36 @@ async def get_meeting_summary(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch summary: {str(e)}")
 
-@app.get("/meetings/{meeting_id}/transcription")
+@app.get(
+    "/meetings/{meeting_id}/transcription",
+    tags=["Meetings"],
+    summary="Get Meeting Transcription",
+    description="""
+Retrieve the full transcription for a specific meeting.
+
+### Returns
+Transcription data including:
+- Full transcription text
+- Timestamp segments (if available)
+- Audio URL (if stored)
+- Creation timestamp
+- Meeting ID reference
+
+### Use Cases
+- Display full meeting transcript
+- Search within transcription text
+- Generate alternative summaries
+- Provide context for chat interactions
+
+### Authentication
+Requires valid Supabase JWT token. Can only access transcriptions for your own meetings.
+
+### Error Responses
+- **404**: Transcription not found for this meeting
+- **500**: Database error
+    """,
+    response_description="Meeting transcription with timestamps"
+)
 async def get_meeting_transcription(
     meeting_id: str,
     current_user = Depends(get_current_user)
