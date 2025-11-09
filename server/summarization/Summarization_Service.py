@@ -347,6 +347,49 @@ Remember: The ## heading should be a SPECIFIC title about the meeting content, N
                 "error": f"Action item extraction failed: {str(e)}"
             }
 
+    def generate_meeting_title(self, transcription_text: str) -> Dict[str, Any]:
+        """Generate a concise, descriptive title for a meeting based on its transcription."""
+        prompt = f"""Based on the meeting transcription below, generate a short, descriptive title that captures the main topic.
+
+Meeting Transcription:
+{transcription_text[:2000]}
+
+REQUIREMENTS:
+- Keep the title between 3-8 words
+- Make it specific and descriptive
+- Use title case
+- DO NOT use generic phrases like "Meeting Summary" or "Discussion"
+- Focus on the actual topic being discussed
+
+Return ONLY the title text, nothing else."""
+
+        try:
+            response = requests.post(
+                f"{self.ollama_host}/api/chat",
+                json={
+                    "model": self.model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "stream": False
+                },
+                timeout=30
+            )
+            response.raise_for_status()
+            result = response.json()
+
+            title = result.get("message", {}).get("content", "").strip().strip('"').strip("'").strip()
+
+            if len(title) > 100:
+                title = title[:100].rsplit(' ', 1)[0] + "..."
+
+            return {"success": True, "title": title, "model_used": self.model}
+
+        except requests.exceptions.ConnectionError:
+            return {"success": False, "error": "Could not connect to Ollama"}
+        except requests.exceptions.Timeout:
+            return {"success": False, "error": "Title generation timed out"}
+        except Exception as e:
+            return {"success": False, "error": f"Title generation failed: {str(e)}"}
+
     def check_ollama_status(self) -> Dict[str, Any]:
         """
         Check if LOCAL Ollama is running and accessible.

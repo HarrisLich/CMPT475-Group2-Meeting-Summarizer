@@ -26,6 +26,7 @@ export interface TranscriptionResponse {
   conversation_id?: string;
   meeting_id?: string;
   transcription_id?: string;
+  generated_title?: string;
   summary?: {
     success: boolean;
     summary: string;

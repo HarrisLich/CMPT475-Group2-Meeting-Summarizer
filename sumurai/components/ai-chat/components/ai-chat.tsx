@@ -333,7 +333,7 @@ export default function AiChat() {
 
         // Prepare the complete chat data with transcription, action items, AND messages for caching
         const chatData = {
-          title: file.name.replace(/\.(mp3|wav|m4a|flac|ogg|webm)$/i, ''),
+          title: transcriptionData.generated_title || file.name.replace(/\.(mp3|wav|m4a|flac|ogg|webm)$/i, ''),
           preview: summaryData.summary.substring(0, 50) + "...",
           conversationId: transcriptionData.conversation_id,
           transcription: {
