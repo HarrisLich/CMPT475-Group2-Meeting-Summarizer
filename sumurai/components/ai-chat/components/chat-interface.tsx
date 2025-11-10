@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Copy, Share, ThumbsUp, ThumbsDown, Send, Paperclip, Mic, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
+import { Copy, Share, ThumbsUp, ThumbsDown, Send, Paperclip, Mic, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Users, Settings } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface Message {
   id: string;
@@ -33,7 +35,7 @@ interface ChatInterfaceProps {
   isUploading?: boolean;
   uploadStatus?: string;
   transcript?: string;
-  transcriptSegments?: Array<{start: number; end: number; text: string}>;
+  transcriptSegments?: Array<{start: number; end: number; text: string; speaker?: string; speaker_name?: string}>;
   actionItems?: ActionItem[];
 }
 
@@ -225,6 +227,7 @@ export function ChatInterface({
               )}
             </div>
           </div>
+
             {/* Chat Input - Sticky at bottom */}
             <div className="sticky bottom-0 z-10 px-6 pb-12 pt-12 relative">
               <div className="absolute inset-0 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent pointer-events-none"></div>
