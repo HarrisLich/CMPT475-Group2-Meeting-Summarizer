@@ -42,7 +42,7 @@ CRITICAL FORMATTING REQUIREMENTS:
 
 2. **Content Sections (###)**: Include these sections:
    - ### Key Takeaways (bullet points of main insights)
-   - ### Action Items (numbered list of tasks)
+   - ### Work Done / Tasks Accomplished / Free Choice (Make this section either a recollection of compeleted tasks from the meeting, or another relevant area is "work done" is not relevant.)
    - ### Main Topics Covered (5-10 sentences of discussion details)
 
 3. **Markdown Styling**:

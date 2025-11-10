@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Copy, Share, ThumbsUp, ThumbsDown, Send, Paperclip, Mic, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Download, FileText, ListChecks, FileStack } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { downloadMeetingData, type MeetingData, type DownloadType } from '@/lib/services/output-download';
 
 interface Message {
   id: string;
@@ -59,6 +60,7 @@ export function ChatInterface({
   const [transcriptCollapsed, setTranscriptCollapsed] = React.useState(false);
   const [actionItemsCollapsed, setActionItemsCollapsed] = React.useState(false);
   const [downloadMenuOpen, setDownloadMenuOpen] = React.useState(false);
+  const [showConsentDialog, setShowConsentDialog] = React.useState(false);
   const downloadButtonRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -95,10 +97,33 @@ export function ChatInterface({
     e.target.value = '';
   };
 
-  const handleDownload = (type: 'summary' | 'transcript' | 'action-items' | 'all') => {
-    console.log(`Download requested: ${type}`);
-    // TODO: Implement download logic in output-download service
+  const handleDownload = (type: DownloadType) => {
+    // Prepare meeting data from component props
+    const meetingData: MeetingData = {
+      summary: messages.find(m => m.role === 'assistant')?.content || '',
+      transcript: transcript,
+      transcriptSegments: transcriptSegments,
+      actionItems: actionItems,
+      meetingTitle: chatTitle || 'Meeting'
+    };
+
+    // Call unified download service (defaults to PDF)
+    downloadMeetingData(type, meetingData, 'txt'); // Using TXT for now since PDF needs jsPDF library
+
     setDownloadMenuOpen(false);
+  };
+
+  const handleUploadClick = () => {
+    setShowConsentDialog(true);
+  };
+
+  const handleConsentAccept = () => {
+    setShowConsentDialog(false);
+    fileInputRef.current?.click();
+  };
+
+  const handleConsentDecline = () => {
+    setShowConsentDialog(false);
   };
 
   return (
@@ -199,7 +224,7 @@ export function ChatInterface({
                     Upload a meeting recording to generate an AI summary.
                   </p>
                   <Button
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={handleUploadClick}
                     className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00F5FF]/80 hover:to-[#06B6D4]/80 text-gray-900 font-semibold"
                   >
                     <Paperclip className="h-4 w-4 mr-2" />
@@ -338,7 +363,7 @@ export function ChatInterface({
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0 hover:bg-[#00F5FF]/20 hover:text-[#00F5FF] transition-colors"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={handleUploadClick}
                 disabled={isUploading}
               >
                 <Paperclip className="h-4 w-4" />
@@ -557,6 +582,78 @@ export function ChatInterface({
         </div>
         </div>
       </div>
+
+      {/* Consent Dialog */}
+      {showConsentDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#1A1A1A] border border-[#333333] rounded-lg shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+            {/* Header */}
+            <div className="border-b border-[#333333] px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#00F5FF]/10 border border-[#00F5FF]/30 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-[#00F5FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Data Privacy Notice</h3>
+                  <p className="text-xs text-gray-400">Please review before uploading</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-sm text-gray-300 leading-relaxed">
+                <span className="font-semibold text-[#00F5FF]">Important:</span> Do not upload recordings containing sensitive information.
+              </p>
+
+              <div>
+                <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-2">Avoid uploading:</p>
+                <ul className="space-y-1.5 text-sm text-gray-300">
+                  <li className="flex items-start gap-2">
+                    <span className="text-[#00F5FF]/60 mt-1 text-xs">▸</span>
+                    <span>Personal identifying information</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-[#00F5FF]/60 mt-1 text-xs">▸</span>
+                    <span>Financial or payment data</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-[#00F5FF]/60 mt-1 text-xs">▸</span>
+                    <span>Health or medical records</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-[#00F5FF]/60 mt-1 text-xs">▸</span>
+                    <span>Confidential business information</span>
+                  </li>
+                </ul>
+              </div>
+
+              <p className="text-xs text-gray-400 leading-relaxed">
+                Your audio will be processed by AI models. While we prioritize security, please avoid uploading sensitive content to minimize risk.
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div className="bg-[#111111] border-t border-[#333333] px-6 py-4 flex items-center justify-end gap-3">
+              <Button
+                onClick={handleConsentDecline}
+                variant="ghost"
+                className="text-gray-400 hover:text-white hover:bg-[#1A1A1A] border border-[#333333] hover:border-[#00F5FF]/30 transition-all"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConsentAccept}
+                className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00F5FF]/90 hover:to-[#06B6D4]/90 text-gray-900 font-semibold"
+              >
+                I Understand & Consent
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
