@@ -513,7 +513,17 @@ async def get_meeting_speakers(meeting_id: str):
     Returns a list of speakers with their IDs and sample text to help users
     identify and name each speaker.
     """
+    import uuid
     try:
+        # Validate that meeting_id is a valid UUID
+        try:
+            uuid.UUID(meeting_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid meeting_id format. Expected UUID, got: {meeting_id}"
+            )
+        
         supabase = get_supabase()
         speakers = supabase.get_meeting_speakers(meeting_id)
         
@@ -521,6 +531,8 @@ async def get_meeting_speakers(meeting_id: str):
             "success": True,
             "speakers": speakers
         }
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()

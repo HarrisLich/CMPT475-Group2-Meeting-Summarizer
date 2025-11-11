@@ -28,11 +28,13 @@ class SupabaseService:
     # Meeting functions
     def save_meeting(self, user_id, title, description=None):
         # Adapt to existing schema (no description field)
+        from datetime import datetime
+        # Use current date/time for the date field (timestamp)
         return self.client.table("meetings").insert({
             "user_id": user_id,
             "title": title,
-            # Use date field instead of description
-            "date": description
+            # Use current timestamp for date field
+            "date": datetime.now().isoformat()
         }).execute()
         
     def save_transcription(self, meeting_id, transcription_text, language):
