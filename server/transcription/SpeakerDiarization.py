@@ -97,8 +97,9 @@ class SpeakerDiarizationService:
                 diarization = pipeline({"waveform": waveform, "sample_rate": sample_rate})
             
             # Convert to usable format
+            # In pyannote.audio 4.x, the output is a DiarizeOutput object
             result = []
-            for turn, _, speaker in diarization.itertracks(yield_label=True):
+            for turn, _, speaker in diarization.speaker_diarization.itertracks(yield_label=True):
                 result.append({
                     "start": turn.start, 
                     "end": turn.end,
