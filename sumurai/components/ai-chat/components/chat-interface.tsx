@@ -107,8 +107,8 @@ export function ChatInterface({
       meetingTitle: chatTitle || 'Meeting'
     };
 
-    // Call unified download service (defaults to PDF)
-    downloadMeetingData(type, meetingData, 'txt'); // Using TXT for now since PDF needs jsPDF library
+    // Always export as PDF
+    downloadMeetingData(type, meetingData, 'pdf');
 
     setDownloadMenuOpen(false);
   };

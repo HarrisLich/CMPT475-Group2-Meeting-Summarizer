@@ -145,7 +145,7 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
             ) : user && session ? (
               <>
                 <span className="text-white text-sm">
-                  Welcome, {user.email}
+                  Welcome, {user.email?.split("@")[0] || 'User'}
                 </span>
                 <Button
                   onClick={() => router.push('/profiling')}

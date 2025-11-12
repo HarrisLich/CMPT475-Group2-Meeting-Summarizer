@@ -133,56 +133,54 @@ export function Sidebar({ chats, selectedChatId, onNewChat, onSelectChat, onDele
 
         <div className="flex-1 overflow-hidden">
           <ScrollArea className="h-full">
-            <div className="space-y-1 px-2 pb-4">
+            <div className={cn("space-y-1 px-2 pb-4", isCollapsed && "pt-2")}>
               {filteredChats.map((chat) => (
                 <div key={chat.id} className="relative group">
-                  <div className="flex items-center gap-1">
-                    {/* Delete icon - outside the button to avoid nesting */}
-                    {!isCollapsed && onDeleteChat && chatToDelete !== chat.id && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setChatToDelete(chat.id);
-                        }}
-                        className="p-2 rounded hover:bg-red-600/20 text-red-500 hover:text-red-400 transition-colors flex-shrink-0"
-                        title="Delete chat"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                  {/* Chat button */}
+                  <Button
+                    variant="ghost"
+                    onClick={() => onSelectChat(chat.id)}
+                    disabled={isUploading}
+                    className={cn(
+                      "h-auto w-full p-3 text-left rounded-lg transition-all duration-300",
+                      selectedChatId === chat.id
+                        ? "bg-[#1A1A1A] border border-[#333333] shadow-lg hover:shadow-xl"
+                        : "hover:bg-[#1A1A1A] border border-transparent hover:border-[#333333]",
+                      isCollapsed ? "justify-center" : "justify-start",
+                      isUploading && "opacity-50 cursor-not-allowed"
                     )}
-
-                    {/* Chat button */}
-                    <Button
-                      variant="ghost"
-                      onClick={() => onSelectChat(chat.id)}
-                      disabled={isUploading}
-                      className={cn(
-                        "h-auto flex-1 p-3 text-left rounded-lg transition-all duration-300",
-                        selectedChatId === chat.id
-                          ? "bg-[#1A1A1A] border border-[#333333] shadow-lg hover:shadow-xl"
-                          : "hover:bg-[#1A1A1A] border border-transparent hover:border-[#333333]",
-                        isCollapsed ? "justify-center" : "justify-start",
-                        isUploading && "opacity-50 cursor-not-allowed"
-                      )}
-                      title={isCollapsed ? chat.title : undefined}
-                    >
-                      {isCollapsed ? (
-                        <MessageCircle className="h-4 w-4 text-gray-400" />
-                      ) : (
-                        <div className="flex w-full items-start gap-2">
-                          <MessageCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-400" />
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-medium text-white">{chat.title}</div>
-                            <div className="mt-0.5 truncate text-xs text-gray-400">
-                              {chat.preview}
-                            </div>
+                    title={isCollapsed ? chat.title : undefined}
+                  >
+                    {isCollapsed ? (
+                      <MessageCircle className="h-4 w-4 text-gray-400" />
+                    ) : (
+                      <div className="flex w-full items-start gap-2 pr-8">
+                        <MessageCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-400" />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium text-white">{chat.title}</div>
+                          <div className="mt-0.5 truncate text-xs text-gray-400">
+                            {chat.preview}
                           </div>
                         </div>
-                      )}
-                    </Button>
-                  </div>
+                      </div>
+                    )}
+                  </Button>
 
-                  {/* Confirmation UI - completely outside the Button component */}
+                  {/* Delete Chat Button - absolutely positioned overlay */}
+                  {!isCollapsed && onDeleteChat && chatToDelete !== chat.id && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setChatToDelete(chat.id);
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded opacity-0 group-hover:opacity-100 hover:bg-red-600/20 text-gray-500 hover:text-red-400 transition-all"
+                      title="Delete chat"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+
+                  {/* Confirmation UI - outside the Button component to avoid nesting, visually overlaid instead*/}
                   {!isCollapsed && chatToDelete === chat.id && onDeleteChat && (
                     <div className="mt-2 ml-12 flex items-center gap-2 px-3">
                       <div className="text-xs text-red-400 font-medium">

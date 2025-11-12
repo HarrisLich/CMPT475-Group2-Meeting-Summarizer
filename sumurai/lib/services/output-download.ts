@@ -2,6 +2,8 @@
  * -- Output Download Service --
  * Handles exporting meeting data (summary, transcript, action items) to various formats.
  */
+import jsPDF from 'jspdf';
+
 
 interface TranscriptSegment {
   start: number;
@@ -90,9 +92,9 @@ const prepareDownloadContent = (type: DownloadType, data: MeetingData): Download
       sections.push(
         ...formatSummary(data),
         { title: '', content: '', type: 'heading' }, 
-        ...formatTranscript(data),
+        ...formatActionItems(data),
         { title: '', content: '', type: 'heading' },
-        ...formatActionItems(data)
+        ...formatTranscript(data)
       );
       filename = `${sanitizeFilename(data.meetingTitle)}_complete`;
       break;
@@ -211,40 +213,95 @@ const formatActionItems = (data: MeetingData): Section[] => {
 
 
 const generatePDF = (content: DownloadContent): void => {
-  // TODO: Implement PDF generation using jsPDF or similar library
-  console.log('[PDF] Generating PDF:', content.filename);
-  console.log('[PDF] Sections:', content.sections.length);
-
-  // Placeholder implementation
-  alert(`PDF generation not yet implemented.\nWould generate: ${content.filename}.pdf with ${content.sections.length} sections`);
-
-  // Example implementation with jsPDF (install: npm install jspdf):
-  /*
-  import jsPDF from 'jspdf';
-
   const doc = new jsPDF();
   let yPosition = 20;
+  const pageHeight = 280;
+  const leftMargin = 20;
+  const rightMargin = 190;
+  const maxWidth = rightMargin - leftMargin;
+  const lineHeight = 7;
 
-  content.sections.forEach(section => {
-    if (section.type === 'heading' && section.title) {
-      doc.setFontSize(16);
-      doc.text(section.title, 20, yPosition);
-      yPosition += 10;
-    } else if (section.type === 'text' && section.content) {
-      doc.setFontSize(12);
-      const lines = doc.splitTextToSize(section.content, 170);
-      doc.text(lines, 20, yPosition);
-      yPosition += lines.length * 7;
-    }
-    // Add page break if needed
-    if (yPosition > 280) {
+  const checkPageBreak = (additionalSpace: number = 0) => {
+    if (yPosition + additionalSpace > pageHeight) {
       doc.addPage();
       yPosition = 20;
+    }
+  };
+
+  const stripMarkdown = (text: string): string => {
+    return text
+      // Remove headers (##, ###, etc)
+      .replace(/^#{1,6}\s+/gm, '')
+      // Remove bold/italic (**text**, *text*, __text__, _text_)
+      .replace(/(\*\*|__)(.*?)\1/g, '$2')
+      .replace(/(\*|_)(.*?)\1/g, '$2')
+      // Remove bullet points (-, *, +)
+      .replace(/^[\s]*[-*+]\s+/gm, '• ')
+      // Remove numbered lists
+      .replace(/^[\s]*\d+\.\s+/gm, '• ')
+      // Clean up extra whitespace
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  };
+
+  content.sections.forEach((section, index) => {
+    // Main heading (larger font)
+    if (section.type === 'heading' && section.title) {
+      checkPageBreak(15);
+
+      // Use larger font for first heading, smaller for subheadings
+      if (index === 0) {
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+      } else {
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+      }
+
+      const titleLines = doc.splitTextToSize(section.title, maxWidth);
+      doc.text(titleLines, leftMargin, yPosition);
+      yPosition += titleLines.length * lineHeight + 5;
+    }
+
+    // Text content
+    if (section.content) {
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+
+      // Strip markdown formatting from content
+      const cleanContent = stripMarkdown(section.content);
+
+      if (section.type === 'list') {
+        // Handle list items - already has bullet points from stripMarkdown
+        const listItems = cleanContent.split('\n').filter(line => line.trim());
+
+        listItems.forEach(item => {
+          checkPageBreak(lineHeight * 3);
+          const itemLines = doc.splitTextToSize(item, maxWidth - 5);
+          doc.text(itemLines, leftMargin + 5, yPosition);
+          yPosition += itemLines.length * lineHeight + 2;
+        });
+
+        yPosition += 5; // Extra space after list
+      } else {
+        // Handle regular text
+        const paragraphs = cleanContent.split('\n\n');
+
+        paragraphs.forEach(paragraph => {
+          if (!paragraph.trim()) return;
+
+          const lines = doc.splitTextToSize(paragraph, maxWidth);
+          checkPageBreak(lines.length * lineHeight);
+          doc.text(lines, leftMargin, yPosition);
+          yPosition += lines.length * lineHeight + 3;
+        });
+      }
+
+      yPosition += 5; // Extra space between sections
     }
   });
 
   doc.save(`${content.filename}.pdf`);
-  */
 };
 
 /**
