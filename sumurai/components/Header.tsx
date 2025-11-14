@@ -13,7 +13,7 @@ interface HeaderProps {
 
 export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderProps = {}) {
   const router = useRouter();
-  const { user, session, loading: authLoading, login, register, logout } = useAuth();
+  const { user, session, profile, loading: authLoading, login, register, logout } = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
   const [isRegister, setIsRegister] = useState(false);
   const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '' });
@@ -144,9 +144,11 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
               <div className="w-8 h-8 border-2 border-[#00F5FF] border-t-transparent rounded-full animate-spin"></div>
             ) : user && session ? (
               <>
-                <span className="text-white text-sm">
-                  Welcome, {user.email}
-                </span>
+                {profile && (
+                  <span className="text-white text-sm">
+                    Welcome, {profile.name || profile.first_name || user.email?.split('@')[0]}
+                  </span>
+                )}
                 <Button
                   onClick={() => router.push('/profiling')}
                   variant="outline"
