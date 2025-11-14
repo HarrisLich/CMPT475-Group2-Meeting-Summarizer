@@ -182,6 +182,57 @@ class SupabaseService:
         """Get all action items for a conversation"""
         return self.client.table("action_items").select("*").eq("conversation_id", conversation_id).order("created_at", desc=False).execute()
 
+    # User account functions
+    def delete_user_account(self, user_id):
+        """
+        Delete a user account and ALL associated data including:
+        - All user meetings (and their transcriptions, summaries, conversations)
+        - All user conversations (and their messages, action items)
+        - User profile
+        - Authentication account
+
+        This performs a complete account deletion with cascading cleanup.
+
+        Note: This method uses the service role key (backend only) to execute the deletion,
+        but should only be called after verifying the user's identity via JWT token.
+        """
+        # Step 1: Get all conversations for the user
+        conversations_result = self.client.table("conversations").select("id").eq("user_id", user_id).execute()
+        conversation_ids = [conv["id"] for conv in conversations_result.data]
+
+        # Step 2: Delete all messages and action items for each conversation
+        for conversation_id in conversation_ids:
+            self.client.table("messages").delete().eq("conversation_id", conversation_id).execute()
+            self.client.table("action_items").delete().eq("conversation_id", conversation_id).execute()
+
+        # Step 3: Get all meetings for the user
+        meetings_result = self.client.table("meetings").select("id").eq("user_id", user_id).execute()
+        meeting_ids = [meeting["id"] for meeting in meetings_result.data]
+
+        # Step 4: Delete all transcriptions and summaries for each meeting
+        for meeting_id in meeting_ids:
+            self.client.table("transcriptions").delete().eq("meeting_id", meeting_id).execute()
+            self.client.table("summaries").delete().eq("meeting_id", meeting_id).execute()
+
+        # Step 5: Delete all conversations
+        self.client.table("conversations").delete().eq("user_id", user_id).execute()
+
+        # Step 6: Delete all meetings
+        self.client.table("meetings").delete().eq("user_id", user_id).execute()
+
+        # Step 7: Delete the user profile
+        self.client.table("profiles").delete().eq("id", user_id).execute()
+
+        # Step 8: Delete the authentication account (requires service role key)
+        self.client.auth.admin.delete_user(user_id)
+
+        return {
+            "success": True,
+            "deleted_user_id": user_id,
+            "deleted_conversations": len(conversation_ids),
+            "deleted_meetings": len(meeting_ids)
+        }
+
 
 def get_supabase():
     global _instance
