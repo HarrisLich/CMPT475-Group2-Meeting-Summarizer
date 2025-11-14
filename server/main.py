@@ -1378,5 +1378,78 @@ async def get_meeting_transcription(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch transcription: {str(e)}")
 
+@app.delete(
+    "/account",
+    tags=["Authentication"],
+    summary="Delete User Account",
+    description="""
+**Permanently delete** your user account and ALL associated data.
+
+### ⚠️ Warning: This Action is Irreversible
+
+This endpoint completely removes:
+- ✗ Your user profile
+- ✗ All your meetings
+- ✗ All transcriptions
+- ✗ All summaries
+- ✗ All conversations and chat history
+- ✗ All messages
+- ✗ All action items
+- ✗ Your authentication account
+
+### Security
+- You can only delete your own account
+- Requires valid JWT authentication token
+- User identity is verified from the token (not from request body)
+
+### After Deletion
+- You will be logged out
+- All your data will be permanently removed
+- You can create a new account with the same email if desired
+
+### Authentication
+Requires valid Supabase JWT token. The user_id is extracted from the token to ensure you can only delete your own account.
+    """,
+    response_description="Account deletion confirmation with statistics"
+)
+async def delete_account(current_user = Depends(get_current_user)):
+    """
+    Delete the authenticated user's account and all associated data.
+
+    This endpoint:
+    1. Verifies user identity via JWT token
+    2. Deletes all user data (meetings, conversations, messages, etc.)
+    3. Deletes the user profile
+    4. Deletes the authentication account
+
+    Security: User can only delete their own account. The user_id comes from
+    the verified JWT token, not from user input.
+    """
+    try:
+        user_id = current_user["id"]
+        print(f"[ACCOUNT DELETION] Starting deletion for user {user_id}")
+
+        supabase = get_supabase()
+        result = supabase.delete_user_account(user_id)
+
+        print(f"[ACCOUNT DELETION] Successfully deleted user {user_id}")
+        print(f"[ACCOUNT DELETION] - Conversations deleted: {result['deleted_conversations']}")
+        print(f"[ACCOUNT DELETION] - Meetings deleted: {result['deleted_meetings']}")
+
+        return {
+            "success": True,
+            "message": "Account successfully deleted",
+            "details": result
+        }
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"[ACCOUNT DELETION ERROR] Failed to delete account: {str(e)}")
+        print(f"[ACCOUNT DELETION ERROR] Traceback:\n{error_trace}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete account: {str(e)}"
+        )
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
