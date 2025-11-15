@@ -298,8 +298,9 @@ export default function AiChat() {
       // - Action items extraction (Ollama)
       // We can't update status during processing, so show one comprehensive message
 
+      await new Promise(resolve => setTimeout(resolve, 400)); // Small delay for UX
       setUploadStatus("🎧 Validating audio format...");
-      await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UX
+      await new Promise(resolve => setTimeout(resolve, 400)); // Small delay for UX
 
       setUploadStatus("⚡ Processing meeting (transcription → summary → action items)...");
       console.log("Sending transcription request with user ID:", user?.id || "NOT AUTHENTICATED");
@@ -334,7 +335,7 @@ export default function AiChat() {
         // Prepare the complete chat data with transcription, action items, AND messages for caching
         const chatData = {
           title: transcriptionData.generated_title || file.name.replace(/\.(mp3|wav|m4a|flac|ogg|webm)$/i, ''),
-          preview: summaryData.summary.substring(0, 50) + "...",
+          preview: "Click to view conversation...",
           conversationId: transcriptionData.conversation_id,
           transcription: {
             fullText: transcriptionData.transcription,

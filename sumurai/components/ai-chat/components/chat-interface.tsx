@@ -245,12 +245,11 @@ export function ChatInterface({
                     <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
                       <div className="h-full bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] rounded-full animate-pulse"
                            style={{
-                             width: uploadStatus?.includes('Uploading') ? '5%' :
-                                    uploadStatus?.includes('Processing audio') ? '15%' :
-                                    uploadStatus?.includes('Transcribing') ? '50%' :
-                                    uploadStatus?.includes('Analyzing') ? '70%' :
-                                    uploadStatus?.includes('Generating summary') ? '85%' :
-                                    uploadStatus?.includes('Finalizing') ? '95%' : '5%',
+                             width: uploadStatus?.includes('Uploading') ? '10%' :
+                                    uploadStatus?.includes('Validating') ? '20%' :
+                                    uploadStatus?.includes('Processing meeting') ? '60%' :
+                                    uploadStatus?.includes('Finalizing') ? '95%' :
+                                    uploadStatus?.includes('Complete') ? '100%' : '10%',
                              transition: 'width 0.5s ease-in-out'
                            }}>
                       </div>

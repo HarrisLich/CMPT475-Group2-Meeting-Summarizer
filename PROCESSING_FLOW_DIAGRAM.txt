@@ -1,0 +1,357 @@
+================================================================================
+MEETING SUMMARIZER: COMPLETE SERVER-SIDE PROCESSING FLOW
+================================================================================
+
+                              AUDIO UPLOAD
+                                   |
+                                   v
+                    POST /transcribe (main.py:197)
+                                   |
+           __________________________|__________________________
+           |                                                  |
+           v                                                  v
+    [TIMER START]                                    Read File & Validate Type
+    (line 237)                                       (line 246-247)
+           |                                                  |
+           |__________________________________________________|
+                           |
+                           v
+                   [File Size Check]
+                   (line 254-268)
+                   |
+        __________|__________
+        |                   |
+        v                   v
+    < 500MB?           >= 500MB?
+    |                   |
+    YES                 NO
+    |                   |
+    v                   v
+[Compression]    [REJECT 413]
+(25-500MB?)      File Too Large
+|
+YES - Compress Audio
+|     (audio_utils.py)
+|     - Reduce bitrate
+|     - Convert to mono
+|     - Reduce sample rate
+|
+|_______________________|
+                    |
+                    v
+            [Still > 25MB?]
+            |
+    YES - REJECT 413
+    |
+    NO - Continue
+    |
+    v
+================================================================================
+                        TRANSCRIPTION STAGE
+================================================================================
+    |
+    v
+HybridTranscriptionService.transcribe_file()
+(Groq_Transcription.py:224-262)
+    |
+    |___ Check File Size ___
+    |                      |
+    |                  Groq Preferred?
+    |                      |
+    |          YES - Try Groq First
+    |          |
+    |          v
+    |   [GROQ WHISPER API]
+    |   (Groq_Transcription.py:53-132)
+    |   - Model: whisper-large-v3
+    |   - Limit: 25MB max
+    |   - Speed: 10-30x faster
+    |   - Returns: text + segments
+    |   |
+    |   |___ Success? ___
+    |   |               |
+    |   YES             NO (Rate Limit/Error)
+    |   |               |
+    |   |               v
+    |   |         [FALLBACK: LOCAL WHISPER]
+    |   |         (Local_Whisper.py:47-85)
+    |   |         - Model: faster-whisper (tiny)
+    |   |         - Speed: 3-5 min for 30min audio
+    |   |         - Returns: text + segments
+    |   |         - Uses VAD (Voice Activity Detection)
+    |   |
+    |   |_____ Merge Results _____
+    |           |
+    |___________|
+                |
+                v
+        {transcription, language, segments}
+                |
+    ___________|___________
+    |                     |
+    v                     v
+Return Result      [ERROR CHECK]
+with transcript    (line 314-335)
+    |               |
+    |         Error?
+    |         |
+    |      YES - HTTP 429/500
+    |      NO - Continue
+    |
+    v
+================================================================================
+                        DATABASE OPERATIONS
+================================================================================
+    |
+    v
+IF user_id provided:
+    |
+    |___ [1] Save Meeting ___
+    |        (line 355-361)
+    |        Table: meetings
+    |        Data: {user_id, title, date?}
+    |        -> meeting_id
+    |
+    |___ [2] Generate Title ___
+    |        (line 375-379)
+    |        Service: Ollama (llama3.2:1b)
+    |        Prompt: 3-8 word title
+    |        Returns: generated_title or fallback
+    |
+    |___ [3] Create Conversation ___
+    |        (line 390-398)
+    |        Table: conversations
+    |        Data: {user_id, meeting_id, title, model}
+    |        -> conversation_id
+    |
+    |___ [4] Save Transcription ___
+    |        (line 406-414)
+    |        Table: transcriptions
+    |        Data: {meeting_id, text, segments}
+    |        -> transcription_id
+    |
+    v
+IF no errors, continue to AI processing
+    |
+    v
+================================================================================
+                    AI SUMMARIZATION STAGE
+================================================================================
+    |
+    v
+SummarizationService.summarize_transcription()
+(Summarization_Service.py:69-138)
+    |
+    v
+[Format Prompt with Template]
+(line 30-55 template)
+    |
+    v
+POST /api/chat to Ollama
+(localhost:11434)
+    |
+    v
+{
+  "model": "llama3.2:1b",
+  "messages": [{"role": "user", "content": prompt}],
+  "stream": false,
+  "timeout": 300
+}
+    |
+    v
+[Parse Response]
+    |
+    v
+Return:
+{
+  "success": true/false,
+  "summary": markdown formatted string,
+  "model_used": "llama3.2:1b",
+  "transcription_length": int
+}
+    |
+    v
+IF success:
+    |
+    |___ [5] Save Summary ___
+    |        (line 451-458)
+    |        Table: summaries
+    |        Data: {meeting_id, summary_text}
+    |        -> summary_id
+    |
+    |___ [6] Save Initial Message ___
+    |        (line 464-470)
+    |        Table: messages
+    |        Data: {conversation_id, role: "assistant", content: summary}
+    |
+    v
+================================================================================
+                 ACTION ITEMS EXTRACTION STAGE
+================================================================================
+    |
+    v
+SummarizationService.extract_action_items()
+(Summarization_Service.py:216-348)
+    |
+    v
+[Format Prompt for JSON]
+Request format:
+[
+  {"task": "...", "priority": "high|medium|low", "assigned_to": "..."}
+]
+    |
+    v
+POST /api/chat to Ollama
+    |
+    v
+[Parse JSON Response]
+- Remove markdown code blocks
+- Extract JSON array
+- Validate fields
+- Normalize: priority="medium", assigned_to="Unassigned"
+    |
+    v
+Return:
+{
+  "success": true/false,
+  "action_items": [{task, priority, assigned_to}, ...],
+  "model_used": "llama3.2:1b"
+}
+    |
+    v
+IF success AND has items:
+    |
+    |___ [7] Save Action Items ___
+    |        (line 492-495)
+    |        Table: action_items
+    |        Data: [{conversation_id, task, priority, assigned_to}]
+    |
+    v
+================================================================================
+                        FINAL RESPONSE
+================================================================================
+    |
+    v
+[Calculate Timing]
+    |
+    |___ Log Summary ___
+    |    - Total time (seconds & minutes)
+    |    - Component status
+    |    - File info
+    |    - User ID
+    |
+    v
+Return JSON:
+{
+  "filename": str,
+  "transcription": str,
+  "language": str,
+  "segments": [{start, end, text}],
+  "meeting_id": str,
+  "conversation_id": str,
+  "transcription_id": str,
+  "generated_title": str,
+  "summary": {
+    "success": bool,
+    "summary": str (markdown),
+    "model_used": str
+  },
+  "action_items": [
+    {"task": str, "priority": str, "assigned_to": str}
+  ],
+  "user": {...}
+}
+    |
+    v
+[TIMER END]
+HTTP 200 OK
+    |
+    v
+CLIENT RECEIVES COMPLETE RESULT
+
+================================================================================
+                          DATA DEPENDENCIES
+================================================================================
+
+MEETING DATA FLOW:
+┌─────────┬──────────────┬──────────────┬─────────┐
+│Meetings │Transcription │Conversation  │ Summary │
+└────┬────┴──────┬───────┴──────┬───────┴────┬────┘
+     │           │              │            │
+     └─────┬─────┴──────┬───────┴─────┬──────┘
+           │            │             │
+           v            v             v
+       Messages     Action Items   (Chat History)
+           │            │
+           └─────┬──────┘
+                 │
+                 v
+         Conversation Package
+      (Full context for chat)
+
+
+RELATIONAL CONSTRAINTS:
+- Meeting -> Transcription (1:1)
+- Meeting -> Summary (1:1)
+- Meeting -> Conversation (1:N)
+- Conversation -> Messages (1:N)
+- Conversation -> Action Items (1:N)
+
+CASCADE DELETE:
+Delete Conversation
+    -> Delete Messages
+    -> Delete Action Items
+    -> Delete Meeting
+    -> Delete Transcription
+    -> Delete Summary
+
+================================================================================
+                        ERROR HANDLING PATHS
+================================================================================
+
+File Too Large (>500MB)
+    └-> HTTP 413 with size details
+
+Compression Failed
+    └-> HTTP 413 with error details
+
+Transcription Error
+    ├-> Rate Limit (429)
+    └-> General (500)
+
+Ollama Not Running
+    ├-> Summary: returns error
+    ├-> Action Items: returns error
+    └-> But transcription still returned
+
+Database Error
+    ├-> Log [DB ERROR]
+    ├-> Add to result["db_warning"]
+    └-> Continue processing (non-fatal)
+
+JSON Parse Error (Action Items)
+    ├-> Return empty array
+    ├-> Add warning field
+    └-> Mark success=true (graceful)
+
+================================================================================
+                       TIMING BREAKDOWN
+================================================================================
+
+Component                    Time Range
+────────────────────────────────────────────
+File Upload                  5-30 seconds
+Compression (if needed)      10-60 seconds
+Transcription
+  - Groq                     15-60 seconds (30min audio)
+  - Local Whisper            3-5 minutes (30min audio)
+Title Generation             2-5 seconds
+Database Saves (1-3)         1-2 seconds
+Summarization                5-20 seconds
+Action Items Extraction      5-15 seconds
+Database Saves (3-5)         1-2 seconds
+────────────────────────────────────────────
+TOTAL (Groq path)            35-200 seconds (0.5-3 min)
+TOTAL (Local path)           3-15 minutes
+
+================================================================================

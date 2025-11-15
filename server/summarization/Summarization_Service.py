@@ -239,12 +239,20 @@ Remember: The ## heading should be a SPECIFIC title about the meeting content, N
         Return a JSON array where each action item has:
         - task: what needs to be done
         - priority: high, medium, or low (based on urgency or importance)
-        - assigned_to: person's name if mentioned, otherwise "Unassigned"
+        - assigned_to: IMPORTANT - Follow these rules strictly:
+            * ONLY use a person's name if they are EXPLICITLY mentioned as responsible for that specific task in the transcription
+            * Look for phrases like "John will...", "Sarah is going to...", "assigned to Alex", "Mike agreed to..."
+            * If a task is mentioned but NO specific person is assigned to it, use "Unassigned"
+            * Do NOT guess, infer, or make up names
+            * Do NOT assign to whoever is speaking unless they explicitly take responsibility
+            * When in doubt, use "Unassigned"
 
         Return ONLY valid JSON. Example:
             [
             {{"task": "Complete user testing by Friday", "priority": "high", "assigned_to": "Sarah Chen"}},
-            {{"task": "Update documentation", "priority": "medium", "assigned_to": "Unassigned"}}
+            {{"task": "Update documentation", "priority": "medium", "assigned_to": "Unassigned"}},
+            {{"task": "Review analytics dashboard", "priority": "high", "assigned_to": "Mike"}},
+            {{"task": "Send follow-up email", "priority": "low", "assigned_to": "Unassigned"}}
             ]
 
         If no action items exist, return: []"""
