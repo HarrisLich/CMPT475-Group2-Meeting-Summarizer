@@ -2,9 +2,10 @@
 fastapi==0.115.6
 uvicorn[standard]==0.32.1
 pydantic==2.10.3
+email-validator  # Required by pydantic for email validation in auth routes
 python-multipart==0.0.20
 python-dotenv==1.0.1
-requests==2.31.0
+requests>=2.32.3  # Required by pyannoteai-sdk
 
 # Database & Authentication (Supabase)
 supabase>=2.0.0
@@ -15,11 +16,11 @@ faster-whisper
 
 # Audio processing
 pydub==0.25.1
-
+torchcodec>=0.8.0
 # Speaker diarization (pyannote.audio requires PyTorch)
 # Using compatible versions: PyTorch 2.9.0 with pyannote.audio 4.0.1
 pyannote.audio>=4.0.0
 torch==2.9.0
 torchaudio==2.9.0
 torchvision==0.24.0
-numpy<2  # NumPy 2.x has compatibility issues with some dependencies
+numpy>=2.0  # Required by pyannote-core and pyannote-metrics, compatible with PyTorch 2.9.0
