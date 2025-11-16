@@ -39,10 +39,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFetchingProfile, setIsFetchingProfile] = useState(false);
+  const lastFetchedUserIdRef = React.useRef<string | null>(null);
 
-  // Add this function to fetch profile
-  const fetchProfile = async () => {
-    if (!user) return;
+  // Add this function to fetch profile - memoized with useCallback
+  const fetchProfile = React.useCallback(async () => {
+    if (!user || !user.id) return;
+    
+    // Prevent fetching if already fetching or already fetched for this user
+    if (isFetchingProfile || lastFetchedUserIdRef.current === user.id) {
+      return;
+    }
+    
+    setIsFetchingProfile(true);
+    lastFetchedUserIdRef.current = user.id;
     
     try {
       const { data, error } = await getCurrentProfile();
@@ -50,17 +60,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfile(data);
     } catch (error) {
       console.error("Error fetching profile:", error);
+      lastFetchedUserIdRef.current = null; // Reset on error so we can retry
+    } finally {
+      setIsFetchingProfile(false);
     }
-  };
+  }, [user, isFetchingProfile]);
 
-  // Call fetchProfile after user is set
+  // Call fetchProfile after user is set - but only once per user
   useEffect(() => {
-    if (user) {
+    if (user && user.id && lastFetchedUserIdRef.current !== user.id) {
       fetchProfile();
-    } else {
+    } else if (!user) {
       setProfile(null);
+      lastFetchedUserIdRef.current = null;
     }
-  }, [user]);
+  }, [user?.id]); // Only depend on user.id, not the whole user object
 
   // Check for existing session on mount
   useEffect(() => {

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Copy, Share, ThumbsUp, ThumbsDown, Send, Paperclip, Mic, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Users, Settings } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -58,6 +59,25 @@ export function ChatInterface({
   const [rightPanelCollapsed, setRightPanelCollapsed] = React.useState(false);
   const [transcriptCollapsed, setTranscriptCollapsed] = React.useState(false);
   const [actionItemsCollapsed, setActionItemsCollapsed] = React.useState(false);
+
+  // Get unique speakers for color coding
+  const uniqueSpeakers = React.useMemo(() => {
+    return Array.from(new Set(transcriptSegments.map(s => s.speaker).filter(Boolean)));
+  }, [transcriptSegments]);
+
+  const speakerColors: Record<string, string> = React.useMemo(() => {
+    const colors: Record<string, string> = {};
+    uniqueSpeakers.forEach((speaker, index) => {
+      colors[speaker] = `hsl(${index * 137.5}, 70%, 50%)`;
+    });
+    return colors;
+  }, [uniqueSpeakers]);
+
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   React.useEffect(() => {
     console.log("ChatInterface props:", {
@@ -324,9 +344,21 @@ export function ChatInterface({
                   transcriptSegments.length > 0 ? (
                     transcriptSegments.map((segment, index) => (
                       <div key={index} className="bg-[#1A1A1A] rounded-lg p-3 border border-[#333333] hover:shadow-lg transition-all duration-300">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          {segment.speaker && (
+                            <Badge 
+                              variant="outline" 
+                              className="text-xs"
+                              style={{ 
+                                borderColor: speakerColors[segment.speaker] || '#666',
+                                color: speakerColors[segment.speaker] || '#fff'
+                              }}
+                            >
+                              {segment.speaker_name || segment.speaker}
+                            </Badge>
+                          )}
                           <span className="text-xs font-mono text-[#00F5FF] font-semibold">
-                            {Math.floor(segment.start / 60)}:{String(Math.floor(segment.start % 60)).padStart(2, '0')} - {Math.floor(segment.end / 60)}:{String(Math.floor(segment.end % 60)).padStart(2, '0')}
+                            {formatTime(segment.start)} - {formatTime(segment.end)}
                           </span>
                         </div>
                         <p className="text-sm text-gray-300 leading-relaxed">{segment.text}</p>

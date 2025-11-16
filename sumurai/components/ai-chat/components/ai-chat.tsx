@@ -5,7 +5,7 @@ import { Sidebar } from "./sidebar";
 import { useChat } from "@ai-sdk/react";
 import { WelcomeScreen } from "./welcome-screen";
 import { ChatInterface } from "./chat-interface";
-import { SummarizationService, RateLimitError, transcribeWithSpeakers } from "@/lib/services/summarization";
+import { SummarizationService, RateLimitError, transcribeWithSpeakers, getSpeakerMappings } from "@/lib/services/summarization";
 import SpeakerMapping from "@/components/speaker-mapping/speaker-mapping";
 import TranscriptionWithSpeakers from "@/components/transcription/transcription-with-speakers";
 
@@ -14,6 +14,8 @@ interface TranscriptionSegment {
   start: number;
   end: number;
   text: string;
+  speaker?: string;
+  speaker_name?: string;
 }
 
 interface ActionItem {
@@ -28,6 +30,7 @@ interface Chat {
   title: string;
   preview: string;
   timestamp: Date;
+  meetingId?: string; // Store meeting_id for fetching speaker mappings
   transcription?: {
     fullText: string;
     segments: TranscriptionSegment[];
@@ -40,6 +43,85 @@ export default function AiChat() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [chats, setChats] = useState<Chat[]>([]);
 
+  /**
+   * Match action items to speakers based on transcript segments
+   * Finds which speaker mentioned each action item by searching segment text
+   */
+  const assignActionItemsToSpeakers = (
+    actionItems: any[],
+    segments: TranscriptionSegment[],
+    chatId: string
+  ): ActionItem[] => {
+    return actionItems.map((item, index) => {
+      const taskText = item.task || item;
+      if (!taskText || typeof taskText !== 'string') {
+        return {
+          id: `${chatId}-${index}`,
+          priority: item.priority || "medium",
+          task: taskText,
+          assignedTo: item.assigned_to || "Unassigned"
+        };
+      }
+
+      // Normalize the task text for matching (lowercase, remove punctuation)
+      const normalizedTask = taskText.toLowerCase().replace(/[^\w\s]/g, ' ').trim();
+      const taskWords = normalizedTask.split(/\s+/).filter(w => w.length > 3); // Only words longer than 3 chars
+      
+      // If task is too short, use original assigned_to
+      if (taskWords.length === 0) {
+        return {
+          id: `${chatId}-${index}`,
+          priority: item.priority || "medium",
+          task: taskText,
+          assignedTo: item.assigned_to || "Unassigned"
+        };
+      }
+
+      // Search through segments to find the best match
+      let bestMatch: TranscriptionSegment | null = null;
+      let bestScore = 0;
+
+      for (const segment of segments) {
+        if (!segment.speaker) continue;
+        
+        const segmentText = segment.text.toLowerCase();
+        let score = 0;
+        
+        // Count how many task words appear in this segment
+        for (const word of taskWords) {
+          if (segmentText.includes(word)) {
+            score += 1;
+          }
+        }
+        
+        // Prefer segments with more matching words
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = segment;
+        }
+      }
+
+      // If we found a good match (at least 2 words or 50% of words), use that speaker
+      const matchThreshold = Math.max(2, Math.ceil(taskWords.length * 0.5));
+      if (bestMatch && bestScore >= matchThreshold) {
+        return {
+          id: `${chatId}-${index}`,
+          priority: item.priority || "medium",
+          task: taskText,
+          assignedTo: bestMatch.speaker_name || bestMatch.speaker || item.assigned_to || "Unassigned"
+        };
+      }
+
+      // Fallback to original assigned_to or "Unassigned"
+      return {
+        id: `${chatId}-${index}`,
+        priority: item.priority || "medium",
+        task: taskText,
+        assignedTo: item.assigned_to || "Unassigned"
+      };
+    });
+  };
+
   const [currentMessages, setCurrentMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -49,6 +131,7 @@ export default function AiChat() {
   // Speaker diarization states
   const [showSpeakerMapping, setShowSpeakerMapping] = useState(false);
   const [speakersMapped, setSpeakersMapped] = useState(false);
+  const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
 
   useEffect(() => {
     // Reset messages when chat changes
@@ -178,6 +261,12 @@ export default function AiChat() {
       setUploadStatus("Transcribing with speaker identification (this may take 3-5 minutes)...");
       const transcriptionData = await SummarizationService.transcribeWithSpeakers(file, "");
       console.log("Transcription data received:", transcriptionData);
+      
+      // Store the meeting_id from backend if available
+      if (transcriptionData.meeting_id) {
+        setCurrentMeetingId(transcriptionData.meeting_id);
+        console.log("Meeting ID from backend:", transcriptionData.meeting_id);
+      }
 
       // Step 2: Analyze transcription
       setUploadStatus("Analyzing transcription...");
@@ -195,21 +284,24 @@ export default function AiChat() {
       setUploadStatus("Finalizing...");
 
       if (summaryData.success) {
+        // Prepare segments
+        const segments = transcriptionData.segments || [];
+        
+        // Assign action items to speakers based on transcript segments
+        const rawActionItems = actionItemsData.success ? actionItemsData.action_items || [] : [];
+        const assignedActionItems = assignActionItemsToSpeakers(rawActionItems, segments, targetChatId);
+        
         // Prepare the complete chat data with transcription and action items
         const chatData = {
           title: file.name.replace(/\.(mp3|wav|m4a|flac|ogg|webm)$/i, ''),
           preview: summaryData.summary.substring(0, 50) + "...",
+          meetingId: transcriptionData.meeting_id || undefined,
           transcription: {
             fullText: transcriptionData.transcription,
-            segments: transcriptionData.segments || [],
+            segments: segments,
             fileName: file.name
           },
-          actionItems: actionItemsData.success ? actionItemsData.action_items?.map((item: any, index: number) => ({
-            id: `${targetChatId}-${index}`,
-            priority: item.priority || "medium",
-            task: item.task || item,
-            assignedTo: item.assigned_to || "Unassigned"
-          })) : []
+          actionItems: assignedActionItems
         };
         console.log("Complete chat data:", chatData);
 
@@ -345,6 +437,48 @@ export default function AiChat() {
     return chat;
   }, [chats, selectedChatId]);
 
+  // Load and apply speaker mappings when displaying a chat with meeting_id
+  useEffect(() => {
+    const loadSpeakerMappings = async () => {
+      if (!currentChat?.meetingId || !currentChat?.transcription?.segments) {
+        return;
+      }
+
+      try {
+        const mappingsData = await getSpeakerMappings(currentChat.meetingId);
+        if (mappingsData.success && mappingsData.mappings && Object.keys(mappingsData.mappings).length > 0) {
+          // Apply mappings to segments
+          const updatedSegments = currentChat.transcription.segments.map(segment => ({
+            ...segment,
+            speaker_name: segment.speaker && mappingsData.mappings[segment.speaker]
+              ? mappingsData.mappings[segment.speaker]
+              : segment.speaker_name
+          }));
+
+          // Update the chat with enriched segments
+          setChats(prevChats =>
+            prevChats.map(chat =>
+              chat.id === currentChat.id
+                ? {
+                    ...chat,
+                    transcription: {
+                      ...chat.transcription!,
+                      segments: updatedSegments
+                    }
+                  }
+                : chat
+            )
+          );
+        }
+      } catch (error) {
+        console.error("Error loading speaker mappings:", error);
+        // Silently fail - mappings are optional
+      }
+    };
+
+    loadSpeakerMappings();
+  }, [currentChat?.meetingId, currentChat?.id]);
+
   console.log("Rendering AiChat - selectedChatId:", selectedChatId, "shouldShowWelcome:", !selectedChatId);
 
   return (
@@ -380,15 +514,47 @@ export default function AiChat() {
             />
             
             {/* Speaker Mapping Overlay */}
-            {showSpeakerMapping && selectedChatId && (
+            {showSpeakerMapping && currentMeetingId && (
               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                 <div className="max-w-2xl w-full max-h-[80vh] overflow-auto">
                   <SpeakerMapping
-                    meetingId={selectedChatId}
-                    onComplete={() => {
+                    meetingId={currentMeetingId}
+                    onComplete={async () => {
                       setShowSpeakerMapping(false);
                       setSpeakersMapped(true);
                       setUploadStatus("Complete! Speaker names assigned.");
+                      
+                      // Refresh segments with speaker mappings
+                      if (currentChat?.meetingId && currentChat?.transcription?.segments) {
+                        try {
+                          const mappingsData = await getSpeakerMappings(currentChat.meetingId);
+                          if (mappingsData.success && mappingsData.mappings) {
+                            const updatedSegments = currentChat.transcription.segments.map(segment => ({
+                              ...segment,
+                              speaker_name: segment.speaker && mappingsData.mappings[segment.speaker]
+                                ? mappingsData.mappings[segment.speaker]
+                                : segment.speaker_name
+                            }));
+
+                            // Update the chat with enriched segments
+                            setChats(prevChats =>
+                              prevChats.map(chat =>
+                                chat.id === currentChat.id
+                                  ? {
+                                      ...chat,
+                                      transcription: {
+                                        ...chat.transcription!,
+                                        segments: updatedSegments
+                                      }
+                                    }
+                                  : chat
+                              )
+                            );
+                          }
+                        } catch (error) {
+                          console.error("Error refreshing speaker mappings:", error);
+                        }
+                      }
                     }}
                   />
                 </div>
