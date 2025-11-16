@@ -43,6 +43,11 @@ export function Sidebar({ chats, selectedChatId, onNewChat, onSelectChat, onDele
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [chatToDelete, setChatToDelete] = useState<string | null>(null);
 
+  const truncateText = (text: string, maxLength: number) => {
+    if (text.length <= maxLength) return text;
+    return text.slice(0, maxLength) + "...";
+  };
+
   const filteredChats = chats.filter(
     (chat) =>
       chat.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -142,7 +147,7 @@ export function Sidebar({ chats, selectedChatId, onNewChat, onSelectChat, onDele
                     onClick={() => onSelectChat(chat.id)}
                     disabled={isUploading}
                     className={cn(
-                      "h-auto w-full p-3 text-left rounded-lg transition-all duration-300",
+                      "h-auto w-full p-3 text-left rounded-lg transition-all duration-300 !flex overflow-hidden",
                       selectedChatId === chat.id
                         ? "bg-[#1A1A1A] border border-[#333333] shadow-lg hover:shadow-xl"
                         : "hover:bg-[#1A1A1A] border border-transparent hover:border-[#333333]",
@@ -154,12 +159,11 @@ export function Sidebar({ chats, selectedChatId, onNewChat, onSelectChat, onDele
                     {isCollapsed ? (
                       <MessageCircle className="h-4 w-4 text-gray-400" />
                     ) : (
-                      <div className="flex w-full items-start gap-2 pr-8">
-                        <MessageCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-400" />
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-medium text-white">{chat.title}</div>
-                          <div className="mt-0.5 truncate text-xs text-gray-400">
-                            {chat.preview}
+                      <div className="flex w-full items-start gap-2 pr-8 min-w-0 overflow-hidden">
+                        <div className="min-w-0 flex-1 overflow-hidden">
+                          <div className="text-sm font-medium text-white" title={chat.title}>{truncateText(chat.title, 30)}</div>
+                          <div className="mt-0.5 text-xs text-gray-400">
+                            {truncateText(chat.preview, 40)}
                           </div>
                         </div>
                       </div>

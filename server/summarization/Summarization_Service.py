@@ -231,7 +231,7 @@ Remember: The ## heading should be a SPECIFIC title about the meeting content, N
                 - error (str): Error message (if failed)
         """
         # Create specialized prompt for extracting action items
-        prompt = f"""Extract action items from this meeting transcription. Look for tasks, to-dos, assignments, or things people agreed to do.
+        prompt = f"""Extract action items from this meeting transcription. Look for tasks, to-dos, assignments, and important deadlines & responsbilities.
 
     Meeting Transcription:
     {transcription_text}

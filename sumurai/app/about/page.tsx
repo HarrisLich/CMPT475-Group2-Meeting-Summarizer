@@ -29,7 +29,7 @@ export default function AboutPage() {
   const teamMembers = [
     {
       name: "Stefano Farro",
-      role: "UI/UX",
+      role: "UI/UX & Frontend",
       description: "New Jersey native, fan of hockey and good music. Can cook minute rice in 50 seconds. ",
       skills: ["TypeScript", "Next.js", "ShadCN", "Tailwind CSS"],
       github: "https://github.com/stefanog1121",

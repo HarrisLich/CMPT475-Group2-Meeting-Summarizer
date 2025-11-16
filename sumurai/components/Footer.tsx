@@ -15,49 +15,6 @@ export default function Footer() {
           </div>
           <div className="text-gray-300 text-center md:text-right">
             <p>&copy; 2025 SumurAI. All rights reserved.</p>
-            <div className="flex space-x-6 mt-2 justify-center md:justify-end">
-              <Dialog>
-                <DialogTrigger asChild>
-                  <button className="hover:text-white transition-colors">Privacy</button>
-                </DialogTrigger>
-                <DialogContent className='sm:max-w-[425px] bg-[#1A1A1A] border-[#333333] text-white'>
-                  <DialogHeader>
-                    <DialogTitle>Privacy</DialogTitle>
-                    <DialogDescription className="text-gray-400">
-                      This is where I'd keep my privacy settings... If I had any....
-                    </DialogDescription>
-                  </DialogHeader>
-                </DialogContent>
-              </Dialog>
-
-              <Dialog>
-                <DialogTrigger asChild>
-                  <button className="hover:text-white transition-colors">Terms</button>
-                </DialogTrigger>
-                <DialogContent className='sm:max-w-[425px] bg-[#1A1A1A] border-[#333333] text-white'>
-                  <DialogHeader>
-                    <DialogTitle>Terms and Conditions</DialogTitle>
-                    <DialogDescription className="text-gray-400">
-                      This is where I'd keep my Terms and Conditions... If I had any....
-                    </DialogDescription>
-                  </DialogHeader>
-                </DialogContent>
-              </Dialog>
-
-              <Dialog>
-                <DialogTrigger asChild>
-                  <button className="hover:text-white transition-colors">Support</button>
-                </DialogTrigger>
-                <DialogContent className='sm:max-w-[425px] bg-[#1A1A1A] border-[#333333] text-white'>
-                  <DialogHeader>
-                    <DialogTitle>Support</DialogTitle>
-                    <DialogDescription className="text-gray-400">
-                      This is where I'd give some support... If I wanted to...
-                    </DialogDescription>
-                  </DialogHeader>
-                </DialogContent>
-              </Dialog>
-            </div>
           </div>
         </div>
       </div>
