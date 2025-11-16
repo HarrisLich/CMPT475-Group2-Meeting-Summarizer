@@ -45,45 +45,52 @@ class SpeakerDiarizationService:
 
     def process_audio(self, file_content, filename):
         """
-        Process audio file with speaker diarization using pyannote.audio's Audio class.
+        Process audio file with speaker diarization using pyannote.audio with torchcodec.
         
-        Uses pyannote.audio's Audio class which uses torchcodec for audio decoding
-        (the original intended method). Falls back to direct file path if needed.
+        Pre-processes audio to standardized WAV format to ensure torchcodec can process it correctly.
+        Falls back to preloaded waveform method if torchcodec encounters issues.
         """
-        # Create temporary file
+        from pydub import AudioSegment
+        
+        # Create temporary file with original format
         with tempfile.NamedTemporaryFile(delete=False, suffix=Path(filename).suffix) as temp_file:
             temp_file.write(file_content)
             temp_file_path = temp_file.name
         
+        # Pre-process audio to standardized WAV format for torchcodec
+        # This ensures torchcodec gets a clean, consistent format to work with
+        wav_file_path = None
         try:
+            # Convert to WAV format with standard sample rate (16kHz is common for speech)
+            # This helps torchcodec process the file without sample count mismatches
+            audio = AudioSegment.from_file(temp_file_path)
+            # Normalize to mono and 16kHz sample rate (optimal for speech diarization)
+            audio = audio.set_channels(1).set_frame_rate(16000)
+            
+            # Create standardized WAV file for torchcodec
+            wav_file_path = tempfile.NamedTemporaryFile(delete=False, suffix='.wav').name
+            audio.export(wav_file_path, format="wav")
+            
             pipeline = self._load_pipeline()
             
-            # Try the original intended method: pass file path directly to pipeline
-            # This uses torchcodec internally if available (the proper way)
+            # Try torchcodec with the standardized WAV file (the proper way)
             try:
-                diarization = pipeline(temp_file_path)
-            except (RuntimeError, ImportError, OSError) as e:
-                # If torchcodec fails (common on macOS ARM), use preloaded waveform fallback
-                # This is the official fallback method recommended by pyannote.audio
+                diarization = pipeline(wav_file_path)
+                print("Successfully processed audio with torchcodec")
+            except (RuntimeError, ImportError, OSError, ValueError) as e:
+                # If torchcodec fails, use preloaded waveform fallback
                 error_msg = str(e)
                 if "torchcodec" in error_msg.lower() or "AudioDecoder" in error_msg or "libtorchcodec" in error_msg:
-                    print(f"torchcodec unavailable (known issue on macOS ARM), using preloaded waveform method")
+                    print(f"torchcodec unavailable, using preloaded waveform method")
+                elif "samples" in error_msg.lower() and "expected" in error_msg.lower():
+                    print(f"torchcodec sample count mismatch, using preloaded waveform method")
                 else:
-                    print(f"Audio loading failed, using preloaded waveform fallback: {error_msg}")
+                    print(f"Audio processing failed, using preloaded waveform fallback: {error_msg}")
                 
                 import soundfile as sf
-                from pydub import AudioSegment
                 
-                try:
-                    waveform_numpy, sample_rate = sf.read(temp_file_path)
-                except Exception as sf_error:
-                    # Convert to WAV using pydub if soundfile can't read the format
-                    print(f"soundfile couldn't read {filename}, converting with pydub: {str(sf_error)}")
-                    audio = AudioSegment.from_file(temp_file_path)
-                    wav_buffer = tempfile.NamedTemporaryFile(delete=False, suffix='.wav')
-                    audio.export(wav_buffer.name, format="wav")
-                    waveform_numpy, sample_rate = sf.read(wav_buffer.name)
-                    os.unlink(wav_buffer.name)
+                # Load the standardized WAV file we created
+                waveform_numpy, sample_rate = sf.read(wav_file_path)
                 
                 # Convert to torch tensor
                 waveform_numpy = waveform_numpy.astype('float32')
@@ -109,6 +116,8 @@ class SpeakerDiarizationService:
             return result
         
         finally:
-            # Clean up
+            # Clean up temporary files
             if os.path.exists(temp_file_path):
                 os.unlink(temp_file_path)
+            if wav_file_path and os.path.exists(wav_file_path):
+                os.unlink(wav_file_path)
