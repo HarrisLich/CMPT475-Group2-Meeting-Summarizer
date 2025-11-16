@@ -20,9 +20,15 @@ export interface TranscriptionResponse {
     start: number;
     end: number;
     text: string;
+    speaker?: string;
+    speaker_name?: string;
   }>;
   language?: string;
   filename?: string;
+  meeting_id?: string;
+  saved?: boolean;
+  message?: string;
+  warning?: string;
 }
 
 export interface SummarizationResponse {
@@ -288,6 +294,19 @@ export class SummarizationService {
   }
 
   /**
+   * Get speaker name mappings for a meeting
+   */
+  static async getSpeakerMappings(meetingId: string): Promise<{ success: boolean; mappings: Record<string, string> }> {
+    const response = await fetch(`${API_URL}/meetings/${meetingId}/speaker-mappings`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to get speaker mappings: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  }
+
+  /**
    * Save speaker name mappings for a meeting
    */
   static async saveSpeakerMappings(meetingId: string, mappings: Record<string, string>) {
@@ -313,4 +332,5 @@ export class SummarizationService {
 // Export standalone functions for backward compatibility
 export const transcribeWithSpeakers = SummarizationService.transcribeWithSpeakers;
 export const getSpeakers = SummarizationService.getSpeakers;
+export const getSpeakerMappings = SummarizationService.getSpeakerMappings;
 export const saveSpeakerMappings = SummarizationService.saveSpeakerMappings;
