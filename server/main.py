@@ -543,6 +543,43 @@ async def get_meeting_speakers(meeting_id: str):
             detail=f"Failed to get speakers: {str(e)}"
         )
 
+@app.get("/meetings/{meeting_id}/speaker-mappings")
+async def get_speaker_mappings(meeting_id: str):
+    """
+    Get speaker name mappings for a meeting.
+    
+    Returns a dictionary mapping speaker IDs to names.
+    """
+    import uuid
+    try:
+        # Validate that meeting_id is a valid UUID
+        try:
+            uuid.UUID(meeting_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid meeting_id format. Expected UUID, got: {meeting_id}"
+            )
+        
+        supabase = get_supabase()
+        mappings = supabase.get_speaker_mappings(meeting_id)
+        
+        return {
+            "success": True,
+            "mappings": mappings
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Error getting speaker mappings: {str(e)}")
+        print(f"Traceback:\n{error_trace}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get speaker mappings: {str(e)}"
+        )
+
 @app.post("/meetings/{meeting_id}/speaker-mappings")
 async def save_speaker_mappings(meeting_id: str, request: SpeakerMappingsRequest):
     """
