@@ -30,7 +30,6 @@ export interface TranscriptionResponse {
   message?: string;
   warning?: string;
   conversation_id?: string;
-  meeting_id?: string;
   transcription_id?: string;
   generated_title?: string;
   summary?: {
@@ -352,7 +351,7 @@ export class SummarizationService {
     if (!response.ok) {
       throw new Error(`Failed to save speaker mappings: ${response.statusText}`);
     }
-    
+  }
 
   /**
    * Helper to get auth headers with Supabase access token
