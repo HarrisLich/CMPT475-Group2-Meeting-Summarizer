@@ -70,7 +70,7 @@ export default function AboutPage() {
       skills: ["Python, Backend Development, FastAPI, CI/CD, Docker, AI"],
       github: "https://github.com/markopav88",
       linkedin: "https://www.linkedin.com/in/marko-p-159122231/",
-      email: "marko.pavic1@gmail.com"
+      email: "markopavic7777@gmail.com"
     }
   ];
 
