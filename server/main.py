@@ -1109,6 +1109,7 @@ async def save_speaker_mappings(meeting_id: str, request: SpeakerMappingsRequest
         raise HTTPException(
             status_code=500,
             detail=f"Failed to save speaker mappings: {str(e)}"
+        )
 # Conversation/Chat History Endpoints
 @app.post(
     "/conversations",
