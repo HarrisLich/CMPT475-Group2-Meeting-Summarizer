@@ -65,12 +65,12 @@ export default function AboutPage() {
     },
     {
       name: "Marko Pavic",
-      role: "role",
-      description: "Dev blurb",
-      skills: ["skill1", "skill2", "skill3"],
-      github: "https://github.com/teammember5",
-      linkedin: "https://linkedin.com/in/teammember5",
-      email: "member5@example.com"
+      role: "Software Engineer",
+      description: "Trying to learn everything I can about, in, and around programming!",
+      skills: ["Python, Backend Development, FastAPI, CI/CD, Docker, AI"],
+      github: "https://github.com/markopav88",
+      linkedin: "https://www.linkedin.com/in/marko-p-159122231/",
+      email: "marko.pavic1@gmail.com"
     }
   ];
 
