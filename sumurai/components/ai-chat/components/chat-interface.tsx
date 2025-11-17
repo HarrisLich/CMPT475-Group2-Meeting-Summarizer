@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Copy, Share, ThumbsUp, ThumbsDown, Send, Paperclip, Mic, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Users, Settings } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Copy, Share, ThumbsUp, ThumbsDown, Send, Paperclip, Mic, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Download, FileText, ListChecks, FileStack } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -36,7 +40,7 @@ interface ChatInterfaceProps {
   isUploading?: boolean;
   uploadStatus?: string;
   transcript?: string;
-  transcriptSegments?: Array<{start: number; end: number; text: string}>;
+  transcriptSegments?: Array<{start: number; end: number; text: string; speaker?: string; speaker_name?: string}>;
   actionItems?: ActionItem[];
 }
 
@@ -62,6 +66,25 @@ export function ChatInterface({
   const [downloadMenuOpen, setDownloadMenuOpen] = React.useState(false);
   const [showConsentDialog, setShowConsentDialog] = React.useState(false);
   const downloadButtonRef = React.useRef<HTMLDivElement>(null);
+
+  // Get unique speakers for color coding
+  const uniqueSpeakers = React.useMemo(() => {
+    return Array.from(new Set(transcriptSegments.map(s => s.speaker).filter(Boolean)));
+  }, [transcriptSegments]);
+
+  const speakerColors: Record<string, string> = React.useMemo(() => {
+    const colors: Record<string, string> = {};
+    uniqueSpeakers.forEach((speaker, index) => {
+      colors[speaker] = `hsl(${index * 137.5}, 70%, 50%)`;
+    });
+    return colors;
+  }, [uniqueSpeakers]);
+
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   React.useEffect(() => {
     console.log("ChatInterface props:", {
@@ -345,6 +368,7 @@ export function ChatInterface({
               )}
             </div>
           </div>
+
             {/* Chat Input - Sticky at bottom */}
             <div className="sticky bottom-0 z-10 px-6 pb-12 pt-12 relative">
               <div className="absolute inset-0 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent pointer-events-none"></div>
@@ -429,17 +453,26 @@ export function ChatInterface({
                 </h3>
               </div>
             <div className="px-6 pb-6">
-              {transcript && transcript.length > 0 ? (
-                transcriptSegments.length > 0 ? (
-                  <div className="space-y-0 border-l-2 border-[#333333]">
-                    {transcriptSegments.map((segment, index) => (
-                      <div
-                        key={index}
-                        className="flex gap-3 py-2 px-4 border-b border-[#333333]/30 hover:bg-[#1A1A1A]/50 transition-colors group"
-                      >
-                        <div className="flex-shrink-0 pt-0.5">
-                          <span className="text-xs font-mono text-[#00F5FF]/70 group-hover:text-[#00F5FF] transition-colors">
-                            {Math.floor(segment.start / 60)}:{String(Math.floor(segment.start % 60)).padStart(2, '0')}
+              <div className="space-y-3">
+                {transcript && transcript.length > 0 ? (
+                  transcriptSegments.length > 0 ? (
+                    transcriptSegments.map((segment, index) => (
+                      <div key={index} className="bg-[#1A1A1A] rounded-lg p-3 border border-[#333333] hover:shadow-lg transition-all duration-300">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          {segment.speaker && (
+                            <Badge 
+                              variant="outline" 
+                              className="text-xs"
+                              style={{ 
+                                borderColor: speakerColors[segment.speaker] || '#666',
+                                color: speakerColors[segment.speaker] || '#fff'
+                              }}
+                            >
+                              {segment.speaker_name || segment.speaker}
+                            </Badge>
+                          )}
+                          <span className="text-xs font-mono text-[#00F5FF] font-semibold">
+                            {formatTime(segment.start)} - {formatTime(segment.end)}
                           </span>
                         </div>
                         <p className="text-sm text-gray-300 leading-relaxed flex-1">
