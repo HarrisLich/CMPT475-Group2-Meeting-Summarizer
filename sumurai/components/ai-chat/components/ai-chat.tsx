@@ -6,10 +6,9 @@ import { useChat } from "@ai-sdk/react";
 import { WelcomeScreen } from "./welcome-screen";
 import { ChatInterface } from "./chat-interface";
 import { SummarizationService, RateLimitError, transcribeWithSpeakers, getSpeakerMappings } from "@/lib/services/summarization";
+import { useAuth } from "@/lib/context/auth-context";
 import SpeakerMapping from "@/components/speaker-mapping/speaker-mapping";
 import TranscriptionWithSpeakers from "@/components/transcription/transcription-with-speakers";
-import { SummarizationService, RateLimitError } from "@/lib/services/summarization";
-import { useAuth } from "@/lib/context/auth-context";
 
 // Meeting chat objects
 interface TranscriptionSegment {
@@ -397,24 +396,20 @@ export default function AiChat() {
         console.log("Meeting ID from backend:", transcriptionData.meeting_id);
       }
 
-      // Check which service was used and update status to show the method
-      const wasGroq = (transcriptionData as any).service === "groq";
-      const transcriptionMethod = wasGroq ? "Groq Whisper API ⚡" : "Local Whisper 🖥️";
-      console.log(`✓ Processing completed using: ${transcriptionMethod}`);
+      // Step 2: Analyze transcription
+      setUploadStatus("Analyzing transcription...");
+      await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UX
 
-      // Update status to show which transcription service was used
-      setUploadStatus(`✓ Transcribed with ${transcriptionMethod} → Finalizing...`);
-
-      const summaryData = transcriptionData.summary;
-      const actionItemsFromBackend = transcriptionData.action_items || [];
-
+      // Step 3 & 4: Run summary and action items extraction in parallel
+      setUploadStatus("Generating summary with AI...");
+      const [summaryData, actionItemsData] = await Promise.all([
+        SummarizationService.summarizeText(transcriptionData.transcription),
+        SummarizationService.extractActionItems(transcriptionData.transcription)
+      ]);
       console.log("Summary data received:", summaryData);
-      console.log("Action items received from backend:", actionItemsFromBackend);
+      console.log("Action items data received:", actionItemsData);
 
-      if (summaryData?.success && summaryData.summary) {
-        // Add summary as AI message (this is already saved to DB via /transcribe endpoint)
-        console.log("[DEBUG] Summary content being displayed:", summaryData.summary);
-        console.log("[DEBUG] First 200 chars:", summaryData.summary.substring(0, 200));
+      setUploadStatus("Finalizing...");
 
       if (summaryData.success) {
         // Prepare segments
@@ -424,11 +419,7 @@ export default function AiChat() {
         const rawActionItems = actionItemsData.success ? actionItemsData.action_items || [] : [];
         const assignedActionItems = assignActionItemsToSpeakers(rawActionItems, segments, targetChatId);
         
-        // Prepare the complete chat data with transcription and action items
-        const chatData = {
-          title: file.name.replace(/\.(mp3|wav|m4a|flac|ogg|webm)$/i, ''),
-          preview: summaryData.summary.substring(0, 50) + "...",
-          meetingId: transcriptionData.meeting_id || undefined,
+        // Create AI message for chat history (from main branch)
         const aiMessage = {
           id: Date.now().toString(),
           role: "assistant",
@@ -439,13 +430,15 @@ export default function AiChat() {
         const chatData = {
           title: transcriptionData.generated_title || file.name.replace(/\.(mp3|wav|m4a|flac|ogg|webm)$/i, ''),
           preview: "Click to view conversation...",
+          meetingId: transcriptionData.meeting_id || undefined,
           conversationId: transcriptionData.conversation_id,
           transcription: {
             fullText: transcriptionData.transcription,
             segments: segments,
             fileName: file.name
           },
-          actionItems: assignedActionItems
+          actionItems: assignedActionItems,
+          messages: [aiMessage] // Cache the initial summary message
         };
         console.log("Complete chat data (including conversationId and cached messages):", chatData);
 
