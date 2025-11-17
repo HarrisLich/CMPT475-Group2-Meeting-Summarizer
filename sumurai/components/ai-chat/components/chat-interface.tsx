@@ -8,10 +8,9 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Share, ThumbsUp, ThumbsDown, Send, Paperclip, Mic, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Users, Settings } from "lucide-react";
+import { Copy, Share, ThumbsUp, ThumbsDown, Send, Paperclip, Mic, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Users, Settings, Download, FileText, ListChecks, FileStack } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Copy, Share, ThumbsUp, ThumbsDown, Send, Paperclip, Mic, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Download, FileText, ListChecks, FileStack } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { downloadMeetingData, type MeetingData, type DownloadType } from '@/lib/services/output-download';
@@ -456,32 +455,33 @@ export function ChatInterface({
               <div className="space-y-3">
                 {transcript && transcript.length > 0 ? (
                   transcriptSegments.length > 0 ? (
-                    transcriptSegments.map((segment, index) => (
-                      <div key={index} className="bg-[#1A1A1A] rounded-lg p-3 border border-[#333333] hover:shadow-lg transition-all duration-300">
-                        <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          {segment.speaker && (
-                            <Badge 
-                              variant="outline" 
-                              className="text-xs"
-                              style={{ 
-                                borderColor: speakerColors[segment.speaker] || '#666',
-                                color: speakerColors[segment.speaker] || '#fff'
-                              }}
-                            >
-                              {segment.speaker_name || segment.speaker}
-                            </Badge>
-                          )}
-                          <span className="text-xs font-mono text-[#00F5FF] font-semibold">
-                            {formatTime(segment.start)} - {formatTime(segment.end)}
-                          </span>
+                    <div className="space-y-3">
+                      {transcriptSegments.map((segment, index) => (
+                        <div key={index} className="bg-[#1A1A1A] rounded-lg p-3 border border-[#333333] hover:shadow-lg transition-all duration-300">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            {segment.speaker && (
+                              <Badge 
+                                variant="outline" 
+                                className="text-xs"
+                                style={{ 
+                                  borderColor: speakerColors[segment.speaker] || '#666',
+                                  color: speakerColors[segment.speaker] || '#fff'
+                                }}
+                              >
+                                {segment.speaker_name || segment.speaker}
+                              </Badge>
+                            )}
+                            <span className="text-xs font-mono text-[#00F5FF] font-semibold">
+                              {formatTime(segment.start)} - {formatTime(segment.end)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-300 leading-relaxed flex-1">
+                            {segment.text}
+                          </p>
                         </div>
-                        <p className="text-sm text-gray-300 leading-relaxed flex-1">
-                          {segment.text}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
+                      ))}
+                    </div>
+                  ) : (
                   <div className="border-l-2 border-[#333333] pl-4">
                     <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{transcript}</p>
                   </div>
@@ -493,6 +493,7 @@ export function ChatInterface({
                   </p>
                 </div>
               )}
+              </div>
             </div>
           </ScrollArea>
         </div>
