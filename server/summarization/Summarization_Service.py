@@ -27,17 +27,32 @@ class SummarizationService:
     """
 
     # Default prompt template for summarization
-    DEFAULT_PROMPT_TEMPLATE = """You are a meeting summarization assistant. Please analyze the following meeting transcription and provide:
-
-        1. A brief summary (5-10 sentences)
-        2. Key points discussed (bullet points)
-        3. Action items (if any)
-        4. Main topics covered (5-10 Sentences)
+    DEFAULT_PROMPT_TEMPLATE = """You are a meeting summarization assistant. Analyze the meeting transcription below and create a well-structured summary.
 
 Meeting Transcription:
 {transcription_text}
 
-    Please format your response clearly with sections for each part."""
+CRITICAL FORMATTING REQUIREMENTS:
+
+1. **Main Title (##)**: Create a descriptive title that captures what the meeting was about
+   - Examples: "## Q4 Product Roadmap Planning", "## Engineering Team Sprint Retrospective", "## Client Onboarding Discussion"
+   - DO NOT use the words "Meeting Summary" or "Summary" in the title
+   - Make it specific to THIS meeting's content
+   - DO NOT use the words "Meeting Summary" or "Summary" in the title
+
+2. **Content Sections (###)**: Include these sections:
+   - ### Key Takeaways (bullet points of main insights)
+   - ### Work Done / Tasks Accomplished / Free Choice (Make this section either a recollection of compeleted tasks from the meeting, or another relevant area is "work done" is not relevant.)
+   - ### Main Topics Covered (5-10 sentences of discussion details)
+
+3. **Markdown Styling**:
+   - Use **bold** for important information
+   - Use - for bullet points
+   - Use 1. 2. 3. for numbered lists
+   - Use empty lines between sections
+   - Keep a professional, analytical tone
+
+Remember: The ## heading should be a SPECIFIC title about the meeting content, NOT "Summary"."""
 
     def __init__(self):
         """
@@ -137,21 +152,35 @@ Meeting Transcription:
                 - model_used (str): Which model was used
                 - error (str): Error message (if failed)
         """
-        # Create conversational prompt for Ollama
-        prompt = f"""You are a friendly and helpful meeting assistant AI named SumurAI. You help users understand and interact with their meeting content.
+        # Use few-shot examples to teach the model the desired behavior
+        # Small models learn better from examples than from abstract rules
+        prompt = f"""You are SumurAI, an AI assistant. Answer any question directly - meeting-related or not.
 
-            You have access to the full meeting transcription with timestamps. When users ask about specific times or moments, reference the timestamps to 
-            provide accurate information. When users ask about what was said about a topic or person, search through the transcription for relevant mentions.
+        Examples of good responses:
 
-    Meeting Context:
-    {meeting_context}
+        Meeting notes: [Discussion about Q4 goals...]
+        User: What's 25 times 4?
+        SumurAI: 25 times 4 is 100.
 
-    User: {user_question}
+        Meeting notes: [Team standup about bugs...]
+        User: Tell me about photosynthesis.
+        SumurAI: Photosynthesis is the process plants use to convert sunlight into energy. They use chlorophyll to capture light and combine carbon dioxide and water to create glucose and oxygen.
 
-    SumurAI Assistant: """
+        Meeting notes: [Product roadmap discussion...]
+        User: What did we decide about the new feature?
+        SumurAI: According to the meeting, the team agreed to prioritize the new feature for next sprint.
+
+        Now it's your turn:
+
+        Meeting notes:
+        {meeting_context}
+
+        User: {user_question}
+
+        SumurAI:"""
 
         try:
-            # Send POST request to LOCAL Ollama's chat API (v0.12+)
+            # Send POST request to LOCAL Ollama's chat API
             response = requests.post(
                 f"{self.ollama_host}/api/chat",
                 json={
@@ -224,12 +253,20 @@ Meeting Transcription:
         Return a JSON array where each action item has:
         - task: what needs to be done
         - priority: high, medium, or low (based on urgency or importance)
-        - assigned_to: person's name if mentioned, otherwise "Unassigned"
+        - assigned_to: IMPORTANT - Follow these rules strictly:
+            * ONLY use a person's name if they are EXPLICITLY mentioned as responsible for that specific task in the transcription
+            * Look for phrases like "John will...", "Sarah is going to...", "assigned to Alex", "Mike agreed to..."
+            * If a task is mentioned but NO specific person is assigned to it, use "Unassigned"
+            * Do NOT guess, infer, or make up names
+            * Do NOT assign to whoever is speaking unless they explicitly take responsibility
+            * When in doubt, use "Unassigned"
 
         Return ONLY valid JSON. Example:
             [
             {{"task": "Complete user testing by Friday", "priority": "high", "assigned_to": "Sarah Chen"}},
-            {{"task": "Update documentation", "priority": "medium", "assigned_to": "Unassigned"}}
+            {{"task": "Update documentation", "priority": "medium", "assigned_to": "Unassigned"}},
+            {{"task": "Review analytics dashboard", "priority": "high", "assigned_to": "Mike"}},
+            {{"task": "Send follow-up email", "priority": "low", "assigned_to": "Unassigned"}}
             ]
 
         If no action items exist, return: []"""
@@ -331,6 +368,49 @@ Meeting Transcription:
                 "success": False,
                 "error": f"Action item extraction failed: {str(e)}"
             }
+
+    def generate_meeting_title(self, transcription_text: str) -> Dict[str, Any]:
+        """Generate a concise, descriptive title for a meeting based on its transcription."""
+        prompt = f"""Based on the meeting transcription below, generate a short, descriptive title that captures the main topic.
+
+    Meeting Transcription:
+    {transcription_text[:2000]}
+
+    REQUIREMENTS:
+    - Keep the title between 3-8 words
+    - Make it specific and descriptive
+    - Use title case
+    - DO NOT use generic phrases like "Meeting Summary" or "Discussion"
+    - Focus on the actual topic being discussed
+
+    Return ONLY the title text, nothing else."""
+
+        try:
+            response = requests.post(
+                f"{self.ollama_host}/api/chat",
+                json={
+                    "model": self.model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "stream": False
+                },
+                timeout=30
+            )
+            response.raise_for_status()
+            result = response.json()
+
+            title = result.get("message", {}).get("content", "").strip().strip('"').strip("'").strip()
+
+            if len(title) > 100:
+                title = title[:100].rsplit(' ', 1)[0] + "..."
+
+            return {"success": True, "title": title, "model_used": self.model}
+
+        except requests.exceptions.ConnectionError:
+            return {"success": False, "error": "Could not connect to Ollama"}
+        except requests.exceptions.Timeout:
+            return {"success": False, "error": "Title generation timed out"}
+        except Exception as e:
+            return {"success": False, "error": f"Title generation failed: {str(e)}"}
 
     def check_ollama_status(self) -> Dict[str, Any]:
         """

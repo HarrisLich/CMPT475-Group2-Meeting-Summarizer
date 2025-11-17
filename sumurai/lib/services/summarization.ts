@@ -29,6 +29,22 @@ export interface TranscriptionResponse {
   saved?: boolean;
   message?: string;
   warning?: string;
+  conversation_id?: string;
+  meeting_id?: string;
+  transcription_id?: string;
+  generated_title?: string;
+  summary?: {
+    success: boolean;
+    summary: string;
+    model_used?: string;
+    error?: string;
+    error_type?: string;
+  };
+  action_items?: Array<{
+    task: string;
+    priority: string;
+    assigned_to: string;
+  }>;
 }
 
 export interface SummarizationResponse {
@@ -71,9 +87,14 @@ export class SummarizationService {
   /**
    * Transcribe audio file using Whisper
    */
-  static async transcribeAudio(audioFile: File): Promise<TranscriptionResponse> {
+  static async transcribeAudio(audioFile: File, userId?: string): Promise<TranscriptionResponse> {
     const formData = new FormData();
     formData.append('audio_file', audioFile);
+
+    // Add user_id if provided
+    if (userId) {
+      formData.append('user_id', userId);
+    }
 
     const response = await fetch(`${API_URL}/transcribe`, {
       method: 'POST',
@@ -119,7 +140,7 @@ export class SummarizationService {
   /**
    * Summarize transcription using Ollama
    */
-  static async summarizeText(transcriptionText: string): Promise<SummarizationResponse> {
+  static async summarizeText(transcriptionText: string, userId?: string): Promise<SummarizationResponse> {
     const response = await fetch(`${API_URL}/summarize`, {
       method: 'POST',
       headers: {
@@ -127,6 +148,7 @@ export class SummarizationService {
       },
       body: JSON.stringify({
         transcription_text: transcriptionText,
+        user_id: userId,
       }),
     });
 
@@ -164,7 +186,9 @@ export class SummarizationService {
    */
   static async chatWithMeeting(
     meetingContext: string,
-    userQuestion: string
+    userQuestion: string,
+    conversationId?: string,
+    userId?: string
   ): Promise<ChatResponse> {
     const response = await fetch(`${API_URL}/chat`, {
       method: 'POST',
@@ -174,6 +198,8 @@ export class SummarizationService {
       body: JSON.stringify({
         meeting_context: meetingContext,
         user_question: userQuestion,
+        conversation_id: conversationId,
+        user_id: userId,
       }),
     });
 
@@ -209,7 +235,7 @@ export class SummarizationService {
   /**
    * Extract structured action items from a meeting transcription
    */
-  static async extractActionItems(transcriptionText: string): Promise<ActionItemsResponse> {
+  static async extractActionItems(transcriptionText: string, conversationId?: string, userId?: string): Promise<ActionItemsResponse> {
     const response = await fetch(`${API_URL}/extract-action-items`, {
       method: 'POST',
       headers: {
@@ -217,6 +243,8 @@ export class SummarizationService {
       },
       body: JSON.stringify({
         transcription_text: transcriptionText,
+        conversation_id: conversationId,
+        user_id: userId,
       }),
     });
 
@@ -325,6 +353,130 @@ export class SummarizationService {
       throw new Error(`Failed to save speaker mappings: ${response.statusText}`);
     }
     
+
+  /**
+   * Helper to get auth headers with Supabase access token
+   */
+  private static async getAuthHeaders(): Promise<HeadersInit> {
+    // Get the Supabase client (we'll need to import it)
+    const { supabase } = await import('./supabase');
+    const { data: { session } } = await supabase.auth.getSession();
+
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+      console.log('[AUTH] Using access token for authenticated request');
+    } else {
+      console.warn('[AUTH] No access token available - request may fail');
+    }
+
+    return headers;
+  }
+
+  /**
+   * Get all conversations for a user
+   */
+  static async getUserConversations(userId: string): Promise<any[]> {
+    const headers = await this.getAuthHeaders();
+
+    const response = await fetch(`${API_URL}/conversations`, {
+      method: 'GET',
+      headers,
+      credentials: 'include', // Include cookies for session management
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch conversations: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.conversations || [];
+  }
+
+  /**
+   * Get all messages for a specific conversation
+   */
+  static async getConversationMessages(conversationId: string): Promise<any[]> {
+    const headers = await this.getAuthHeaders();
+
+    const response = await fetch(`${API_URL}/conversations/${conversationId}/messages`, {
+      method: 'GET',
+      headers,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch messages: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.messages || [];
+  }
+
+  /**
+   * Get a specific conversation by ID with transcription and summary
+   */
+  static async getConversation(conversationId: string): Promise<any> {
+    const headers = await this.getAuthHeaders();
+
+    const response = await fetch(`${API_URL}/conversations/${conversationId}`, {
+      method: 'GET',
+      headers,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch conversation: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    // Return the entire response which includes conversation, transcription, and summary
+    return data;
+  }
+
+  /**
+   * Get the meeting transcription for a conversation
+   */
+  static async getMeetingTranscription(meetingId: string): Promise<any> {
+    const headers = await this.getAuthHeaders();
+
+    const response = await fetch(`${API_URL}/meetings/${meetingId}/transcription`, {
+      method: 'GET',
+      headers,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch transcription: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.transcription;
+  }
+
+  /**
+   * Delete a conversation and all associated data
+   * This permanently removes the conversation, messages, action items, meeting, transcription, and summary
+   */
+  static async deleteConversation(conversationId: string): Promise<any> {
+    const headers = await this.getAuthHeaders();
+
+    const response = await fetch(`${API_URL}/conversations/${conversationId}`, {
+      method: 'DELETE',
+      headers,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error('Conversation not found');
+      }
+      throw new Error(`Failed to delete conversation: ${response.statusText}`);
+    }
+
     return await response.json();
   }
 }

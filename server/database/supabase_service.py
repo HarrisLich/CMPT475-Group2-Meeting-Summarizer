@@ -201,6 +201,183 @@ class SupabaseService:
             print(f"Error retrieving speaker mappings: {str(e)}")
             return {}
 
+    # Conversation functions
+    def create_conversation(self, user_id, meeting_id, title, model_version="llama3.2:3b"):
+        """Create a new conversation for a user and meeting"""
+        return self.client.table("conversations").insert({
+            "user_id": user_id,
+            "meeting_id": meeting_id,
+            "title": title,
+            "model_version": model_version
+        }).execute()
+
+    def get_user_conversations(self, user_id):
+        """Get all conversations for a user, ordered by most recent"""
+        return self.client.table("conversations").select("*").eq("user_id", user_id).order("updated_at", desc=True).execute()
+
+    def get_conversation_by_id(self, conversation_id):
+        """Get a specific conversation by ID"""
+        return self.client.table("conversations").select("*").eq("id", conversation_id).execute()
+
+    def update_conversation_title(self, conversation_id, title):
+        """Update the title of a conversation"""
+        return self.client.table("conversations").update({"title": title}).eq("id", conversation_id).execute()
+
+    def archive_conversation(self, conversation_id, archived=True):
+        """Archive or unarchive a conversation"""
+        return self.client.table("conversations").update({"archived": archived}).eq("id", conversation_id).execute()
+
+    def delete_conversation(self, conversation_id):
+        """
+        Delete a conversation and ALL associated data including:
+        - Messages
+        - Action items
+        - Meeting
+        - Transcription
+        - Summary
+
+        This is a complete cleanup to avoid wasted database space.
+        """
+        # Get the conversation to find the meeting_id
+        conversation = self.client.table("conversations").select("meeting_id").eq("id", conversation_id).execute()
+
+        if not conversation.data:
+            raise ValueError(f"Conversation {conversation_id} not found")
+
+        meeting_id = conversation.data[0].get("meeting_id")
+
+        # Delete conversation-related records
+        self.client.table("messages").delete().eq("conversation_id", conversation_id).execute()
+        self.client.table("action_items").delete().eq("conversation_id", conversation_id).execute()
+
+        # Delete the conversation
+        self.client.table("conversations").delete().eq("id", conversation_id).execute()
+
+        # If there's a meeting, delete all meeting-related records
+        if meeting_id:
+            # Delete transcription
+            self.client.table("transcriptions").delete().eq("meeting_id", meeting_id).execute()
+
+            # Delete summary
+            self.client.table("summaries").delete().eq("meeting_id", meeting_id).execute()
+
+            # Finally, delete the meeting itself
+            self.client.table("meetings").delete().eq("id", meeting_id).execute()
+
+        return {"success": True, "deleted_conversation_id": conversation_id, "deleted_meeting_id": meeting_id}
+
+    # Message functions
+    def save_message(self, conversation_id, role, content, token_count=None):
+        """Save a message to a conversation (role: 'user' or 'assistant')"""
+        message_data = {
+            "conversation_id": conversation_id,
+            "role": role,
+            "content": content
+        }
+        if token_count is not None:
+            message_data["token_count"] = token_count
+
+        return self.client.table("messages").insert(message_data).execute()
+
+    def get_conversation_messages(self, conversation_id):
+        """Get all messages for a conversation, ordered chronologically"""
+        return self.client.table("messages").select("*").eq("conversation_id", conversation_id).order("created_at", desc=False).execute()
+
+    # Summary functions
+    def save_summary(self, meeting_id, summary_text, key_points=None):
+        """Save a summary for a meeting"""
+        summary_data = {
+            "meeting_id": meeting_id,
+            "summary_text": summary_text
+        }
+        if key_points is not None:
+            summary_data["key_points"] = key_points
+
+        return self.client.table("summaries").insert(summary_data).execute()
+
+    def get_meeting_summary(self, meeting_id):
+        """Get the summary for a meeting"""
+        return self.client.table("summaries").select("*").eq("meeting_id", meeting_id).execute()
+
+    # Action items functions
+    def save_action_items(self, conversation_id, action_items):
+        """Save action items for a conversation"""
+        # Transform action items to match database schema
+        action_items_data = []
+        for item in action_items:
+            # Use defaults only if values are None or empty string
+            priority = item.get("priority")
+            if not priority:  # Catches None, empty string, etc.
+                priority = "medium"
+
+            assigned_to = item.get("assigned_to")
+            if not assigned_to:
+                assigned_to = "Unassigned"
+
+            action_items_data.append({
+                "conversation_id": conversation_id,
+                "task": item.get("task"),
+                "priority": priority,
+                "assigned_to": assigned_to
+            })
+
+        return self.client.table("action_items").insert(action_items_data).execute()
+
+    def get_conversation_action_items(self, conversation_id):
+        """Get all action items for a conversation"""
+        return self.client.table("action_items").select("*").eq("conversation_id", conversation_id).order("created_at", desc=False).execute()
+
+    # User account functions
+    def delete_user_account(self, user_id):
+        """
+        Delete a user account and ALL associated data including:
+        - All user meetings (and their transcriptions, summaries, conversations)
+        - All user conversations (and their messages, action items)
+        - User profile
+        - Authentication account
+
+        This performs a complete account deletion with cascading cleanup.
+
+        Note: This method uses the service role key (backend only) to execute the deletion,
+        but should only be called after verifying the user's identity via JWT token.
+        """
+        # Step 1: Get all conversations for the user
+        conversations_result = self.client.table("conversations").select("id").eq("user_id", user_id).execute()
+        conversation_ids = [conv["id"] for conv in conversations_result.data]
+
+        # Step 2: Delete all messages and action items for each conversation
+        for conversation_id in conversation_ids:
+            self.client.table("messages").delete().eq("conversation_id", conversation_id).execute()
+            self.client.table("action_items").delete().eq("conversation_id", conversation_id).execute()
+
+        # Step 3: Get all meetings for the user
+        meetings_result = self.client.table("meetings").select("id").eq("user_id", user_id).execute()
+        meeting_ids = [meeting["id"] for meeting in meetings_result.data]
+
+        # Step 4: Delete all transcriptions and summaries for each meeting
+        for meeting_id in meeting_ids:
+            self.client.table("transcriptions").delete().eq("meeting_id", meeting_id).execute()
+            self.client.table("summaries").delete().eq("meeting_id", meeting_id).execute()
+
+        # Step 5: Delete all conversations
+        self.client.table("conversations").delete().eq("user_id", user_id).execute()
+
+        # Step 6: Delete all meetings
+        self.client.table("meetings").delete().eq("user_id", user_id).execute()
+
+        # Step 7: Delete the user profile
+        self.client.table("profiles").delete().eq("id", user_id).execute()
+
+        # Step 8: Delete the authentication account (requires service role key)
+        self.client.auth.admin.delete_user(user_id)
+
+        return {
+            "success": True,
+            "deleted_user_id": user_id,
+            "deleted_conversations": len(conversation_ids),
+            "deleted_meetings": len(meeting_ids)
+        }
+
 
 def get_supabase():
     global _instance

@@ -1,4 +1,4 @@
-import { Shield, Key, Trash2 } from "lucide-react";
+import { Shield, Key } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import DeleteAccountDialog from "./delete-account-dialog";
 
 export default function ProfileContent() {
   return (
@@ -77,10 +78,7 @@ export default function ProfileContent() {
                   Permanently delete your account and all data
                 </p>
               </div>
-              <Button variant="destructive">
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete Account
-              </Button>
+              <DeleteAccountDialog />
             </div>
           </CardContent>
         </Card>
