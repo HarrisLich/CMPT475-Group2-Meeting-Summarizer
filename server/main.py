@@ -10,6 +10,7 @@ from database.supabase_service import get_supabase
 from auth import auth_router, get_current_user
 from summarization import SummarizationService
 from pydantic import BaseModel
+from typing import Dict
 import os
 import time
 from dotenv import load_dotenv
@@ -45,6 +46,15 @@ class ActionItemsRequest(BaseModel):
     conversation_id: str = None
     user_id: str = None
 
+class SpeakerMappingsRequest(BaseModel):
+    """
+    Request model for saving speaker name mappings.
+    Maps speaker IDs (e.g., "SPEAKER_01") to actual names.
+    """
+    meeting_id: str
+    mappings: Dict[str, str]  # Maps speaker ID to name
+
+# Create FastAPI instance
 class ConversationCreate(BaseModel):
     """Request model for creating a new conversation"""
     meeting_id: str
@@ -887,6 +897,219 @@ async def extract_action_items(request: ActionItemsRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Action item extraction failed: {str(e)}")
 
+@app.post("/transcribe-with-speakers")
+async def transcribe_with_speakers(
+    audio_file: UploadFile = File(...),
+    meeting_id: str = Form(None),
+    user_id: str = Form("test_user"),  # Default for testing, should use auth in production
+    meeting_title: str = Form(None)
+):
+    """
+    Transcribe audio with speaker diarization and automatically save to database.
+    
+    Args:
+        audio_file: The audio file to transcribe
+        meeting_id: Optional meeting ID. If not provided, a new meeting will be created.
+        user_id: User ID for the meeting (defaults to test_user for testing)
+        meeting_title: Optional title for the meeting. If not provided, uses filename.
+    """
+    if not transcription_service.is_supported_file_type(audio_file.content_type):
+        raise HTTPException(status_code=400, detail=f"Unsupported file type: {audio_file.content_type}")
+
+    try:
+        # Get HuggingFace token from environment
+        hf_token = os.getenv("HUGGINGFACE_TOKEN")
+        if not hf_token:
+            raise HTTPException(
+                status_code=500, 
+                detail="HuggingFace token not configured. Please set HUGGINGFACE_TOKEN environment variable."
+            )
+
+        # Read file content
+        content = await audio_file.read()
+
+        # Transcribe with speaker diarization
+        result = transcription_service.transcribe_with_speakers(content, audio_file.filename, hf_token)
+        
+        # Auto-save to database
+        try:
+            supabase = get_supabase()
+            
+            # If no meeting_id provided, create a new meeting
+            if not meeting_id:
+                # Generate meeting title from filename if not provided
+                title = meeting_title or audio_file.filename.replace('.mp3', '').replace('.wav', '').replace('.m4a', '')
+                
+                # Create new meeting
+                meeting_result = supabase.save_meeting(
+                    user_id=user_id,
+                    title=title,
+                    description=f"Transcription from {audio_file.filename}"
+                )
+                
+                # Extract meeting ID from result
+                # Supabase returns data in result.data array
+                if hasattr(meeting_result, 'data') and meeting_result.data:
+                    if isinstance(meeting_result.data, list) and len(meeting_result.data) > 0:
+                        meeting_id = meeting_result.data[0].get("id")
+                    elif isinstance(meeting_result.data, dict):
+                        meeting_id = meeting_result.data.get("id")
+                    else:
+                        meeting_id = None
+                else:
+                    meeting_id = None
+                
+                if not meeting_id:
+                    print("Warning: Could not extract meeting_id from created meeting")
+                    print(f"Meeting result: {meeting_result}")
+                    # Continue without saving to database
+                    result["meeting_id"] = None
+                    result["saved"] = False
+                    return result
+            
+            print(f"Saving transcription for meeting: {meeting_id}")
+            # Save transcription with speaker information
+            supabase.save_transcription_with_speakers(meeting_id, result)
+            
+            # Add meeting_id and saved status to response
+            result["meeting_id"] = meeting_id
+            result["saved"] = True
+            result["message"] = "Transcription saved successfully"
+            
+        except Exception as db_error:
+            # Log the error but don't fail the request - transcription succeeded
+            import traceback
+            error_trace = traceback.format_exc()
+            print(f"Warning: Failed to save transcription to database: {str(db_error)}")
+            print(f"Traceback:\n{error_trace}")
+            result["meeting_id"] = meeting_id if meeting_id else None
+            result["saved"] = False
+            result["warning"] = f"Transcription succeeded but database save failed: {str(db_error)}"
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"ERROR in /transcribe-with-speakers endpoint: {str(e)}")
+        print(f"Full traceback:\n{error_trace}")
+        raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
+
+@app.get("/meetings/{meeting_id}/speakers")
+async def get_meeting_speakers(meeting_id: str):
+    """
+    Get unique speakers detected in a meeting transcription.
+    
+    Returns a list of speakers with their IDs and sample text to help users
+    identify and name each speaker.
+    """
+    import uuid
+    try:
+        # Validate that meeting_id is a valid UUID
+        try:
+            uuid.UUID(meeting_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid meeting_id format. Expected UUID, got: {meeting_id}"
+            )
+        
+        supabase = get_supabase()
+        speakers = supabase.get_meeting_speakers(meeting_id)
+        
+        return {
+            "success": True,
+            "speakers": speakers
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Error getting speakers: {str(e)}")
+        print(f"Traceback:\n{error_trace}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to get speakers: {str(e)}"
+        )
+
+@app.get("/meetings/{meeting_id}/speaker-mappings")
+async def get_speaker_mappings(meeting_id: str):
+    """
+    Get speaker name mappings for a meeting.
+    
+    Returns a dictionary mapping speaker IDs to names.
+    """
+    import uuid
+    try:
+        # Validate that meeting_id is a valid UUID
+        try:
+            uuid.UUID(meeting_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid meeting_id format. Expected UUID, got: {meeting_id}"
+            )
+        
+        supabase = get_supabase()
+        mappings = supabase.get_speaker_mappings(meeting_id)
+        
+        return {
+            "success": True,
+            "mappings": mappings
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Error getting speaker mappings: {str(e)}")
+        print(f"Traceback:\n{error_trace}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get speaker mappings: {str(e)}"
+        )
+
+@app.post("/meetings/{meeting_id}/speaker-mappings")
+async def save_speaker_mappings(meeting_id: str, request: SpeakerMappingsRequest):
+    """
+    Save speaker name mappings for a meeting.
+    
+    Maps generic speaker IDs (e.g., "SPEAKER_01", "SPEAKER_02") to actual
+    names (e.g., "John Doe", "Jane Smith") that users provide.
+    
+    Args:
+        meeting_id: The meeting ID
+        request: Contains mappings dict (speaker_id -> name)
+    """
+    try:
+        # Validate that meeting_id in path matches request body
+        if request.meeting_id != meeting_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Meeting ID in path does not match request body"
+            )
+        
+        supabase = get_supabase()
+        result = supabase.save_speaker_mappings(meeting_id, request.mappings)
+        
+        return {
+            "success": True,
+            "message": "Speaker mappings saved successfully",
+            "mappings": request.mappings
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Error saving speaker mappings: {str(e)}")
+        print(f"Traceback:\n{error_trace}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to save speaker mappings: {str(e)}"
+        )
 # Conversation/Chat History Endpoints
 @app.post(
     "/conversations",
@@ -1377,6 +1600,79 @@ async def get_meeting_transcription(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch transcription: {str(e)}")
+
+@app.delete(
+    "/account",
+    tags=["Authentication"],
+    summary="Delete User Account",
+    description="""
+**Permanently delete** your user account and ALL associated data.
+
+### ⚠️ Warning: This Action is Irreversible
+
+This endpoint completely removes:
+- ✗ Your user profile
+- ✗ All your meetings
+- ✗ All transcriptions
+- ✗ All summaries
+- ✗ All conversations and chat history
+- ✗ All messages
+- ✗ All action items
+- ✗ Your authentication account
+
+### Security
+- You can only delete your own account
+- Requires valid JWT authentication token
+- User identity is verified from the token (not from request body)
+
+### After Deletion
+- You will be logged out
+- All your data will be permanently removed
+- You can create a new account with the same email if desired
+
+### Authentication
+Requires valid Supabase JWT token. The user_id is extracted from the token to ensure you can only delete your own account.
+    """,
+    response_description="Account deletion confirmation with statistics"
+)
+async def delete_account(current_user = Depends(get_current_user)):
+    """
+    Delete the authenticated user's account and all associated data.
+
+    This endpoint:
+    1. Verifies user identity via JWT token
+    2. Deletes all user data (meetings, conversations, messages, etc.)
+    3. Deletes the user profile
+    4. Deletes the authentication account
+
+    Security: User can only delete their own account. The user_id comes from
+    the verified JWT token, not from user input.
+    """
+    try:
+        user_id = current_user["id"]
+        print(f"[ACCOUNT DELETION] Starting deletion for user {user_id}")
+
+        supabase = get_supabase()
+        result = supabase.delete_user_account(user_id)
+
+        print(f"[ACCOUNT DELETION] Successfully deleted user {user_id}")
+        print(f"[ACCOUNT DELETION] - Conversations deleted: {result['deleted_conversations']}")
+        print(f"[ACCOUNT DELETION] - Meetings deleted: {result['deleted_meetings']}")
+
+        return {
+            "success": True,
+            "message": "Account successfully deleted",
+            "details": result
+        }
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"[ACCOUNT DELETION ERROR] Failed to delete account: {str(e)}")
+        print(f"[ACCOUNT DELETION ERROR] Traceback:\n{error_trace}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete account: {str(e)}"
+        )
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

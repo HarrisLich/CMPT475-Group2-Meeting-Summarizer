@@ -264,3 +264,29 @@ class HybridTranscriptionService:
     def is_supported_file_type(self, content_type: str) -> bool:
         """Check if file type is supported by either service."""
         return self.local_service.is_supported_file_type(content_type)
+    
+    def transcribe_with_speakers(self, file_content: bytes, filename: str, hf_token: str = None) -> Dict[str, Any]:
+        """
+        Transcribe file with speaker diarization using local Whisper + pyannote.
+        
+        Note: Speaker diarization requires local processing, so this always uses LocalWhisperService
+        even if Groq is available, since Groq doesn't support speaker diarization.
+        
+        Args:
+            file_content: Binary content of audio/video file
+            filename: Original filename
+            hf_token: HuggingFace token for pyannote models
+            
+        Returns:
+            Transcription result dict with speaker information
+        """
+        print(f"Starting speaker diarization transcription for: {filename}")
+        print(f"Using local Whisper + pyannote for speaker identification")
+        
+        # Always use local service for speaker diarization
+        result = self.local_service.transcribe_with_speakers(file_content, filename, hf_token)
+        result["service"] = "local_whisper_with_speakers"
+        result["model_used"] = f"{self.whisper_model} + pyannote"
+        
+        print(f"✅ Speaker diarization transcription complete!")
+        return result

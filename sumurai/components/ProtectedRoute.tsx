@@ -40,7 +40,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
         setShowAuthDialog(false);
       }
     }
-  }, [authLoading, user, session, isClient]);
+  }, [authLoading, user?.id, session?.access_token, isClient]); // Use stable values instead of objects
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
