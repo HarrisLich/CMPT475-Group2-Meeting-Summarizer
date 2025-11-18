@@ -179,7 +179,7 @@ function Landing() {
     {
       icon: <Zap className="w-6 h-6" />,
       title: "Lightning Fast",
-      description: "Get comprehensive summaries in minutes, not hours. Process multiple meetings at once.",
+      description: "Get comprehensive summaries in minutes, not hours.",
       color: "bg-gradient-to-br from-[#00F5FF] to-[#06B6D4]"
     }
   ];
@@ -348,8 +348,8 @@ function Landing() {
               <div className="text-black/70">Accuracy</div>
             </div>
             <div className="hover:scale-105 transition-transform duration-300 cursor-pointer">
-              <div className="text-4xl md:text-5xl font-bold mb-2 animate-in fade-in slide-in-from-bottom-4" style={{animationDelay: '400ms'}}>&lt;2min</div>
-              <div className="text-black/70">Processing Time</div>
+              <div className="text-4xl md:text-5xl font-bold mb-2 animate-in fade-in slide-in-from-bottom-4" style={{animationDelay: '400ms'}}>&lt;3min</div>
+              <div className="text-black/70">Avg. Processing Time</div>
             </div>
             <div className="hover:scale-105 transition-transform duration-300 cursor-pointer">
               <div className="text-4xl md:text-5xl font-bold mb-2 animate-in fade-in slide-in-from-bottom-4" style={{animationDelay: '600ms'}}>15</div>

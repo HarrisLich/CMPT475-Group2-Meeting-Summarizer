@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "@supabase/supabase-js": "^2.76.0"
+    "@supabase/supabase-js": "^2.76.0",
+    "jspdf": "^3.0.3"
   }
 }
