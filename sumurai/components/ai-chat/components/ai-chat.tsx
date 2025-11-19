@@ -387,7 +387,7 @@ export default function AiChat() {
 
       // Always use speaker diarization
       setUploadStatus("Transcribing with speaker identification (this may take 3-5 minutes)...");
-      const transcriptionData = await SummarizationService.transcribeWithSpeakers(file, "");
+      const transcriptionData = await SummarizationService.transcribeWithSpeakers(file, user?.id);
       console.log("Transcription data received:", transcriptionData);
       
       // Store the meeting_id from backend if available
@@ -412,8 +412,21 @@ export default function AiChat() {
       setUploadStatus("Finalizing...");
 
       if (summaryData.success) {
-        // Prepare segments
-        const segments = transcriptionData.segments || [];
+        // Prepare segments - handle both flat array and nested object format
+        let segments = transcriptionData.segments || [];
+        // If segments is an object with a nested segments property, unwrap it
+        if (segments && typeof segments === 'object' && !Array.isArray(segments)) {
+          // Type assertion since we know it might have a segments property
+          const segmentsObj = segments as any;
+          if (segmentsObj.segments) {
+            segments = segmentsObj.segments;
+          }
+        }
+        // Ensure it's an array
+        if (!Array.isArray(segments)) {
+          console.warn("Segments is not an array, defaulting to empty array:", segments);
+          segments = [];
+        }
         
         // Assign action items to speakers based on transcript segments
         const rawActionItems = actionItemsData.success ? actionItemsData.action_items || [] : [];
@@ -611,15 +624,31 @@ export default function AiChat() {
 
             // Add transcription if available
             if (conversationData?.transcription) {
+              // Unwrap segments from database format if needed
+              let segments = conversationData.transcription.segments || [];
+              // Database stores as { segments: [...], language: "en" }, unwrap if needed
+              if (segments && typeof segments === 'object' && !Array.isArray(segments)) {
+                const segmentsObj = segments as any;
+                if (segmentsObj.segments && Array.isArray(segmentsObj.segments)) {
+                  segments = segmentsObj.segments;
+                }
+              }
+              // Ensure it's an array
+              if (!Array.isArray(segments)) {
+                console.warn("[SELECT] Segments is not an array, defaulting to empty:", segments);
+                segments = [];
+              }
+
               updatedChat.transcription = {
                 fullText: conversationData.transcription.transcription_text,
-                segments: conversationData.transcription.segments || [],
+                segments: segments,
                 fileName: conversationData.conversation?.title || "Meeting Transcript"
               };
               console.log("[SELECT] Cached transcription:", {
                 hasFullText: !!updatedChat.transcription.fullText,
                 textLength: updatedChat.transcription.fullText?.length,
-                segmentsCount: updatedChat.transcription.segments?.length || 0
+                segmentsCount: updatedChat.transcription.segments?.length || 0,
+                segmentsFormat: typeof conversationData.transcription.segments
               });
             }
 

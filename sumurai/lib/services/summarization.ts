@@ -291,10 +291,15 @@ export class SummarizationService {
   /**
    * Transcribe audio with speaker diarization
    */
-  static async transcribeWithSpeakers(audioFile: File, _unused?: string): Promise<TranscriptionResponse> {
+  static async transcribeWithSpeakers(audioFile: File, userId?: string): Promise<TranscriptionResponse> {
     const formData = new FormData();
     formData.append('audio_file', audioFile);
-    
+
+    // Add user_id if provided (required for database saves)
+    if (userId) {
+      formData.append('user_id', userId);
+    }
+
     const response = await fetch(`${API_URL}/transcribe-with-speakers`, {
       method: 'POST',
       body: formData,

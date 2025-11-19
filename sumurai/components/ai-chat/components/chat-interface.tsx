@@ -68,7 +68,12 @@ export function ChatInterface({
 
   // Get unique speakers for color coding
   const uniqueSpeakers = React.useMemo(() => {
-    return Array.from(new Set(transcriptSegments.map(s => s.speaker).filter(Boolean)));
+    // Ensure transcriptSegments is an array
+    if (!Array.isArray(transcriptSegments)) {
+      console.warn("transcriptSegments is not an array:", transcriptSegments);
+      return [];
+    }
+    return Array.from(new Set(transcriptSegments.map(s => s.speaker).filter((speaker): speaker is string => Boolean(speaker))));
   }, [transcriptSegments]);
 
   const speakerColors: Record<string, string> = React.useMemo(() => {
@@ -180,7 +185,7 @@ export function ChatInterface({
                   {chatTitle && (
                     <>
                       <h2 className="text-lg font-bold bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] bg-clip-text text-transparent leading-none">
-                        {chatTitle}
+                        {chatTitle.replace(/^#{1,6}\s+/, '')}
                       </h2>
                       <div className="h-5 w-px bg-[#333333]"></div>
                     </>

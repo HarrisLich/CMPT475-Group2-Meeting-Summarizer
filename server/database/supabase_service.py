@@ -37,14 +37,17 @@ class SupabaseService:
             "date": datetime.now().isoformat()
         }).execute()
         
-    def save_transcription(self, meeting_id, transcription_text, language):
-        # Adapt to your schema's column names
-        return self.client.table("transcriptions").insert({
+    def save_transcription(self, meeting_id, transcription_text, audio_url=None, segments=None):
+        transcription_data = {
             "meeting_id": meeting_id,
-            "transcription_text": transcription_text,
-            # Store language in segments since you don't have a language column
-            "segments": {"language": language}
-        }).execute()
+            "transcription_text": transcription_text
+        }
+        if audio_url is not None:
+            transcription_data["audio_url"] = audio_url
+        if segments is not None:
+            transcription_data["segments"] = segments
+
+        return self.client.table("transcriptions").insert(transcription_data).execute()
         
     def get_user_meetings(self, user_id):
         return self.client.table("meetings").select("*").eq("user_id", user_id).execute()
@@ -55,7 +58,7 @@ class SupabaseService:
     def save_transcription_with_speakers(self, meeting_id, transcription_data):
         """
         Save transcription with speaker information.
-        
+
         Args:
             meeting_id: The meeting ID
             transcription_data: Dict containing:
@@ -66,31 +69,21 @@ class SupabaseService:
         """
         # Prepare segments data including speaker information
         segments = transcription_data.get("segments", [])
-        
+
+        # Prepare segment data with language info
+        segment_data = {
+            "segments": segments,
+            "language": transcription_data.get("language", "en")
+        }
+
         # Save the full transcription with segments embedded in the JSON field
         transcription_result = self.save_transcription(
-            meeting_id, 
+            meeting_id,
             transcription_data.get("transcription", ""),
-            transcription_data.get("language", "en")
+            audio_url=None,
+            segments=segment_data
         )
-        
-        # Store segments directly in the transcriptions table's segments field
-        if segments and len(segments) > 0:
-            # Update the segments field in the transcription record
-            segment_data = {
-                "segments": segments,
-                "language": transcription_data.get("language", "en")
-            }
-            
-            try:
-                # Update the segments in the transcriptions record
-                self.client.table("transcriptions")\
-                    .update({"segments": segment_data})\
-                    .eq("meeting_id", meeting_id)\
-                    .execute()
-            except Exception as e:
-                print(f"Warning: Failed to update segments: {str(e)}")
-        
+
         return transcription_result
     
     def get_meeting_speakers(self, meeting_id):
