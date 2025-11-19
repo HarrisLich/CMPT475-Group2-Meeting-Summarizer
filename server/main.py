@@ -901,16 +901,16 @@ async def extract_action_items(request: ActionItemsRequest):
 async def transcribe_with_speakers(
     audio_file: UploadFile = File(...),
     meeting_id: str = Form(None),
-    user_id: str = Form("test_user"),  # Default for testing, should use auth in production
+    user_id: str = Form(None),  # Optional - only saves to DB if provided with valid UUID
     meeting_title: str = Form(None)
 ):
     """
     Transcribe audio with speaker diarization and automatically save to database.
-    
+
     Args:
         audio_file: The audio file to transcribe
         meeting_id: Optional meeting ID. If not provided, a new meeting will be created.
-        user_id: User ID for the meeting (defaults to test_user for testing)
+        user_id: User ID (UUID) for the meeting. If not provided, transcription works but won't save to database.
         meeting_title: Optional title for the meeting. If not provided, uses filename.
     """
     if not transcription_service.is_supported_file_type(audio_file.content_type):
@@ -921,7 +921,7 @@ async def transcribe_with_speakers(
         hf_token = os.getenv("HUGGINGFACE_TOKEN")
         if not hf_token:
             raise HTTPException(
-                status_code=500, 
+                status_code=500,
                 detail="HuggingFace token not configured. Please set HUGGINGFACE_TOKEN environment variable."
             )
 
@@ -930,61 +930,166 @@ async def transcribe_with_speakers(
 
         # Transcribe with speaker diarization
         result = transcription_service.transcribe_with_speakers(content, audio_file.filename, hf_token)
-        
-        # Auto-save to database
-        try:
-            supabase = get_supabase()
-            
-            # If no meeting_id provided, create a new meeting
-            if not meeting_id:
-                # Generate meeting title from filename if not provided
-                title = meeting_title or audio_file.filename.replace('.mp3', '').replace('.wav', '').replace('.m4a', '')
-                
-                # Create new meeting
-                meeting_result = supabase.save_meeting(
-                    user_id=user_id,
-                    title=title,
-                    description=f"Transcription from {audio_file.filename}"
-                )
-                
-                # Extract meeting ID from result
-                # Supabase returns data in result.data array
-                if hasattr(meeting_result, 'data') and meeting_result.data:
-                    if isinstance(meeting_result.data, list) and len(meeting_result.data) > 0:
-                        meeting_id = meeting_result.data[0].get("id")
-                    elif isinstance(meeting_result.data, dict):
-                        meeting_id = meeting_result.data.get("id")
+
+        # Auto-save to database only if user_id is provided
+        if user_id:
+            try:
+                supabase = get_supabase()
+
+                # If no meeting_id provided, create a new meeting
+                if not meeting_id:
+                    # Generate meeting title from filename if not provided
+                    title = meeting_title or audio_file.filename.replace('.mp3', '').replace('.wav', '').replace('.m4a', '')
+
+                    # Create new meeting
+                    meeting_result = supabase.save_meeting(
+                        user_id=user_id,
+                        title=title,
+                        description=f"Transcription from {audio_file.filename}"
+                    )
+
+                    # Extract meeting ID from result
+                    # Supabase returns data in result.data array
+                    if hasattr(meeting_result, 'data') and meeting_result.data:
+                        if isinstance(meeting_result.data, list) and len(meeting_result.data) > 0:
+                            meeting_id = meeting_result.data[0].get("id")
+                        elif isinstance(meeting_result.data, dict):
+                            meeting_id = meeting_result.data.get("id")
+                        else:
+                            meeting_id = None
                     else:
                         meeting_id = None
+
+                    if not meeting_id:
+                        print("Warning: Could not extract meeting_id from created meeting")
+                        print(f"Meeting result: {meeting_result}")
+                        # Continue without saving to database
+                        result["meeting_id"] = None
+                        result["saved"] = False
+                        return result
+
+                # Get transcription text for AI processing
+                transcription_text = result.get("transcription", "")
+
+                # Generate AI title from transcription
+                try:
+                    print(f"[AI] Generating meeting title from transcription...")
+                    title_result = summarization_service.generate_meeting_title(transcription_text)
+                    if title_result.get("success"):
+                        generated_title = title_result.get("title")
+                        print(f"[AI] Generated title: {generated_title}")
+                        result["generated_title"] = generated_title
+                    else:
+                        print(f"[AI] Title generation failed: {title_result.get('error')}")
+                        generated_title = meeting_title or audio_file.filename.replace('.mp3', '').replace('.wav', '').replace('.m4a', '')
+                except Exception as title_error:
+                    print(f"[AI ERROR] Failed to generate title: {str(title_error)}")
+                    generated_title = meeting_title or audio_file.filename.replace('.mp3', '').replace('.wav', '').replace('.m4a', '')
+
+                # Create conversation with generated title
+                conversation_id = None
+                try:
+                    print(f"[DB] Creating conversation for meeting {meeting_id}")
+                    conversation_result = supabase.create_conversation(
+                        user_id=user_id,
+                        meeting_id=meeting_id,
+                        title=generated_title,
+                        model_version="llama3.2:3b"
+                    )
+                    conversation_id = conversation_result.data[0]['id']
+                    print(f"[DB] Conversation created with ID: {conversation_id}")
+                    result["conversation_id"] = conversation_id
+                except Exception as db_error:
+                    print(f"[DB ERROR] Failed to create conversation: {str(db_error)}")
+
+                print(f"[DB] Saving transcription for meeting: {meeting_id}")
+                # Save transcription with speaker information
+                transcription_result = supabase.save_transcription_with_speakers(meeting_id, result)
+                transcription_id = transcription_result.data[0]['id'] if transcription_result.data else None
+                print(f"[DB] Transcription saved with ID: {transcription_id}")
+                result["transcription_id"] = transcription_id
+
+                # Generate summary
+                summary_result = summarization_service.summarize_transcription(transcription_text)
+
+                # DEBUG: Print raw LLM output
+                if summary_result.get("success"):
+                    print(f"\n{'='*80}")
+                    print("[DEBUG] RAW LLM SUMMARY OUTPUT:")
+                    print(f"{'='*80}")
+                    print(summary_result.get("summary", ""))
+                    print(f"{'='*80}\n")
+
+                result["summary"] = summary_result
+
+                # Save summary to database if successful
+                if summary_result.get("success"):
+                    try:
+                        print(f"[DB] Saving summary for meeting {meeting_id}")
+                        summary_text = summary_result.get("summary", "")
+                        summary_db_result = supabase.save_summary(
+                            meeting_id=meeting_id,
+                            summary_text=summary_text,
+                            key_points=None
+                        )
+                        summary_id = summary_db_result.data[0]['id']
+                        print(f"[DB] Summary saved with ID: {summary_id}")
+                        result["summary_id"] = summary_id
+
+                        # Save summary as initial assistant message in conversation
+                        if conversation_id:
+                            try:
+                                print(f"[DB] Saving initial summary message to conversation {conversation_id}")
+                                message_result = supabase.save_message(
+                                    conversation_id=conversation_id,
+                                    role="assistant",
+                                    content=summary_text,
+                                    token_count=None
+                                )
+                                print(f"[DB] Initial message saved with ID: {message_result.data[0]['id']}")
+                            except Exception as msg_error:
+                                print(f"[DB ERROR] Failed to save initial message: {str(msg_error)}")
+
+                    except Exception as db_error:
+                        print(f"[DB ERROR] Failed to save summary: {str(db_error)}")
+
+                # Extract action items
+                print(f"[AI] Extracting action items...")
+                action_items_result = summarization_service.extract_action_items(transcription_text)
+
+                if action_items_result.get("success"):
+                    result["action_items"] = action_items_result.get("action_items", [])
+                    print(f"[AI] Extracted {len(result['action_items'])} action items")
+
+                    # Save action items to database
+                    if conversation_id and len(result["action_items"]) > 0:
+                        try:
+                            print(f"[DB] Saving {len(result['action_items'])} action items to database...")
+                            supabase.save_action_items(
+                                conversation_id=conversation_id,
+                                action_items=result["action_items"]
+                            )
+                            print(f"[DB] ✓ All action items saved successfully")
+                        except Exception as db_error:
+                            print(f"[DB ERROR] Failed to save action items: {str(db_error)}")
                 else:
-                    meeting_id = None
-                
-                if not meeting_id:
-                    print("Warning: Could not extract meeting_id from created meeting")
-                    print(f"Meeting result: {meeting_result}")
-                    # Continue without saving to database
-                    result["meeting_id"] = None
-                    result["saved"] = False
-                    return result
-            
-            print(f"Saving transcription for meeting: {meeting_id}")
-            # Save transcription with speaker information
-            supabase.save_transcription_with_speakers(meeting_id, result)
-            
-            # Add meeting_id and saved status to response
-            result["meeting_id"] = meeting_id
-            result["saved"] = True
-            result["message"] = "Transcription saved successfully"
-            
-        except Exception as db_error:
-            # Log the error but don't fail the request - transcription succeeded
-            import traceback
-            error_trace = traceback.format_exc()
-            print(f"Warning: Failed to save transcription to database: {str(db_error)}")
-            print(f"Traceback:\n{error_trace}")
-            result["meeting_id"] = meeting_id if meeting_id else None
-            result["saved"] = False
-            result["warning"] = f"Transcription succeeded but database save failed: {str(db_error)}"
+                    print(f"[AI] Action items extraction failed: {action_items_result.get('error')}")
+                    result["action_items"] = []
+
+                # Add meeting_id and saved status to response
+                result["meeting_id"] = meeting_id
+                result["saved"] = True
+                result["message"] = "Transcription with speakers saved successfully"
+
+            except Exception as db_error:
+                # Log the error but don't fail the request - transcription succeeded
+                import traceback
+                error_trace = traceback.format_exc()
+                print(f"Warning: Failed to save transcription to database: {str(db_error)}")
+                print(f"Traceback:\n{error_trace}")
+                result["meeting_id"] = meeting_id if meeting_id else None
+                result["saved"] = False
+                result["warning"] = f"Transcription succeeded but database save failed: {str(db_error)}"
         
         return result
     except HTTPException:

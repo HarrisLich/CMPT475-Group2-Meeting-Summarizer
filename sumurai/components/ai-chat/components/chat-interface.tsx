@@ -41,6 +41,8 @@ interface ChatInterfaceProps {
   transcript?: string;
   transcriptSegments?: Array<{start: number; end: number; text: string; speaker?: string; speaker_name?: string}>;
   actionItems?: ActionItem[];
+  useSpeakerDiarization?: boolean;
+  setUseSpeakerDiarization?: (value: boolean) => void;
 }
 
 export function ChatInterface({
@@ -55,7 +57,9 @@ export function ChatInterface({
   uploadStatus = "",
   transcript = "",
   transcriptSegments = [],
-  actionItems = []
+  actionItems = [],
+  useSpeakerDiarization = false,
+  setUseSpeakerDiarization
 }: ChatInterfaceProps) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = React.useState(false);
@@ -68,7 +72,12 @@ export function ChatInterface({
 
   // Get unique speakers for color coding
   const uniqueSpeakers = React.useMemo(() => {
-    return Array.from(new Set(transcriptSegments.map(s => s.speaker).filter(Boolean)));
+    // Ensure transcriptSegments is an array
+    if (!Array.isArray(transcriptSegments)) {
+      console.warn("transcriptSegments is not an array:", transcriptSegments);
+      return [];
+    }
+    return Array.from(new Set(transcriptSegments.map(s => s.speaker).filter((speaker): speaker is string => Boolean(speaker))));
   }, [transcriptSegments]);
 
   const speakerColors: Record<string, string> = React.useMemo(() => {
@@ -180,7 +189,7 @@ export function ChatInterface({
                   {chatTitle && (
                     <>
                       <h2 className="text-lg font-bold bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] bg-clip-text text-transparent leading-none">
-                        {chatTitle}
+                        {chatTitle.replace(/^#{1,6}\s+/, '')}
                       </h2>
                       <div className="h-5 w-px bg-[#333333]"></div>
                     </>
@@ -371,6 +380,25 @@ export function ChatInterface({
             {/* Chat Input - Sticky at bottom */}
             <div className="sticky bottom-0 z-10 px-6 pb-12 pt-12 relative">
               <div className="absolute inset-0 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent pointer-events-none"></div>
+
+              {/* Speaker Diarization Toggle */}
+              {onFileUpload && setUseSpeakerDiarization && (
+                <div className="flex items-center gap-2 mb-3 relative z-10">
+                  <Switch
+                    id="speaker-mode"
+                    checked={useSpeakerDiarization}
+                    onCheckedChange={setUseSpeakerDiarization}
+                    className="data-[state=checked]:bg-[#00F5FF]"
+                  />
+                  <Label
+                    htmlFor="speaker-mode"
+                    className="text-sm text-gray-400 cursor-pointer select-none"
+                  >
+                    Enable Speaker Identification (slow, 10-20 min)
+                  </Label>
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="flex items-center gap-2 relative z-10">
             <div className="bg-[#1A1A1A] flex flex-1 items-center rounded-lg border border-[#333333] px-3 py-2 relative shadow-lg hover:border-[#00F5FF] focus-within:border-[#00F5FF] transition-all duration-200">
               <input

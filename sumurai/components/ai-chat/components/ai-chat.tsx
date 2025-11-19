@@ -136,6 +136,7 @@ export default function AiChat() {
   const [showSpeakerMapping, setShowSpeakerMapping] = useState(false);
   const [speakersMapped, setSpeakersMapped] = useState(false);
   const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
+  const [useSpeakerDiarization, setUseSpeakerDiarization] = useState(false); // Toggle: false = fast mode, true = speaker mode
 
   // Track if conversations have been loaded to prevent unnecessary refetches
   const conversationsLoadedRef = useRef(false);
@@ -385,35 +386,51 @@ export default function AiChat() {
       setUploadStatus("Processing audio file...");
       await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for UX
 
-      // Always use speaker diarization
-      setUploadStatus("Transcribing with speaker identification (this may take 3-5 minutes)...");
-      const transcriptionData = await SummarizationService.transcribeWithSpeakers(file, "");
+      // Use speaker diarization if toggle is enabled, otherwise use fast transcription
+      let transcriptionData;
+      if (useSpeakerDiarization) {
+        setUploadStatus("Transcribing with speaker identification (this may take 10-20 minutes on CPU)...");
+        transcriptionData = await SummarizationService.transcribeWithSpeakers(file, user?.id);
+      } else {
+        setUploadStatus("Transcribing with Groq Whisper (fast mode)...");
+        transcriptionData = await SummarizationService.transcribeAudio(file, user?.id);
+      }
       console.log("Transcription data received:", transcriptionData);
-      
+
       // Store the meeting_id from backend if available
       if (transcriptionData.meeting_id) {
         setCurrentMeetingId(transcriptionData.meeting_id);
         console.log("Meeting ID from backend:", transcriptionData.meeting_id);
       }
 
-      // Step 2: Analyze transcription
-      setUploadStatus("Analyzing transcription...");
-      await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UX
-
-      // Step 3 & 4: Run summary and action items extraction in parallel
-      setUploadStatus("Generating summary with AI...");
-      const [summaryData, actionItemsData] = await Promise.all([
-        SummarizationService.summarizeText(transcriptionData.transcription),
-        SummarizationService.extractActionItems(transcriptionData.transcription)
-      ]);
-      console.log("Summary data received:", summaryData);
-      console.log("Action items data received:", actionItemsData);
-
+      // Backend already generated summary and action items, just use them
       setUploadStatus("Finalizing...");
 
+      // Extract summary and action items from backend response
+      const summaryData = transcriptionData.summary || { success: false, error: "No summary provided" };
+      const actionItemsData = {
+        success: true,
+        action_items: transcriptionData.action_items || []
+      };
+      console.log("Summary data from backend:", summaryData);
+      console.log("Action items data from backend:", actionItemsData);
+
       if (summaryData.success) {
-        // Prepare segments
-        const segments = transcriptionData.segments || [];
+        // Prepare segments - handle both flat array and nested object format
+        let segments = transcriptionData.segments || [];
+        // If segments is an object with a nested segments property, unwrap it
+        if (segments && typeof segments === 'object' && !Array.isArray(segments)) {
+          // Type assertion since we know it might have a segments property
+          const segmentsObj = segments as any;
+          if (segmentsObj.segments) {
+            segments = segmentsObj.segments;
+          }
+        }
+        // Ensure it's an array
+        if (!Array.isArray(segments)) {
+          console.warn("Segments is not an array, defaulting to empty array:", segments);
+          segments = [];
+        }
         
         // Assign action items to speakers based on transcript segments
         const rawActionItems = actionItemsData.success ? actionItemsData.action_items || [] : [];
@@ -611,15 +628,31 @@ export default function AiChat() {
 
             // Add transcription if available
             if (conversationData?.transcription) {
+              // Unwrap segments from database format if needed
+              let segments = conversationData.transcription.segments || [];
+              // Database stores as { segments: [...], language: "en" }, unwrap if needed
+              if (segments && typeof segments === 'object' && !Array.isArray(segments)) {
+                const segmentsObj = segments as any;
+                if (segmentsObj.segments && Array.isArray(segmentsObj.segments)) {
+                  segments = segmentsObj.segments;
+                }
+              }
+              // Ensure it's an array
+              if (!Array.isArray(segments)) {
+                console.warn("[SELECT] Segments is not an array, defaulting to empty:", segments);
+                segments = [];
+              }
+
               updatedChat.transcription = {
                 fullText: conversationData.transcription.transcription_text,
-                segments: conversationData.transcription.segments || [],
+                segments: segments,
                 fileName: conversationData.conversation?.title || "Meeting Transcript"
               };
               console.log("[SELECT] Cached transcription:", {
                 hasFullText: !!updatedChat.transcription.fullText,
                 textLength: updatedChat.transcription.fullText?.length,
-                segmentsCount: updatedChat.transcription.segments?.length || 0
+                segmentsCount: updatedChat.transcription.segments?.length || 0,
+                segmentsFormat: typeof conversationData.transcription.segments
               });
             }
 
@@ -814,6 +847,8 @@ export default function AiChat() {
               transcript={currentChat?.transcription?.fullText ?? ""}
               transcriptSegments={currentChat?.transcription?.segments ?? []}
               actionItems={currentChat?.actionItems ?? []}
+              useSpeakerDiarization={useSpeakerDiarization}
+              setUseSpeakerDiarization={setUseSpeakerDiarization}
             />
             
             {/* Speaker Mapping Overlay */}
