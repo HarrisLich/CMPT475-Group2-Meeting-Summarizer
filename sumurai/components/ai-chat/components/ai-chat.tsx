@@ -136,6 +136,7 @@ export default function AiChat() {
   const [showSpeakerMapping, setShowSpeakerMapping] = useState(false);
   const [speakersMapped, setSpeakersMapped] = useState(false);
   const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
+  const [useSpeakerDiarization, setUseSpeakerDiarization] = useState(false); // Toggle: false = fast mode, true = speaker mode
 
   // Track if conversations have been loaded to prevent unnecessary refetches
   const conversationsLoadedRef = useRef(false);
@@ -385,31 +386,34 @@ export default function AiChat() {
       setUploadStatus("Processing audio file...");
       await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for UX
 
-      // Always use speaker diarization
-      setUploadStatus("Transcribing with speaker identification (this may take 3-5 minutes)...");
-      const transcriptionData = await SummarizationService.transcribeWithSpeakers(file, user?.id);
+      // Use speaker diarization if toggle is enabled, otherwise use fast transcription
+      let transcriptionData;
+      if (useSpeakerDiarization) {
+        setUploadStatus("Transcribing with speaker identification (this may take 10-20 minutes on CPU)...");
+        transcriptionData = await SummarizationService.transcribeWithSpeakers(file, user?.id);
+      } else {
+        setUploadStatus("Transcribing with Groq Whisper (fast mode)...");
+        transcriptionData = await SummarizationService.transcribeAudio(file, user?.id);
+      }
       console.log("Transcription data received:", transcriptionData);
-      
+
       // Store the meeting_id from backend if available
       if (transcriptionData.meeting_id) {
         setCurrentMeetingId(transcriptionData.meeting_id);
         console.log("Meeting ID from backend:", transcriptionData.meeting_id);
       }
 
-      // Step 2: Analyze transcription
-      setUploadStatus("Analyzing transcription...");
-      await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UX
-
-      // Step 3 & 4: Run summary and action items extraction in parallel
-      setUploadStatus("Generating summary with AI...");
-      const [summaryData, actionItemsData] = await Promise.all([
-        SummarizationService.summarizeText(transcriptionData.transcription),
-        SummarizationService.extractActionItems(transcriptionData.transcription)
-      ]);
-      console.log("Summary data received:", summaryData);
-      console.log("Action items data received:", actionItemsData);
-
+      // Backend already generated summary and action items, just use them
       setUploadStatus("Finalizing...");
+
+      // Extract summary and action items from backend response
+      const summaryData = transcriptionData.summary || { success: false, error: "No summary provided" };
+      const actionItemsData = {
+        success: true,
+        action_items: transcriptionData.action_items || []
+      };
+      console.log("Summary data from backend:", summaryData);
+      console.log("Action items data from backend:", actionItemsData);
 
       if (summaryData.success) {
         // Prepare segments - handle both flat array and nested object format
@@ -843,6 +847,8 @@ export default function AiChat() {
               transcript={currentChat?.transcription?.fullText ?? ""}
               transcriptSegments={currentChat?.transcription?.segments ?? []}
               actionItems={currentChat?.actionItems ?? []}
+              useSpeakerDiarization={useSpeakerDiarization}
+              setUseSpeakerDiarization={setUseSpeakerDiarization}
             />
             
             {/* Speaker Mapping Overlay */}
