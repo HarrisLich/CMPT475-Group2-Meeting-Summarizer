@@ -245,9 +245,9 @@ Remember: The ## heading should be a SPECIFIC title about the meeting content, N
                 - error (str): Error message (if failed)
         """
         # Create specialized prompt for extracting action items
-        prompt = f"""Extract action items from this meeting transcription. Look for tasks, to-dos, assignments, and important deadlines & responsbilities.
+        prompt = f"""Extract action items from this transcription. Look for tasks, to-dos, steps, assignments, deadlines, and responsibilities. This could be from a meeting, presentation, tutorial, or any instructional content.
 
-    Meeting Transcription:
+    Transcription:
     {transcription_text}
 
         Return a JSON array where each action item has:
@@ -336,6 +336,15 @@ Remember: The ## heading should be a SPECIFIC title about the meeting content, N
                         "assigned_to": item.get("assigned_to", "Unassigned")
                     })
 
+            # ENSURE AT LEAST 1 ACTION ITEM: If no items were extracted, create a default one
+            if len(normalized_items) == 0:
+                print("[AI] No action items extracted - adding default fallback item")
+                normalized_items.append({
+                    "task": "Review meeting notes and follow up on discussion points",
+                    "priority": "medium",
+                    "assigned_to": "Unassigned"
+                })
+
             return {
                 "success": True,
                 "action_items": normalized_items,
@@ -343,12 +352,17 @@ Remember: The ## heading should be a SPECIFIC title about the meeting content, N
             }
 
         except json.JSONDecodeError:
-            # If can't parse JSON, return empty action items
+            # If can't parse JSON, return default fallback action item
+            print("[AI] Failed to parse JSON - adding default fallback item")
             return {
                 "success": True,
-                "action_items": [],
+                "action_items": [{
+                    "task": "Review meeting notes and follow up on discussion points",
+                    "priority": "medium",
+                    "assigned_to": "Unassigned"
+                }],
                 "model_used": self.model,
-                "warning": "Could not parse action items from AI response"
+                "warning": "Could not parse action items from AI response - using fallback"
             }
 
         except requests.exceptions.ConnectionError:
