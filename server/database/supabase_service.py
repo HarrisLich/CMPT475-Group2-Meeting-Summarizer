@@ -37,6 +37,46 @@ class SupabaseService:
             "date": datetime.now().isoformat()
         }).execute()
         
+    def upload_audio_file(self, file_content: bytes, filename: str, user_id: str):
+        """
+        Upload audio file to Supabase Storage.
+
+        Args:
+            file_content: Audio file content as bytes
+            filename: Original filename
+            user_id: User ID for organizing files
+
+        Returns:
+            Public URL of the uploaded file
+        """
+        import uuid
+        from datetime import datetime
+
+        # Generate unique filename to prevent collisions
+        file_extension = filename.split('.')[-1] if '.' in filename else 'mp3'
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        unique_filename = f"{user_id}/{timestamp}_{uuid.uuid4().hex[:8]}.{file_extension}"
+
+        # Upload to Supabase Storage
+        try:
+            # Upload file to meeting-audio bucket
+            self.client.storage.from_('meeting-audio').upload(
+                path=unique_filename,
+                file=file_content,
+                file_options={
+                    "content-type": f"audio/{file_extension}",
+                    "upsert": "false"
+                }
+            )
+
+            # Get public URL
+            public_url = self.client.storage.from_('meeting-audio').get_public_url(unique_filename)
+            return public_url
+
+        except Exception as e:
+            print(f"Error uploading audio to Supabase Storage: {str(e)}")
+            raise Exception(f"Failed to upload audio file: {str(e)}")
+
     def save_transcription(self, meeting_id, transcription_text, audio_url=None, segments=None):
         transcription_data = {
             "meeting_id": meeting_id,
@@ -66,6 +106,7 @@ class SupabaseService:
                 - segments: List of segments with speaker info
                 - language: Detected language
                 - filename: Original filename
+                - audio_url: Optional Supabase Storage URL for the audio file
         """
         # Prepare segments data including speaker information
         segments = transcription_data.get("segments", [])
@@ -76,11 +117,14 @@ class SupabaseService:
             "language": transcription_data.get("language", "en")
         }
 
+        # Extract audio_url if provided
+        audio_url = transcription_data.get("audio_url")
+
         # Save the full transcription with segments embedded in the JSON field
         transcription_result = self.save_transcription(
             meeting_id,
             transcription_data.get("transcription", ""),
-            audio_url=None,
+            audio_url=audio_url,
             segments=segment_data
         )
 

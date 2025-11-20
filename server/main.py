@@ -317,6 +317,23 @@ async def transcribe_audio(
                     }
                 )
 
+        # Upload audio to Supabase Storage if user_id is provided
+        audio_url = None
+        if user_id:
+            try:
+                print(f"[STORAGE] Uploading audio to Supabase Storage...")
+                supabase = get_supabase()
+                audio_url = supabase.upload_audio_file(
+                    file_content=content,
+                    filename=audio_file.filename,
+                    user_id=user_id
+                )
+                print(f"[STORAGE] Audio uploaded successfully: {audio_url}")
+            except Exception as storage_error:
+                print(f"[STORAGE ERROR] Failed to upload audio: {str(storage_error)}")
+                # Don't fail the entire request if storage upload fails
+                audio_url = None
+
         # Transcribe using the service
         result = transcription_service.transcribe_file(content, audio_file.filename)
 
@@ -350,6 +367,10 @@ async def transcribe_audio(
             "email": "test@example.com",
             "name": "Test User"
         }
+
+        # Add audio_url to result if it was uploaded
+        if audio_url:
+            result["audio_url"] = audio_url
 
         # Save to database if user_id is provided
         meeting_id = None
@@ -417,7 +438,7 @@ async def transcribe_audio(
                     transcription_result = supabase.save_transcription(
                         meeting_id=meeting_id,
                         transcription_text=transcription_text,
-                        audio_url=None,
+                        audio_url=audio_url,
                         segments=segments
                     )
                     transcription_id = transcription_result.data[0]['id']
@@ -928,8 +949,29 @@ async def transcribe_with_speakers(
         # Read file content
         content = await audio_file.read()
 
+        # Upload audio to Supabase Storage if user_id is provided
+        audio_url = None
+        if user_id:
+            try:
+                print(f"[STORAGE] Uploading audio to Supabase Storage...")
+                supabase_storage = get_supabase()
+                audio_url = supabase_storage.upload_audio_file(
+                    file_content=content,
+                    filename=audio_file.filename,
+                    user_id=user_id
+                )
+                print(f"[STORAGE] Audio uploaded successfully: {audio_url}")
+            except Exception as storage_error:
+                print(f"[STORAGE ERROR] Failed to upload audio: {str(storage_error)}")
+                # Don't fail the entire request if storage upload fails
+                audio_url = None
+
         # Transcribe with speaker diarization
         result = transcription_service.transcribe_with_speakers(content, audio_file.filename, hf_token)
+
+        # Add audio_url to result
+        if audio_url:
+            result["audio_url"] = audio_url
 
         # Auto-save to database only if user_id is provided
         if user_id:

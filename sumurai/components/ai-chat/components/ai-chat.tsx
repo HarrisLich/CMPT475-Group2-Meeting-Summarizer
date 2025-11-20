@@ -40,6 +40,7 @@ interface Chat {
   };
   actionItems?: ActionItem[];
   messages?: any[]; // Cached messages for instant switching
+  audioUrl?: string; // Blob URL for audio playback
 }
 
 export default function AiChat() {
@@ -378,6 +379,9 @@ export default function AiChat() {
       }
     }
 
+    // Create blob URL for audio playback
+    const audioUrl = URL.createObjectURL(file);
+
     setIsUploading(true);
     setUploadStatus("📤 Uploading audio file...");
 
@@ -455,7 +459,9 @@ export default function AiChat() {
             fileName: file.name
           },
           actionItems: assignedActionItems,
-          messages: [aiMessage] // Cache the initial summary message
+          messages: [aiMessage], // Cache the initial summary message
+          // Use Supabase URL from backend if available, otherwise use blob URL for immediate playback
+          audioUrl: transcriptionData.audio_url || audioUrl
         };
         console.log("Complete chat data (including conversationId and cached messages):", chatData);
 
@@ -648,11 +654,19 @@ export default function AiChat() {
                 segments: segments,
                 fileName: conversationData.conversation?.title || "Meeting Transcript"
               };
+
+              // Add audio URL from database if available
+              if (conversationData.transcription.audio_url) {
+                updatedChat.audioUrl = conversationData.transcription.audio_url;
+                console.log("[SELECT] Cached audio URL:", updatedChat.audioUrl);
+              }
+
               console.log("[SELECT] Cached transcription:", {
                 hasFullText: !!updatedChat.transcription.fullText,
                 textLength: updatedChat.transcription.fullText?.length,
                 segmentsCount: updatedChat.transcription.segments?.length || 0,
-                segmentsFormat: typeof conversationData.transcription.segments
+                segmentsFormat: typeof conversationData.transcription.segments,
+                hasAudioUrl: !!updatedChat.audioUrl
               });
             }
 
@@ -849,6 +863,7 @@ export default function AiChat() {
               actionItems={currentChat?.actionItems ?? []}
               useSpeakerDiarization={useSpeakerDiarization}
               setUseSpeakerDiarization={setUseSpeakerDiarization}
+              audioUrl={currentChat?.audioUrl}
             />
             
             {/* Speaker Mapping Overlay */}

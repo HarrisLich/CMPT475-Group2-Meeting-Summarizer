@@ -43,6 +43,7 @@ interface ChatInterfaceProps {
   actionItems?: ActionItem[];
   useSpeakerDiarization?: boolean;
   setUseSpeakerDiarization?: (value: boolean) => void;
+  audioUrl?: string;
 }
 
 export function ChatInterface({
@@ -59,7 +60,8 @@ export function ChatInterface({
   transcriptSegments = [],
   actionItems = [],
   useSpeakerDiarization = false,
-  setUseSpeakerDiarization
+  setUseSpeakerDiarization,
+  audioUrl
 }: ChatInterfaceProps) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = React.useState(false);
@@ -473,11 +475,28 @@ export function ChatInterface({
             <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none z-20"></div>
           )}
           <ScrollArea className="flex-1 overflow-y-auto">
-              {/* Floating Header */}
+              {/* Floating Header with Audio Player */}
               <div className="sticky top-0 z-10 px-6 pt-4 pb-4 bg-[#111111]">
-                <h3 className="text-sm font-semibold text-white uppercase tracking-wide">
-                  Transcript
-                </h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-white uppercase tracking-wide">
+                    Transcript
+                  </h3>
+                </div>
+                {/* Audio Player */}
+                {audioUrl && (
+                  <div className="bg-[#1A1A1A] rounded-lg border border-[#333333] p-3 mb-3">
+                    <audio
+                      controls
+                      className="w-full h-8"
+                      style={{
+                        filter: 'hue-rotate(180deg) saturate(2)',
+                      }}
+                    >
+                      <source src={audioUrl} type="audio/mpeg" />
+                      Your browser does not support the audio element.
+                    </audio>
+                  </div>
+                )}
               </div>
             <div className="px-6 pb-6">
               <div className="space-y-3">
