@@ -8,7 +8,7 @@ import {
   CheckCircle,
   Users,
   Brain,
-  Shield,
+  Gauge,
   Zap,
   Github,
   Linkedin,
@@ -115,8 +115,8 @@ export default function AboutPage() {
             About SumurAI
           </h1>
           <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-12 leading-relaxed">
-            Built by students, for the modern workplace. SumurAI transforms how teams capture,
-            understand, and act on their conversations through the power of artificial intelligence.
+            A capstone project turned practical tool. SumurAI transforms meeting recordings into
+            structured summaries, actionable tasks, and timestamped transcripts—powered by AI.
           </p>
         </div>
       </section>
@@ -131,27 +131,27 @@ export default function AboutPage() {
                 <div>
                   <h2 className="text-4xl font-bold text-white mb-6">Our Mission</h2>
                   <p className="text-gray-300 leading-relaxed text-lg">
-                    We believe that great ideas shouldn't get lost in lengthy meeting recordings.
-                    SumurAI was created to bridge the gap between discussion and action, ensuring
-                    that every conversation drives meaningful progress.
+                    Transform meeting recordings into clear, actionable insights. SumurAI helps individuals
+                    and teams capture important conversations, extract key decisions, and stay organized—without
+                    manually reviewing hours of audio.
                   </p>
                 </div>
 
                 <div>
-                  <h3 className="text-2xl font-bold text-white mb-4">The Problem We Solve</h3>
+                  <h3 className="text-2xl font-bold text-white mb-4">The Problem</h3>
                   <p className="text-gray-300 leading-relaxed">
-                    Teams spend countless hours in meetings, but struggle to extract actionable
-                    insights from recordings. Important decisions get buried in transcripts, and
-                    follow-up tasks are forgotten or misunderstood.
+                    Reviewing meeting recordings is time-consuming. Important action items get lost in
+                    long transcripts, decisions are forgotten, and team members waste hours searching
+                    for specific moments in recordings.
                   </p>
                 </div>
 
                 <div>
                   <h3 className="text-2xl font-bold text-white mb-4">Our Solution</h3>
                   <p className="text-gray-300 leading-relaxed">
-                    SumurAI leverages advanced AI to automatically generate structured summaries,
-                    identify key decisions, extract action items, and organize conversations into
-                    digestible, actionable formats.
+                    Upload audio or video, get instant AI-powered analysis. SumurAI generates structured
+                    summaries with key points, extracts prioritized action items, and provides timestamped
+                    transcripts—with optional speaker identification.
                   </p>
                 </div>
               </div>
@@ -166,8 +166,8 @@ export default function AboutPage() {
                       <Brain className="w-4 h-4 text-black" />
                     </div>
                     <div>
-                      <h4 className="text-lg font-semibold text-white mb-1">AI-Powered Accuracy</h4>
-                      <p className="text-gray-400">Advanced natural language processing ensures precise extraction of key information.</p>
+                      <h4 className="text-lg font-semibold text-white mb-1">AI-Powered Intelligence</h4>
+                      <p className="text-gray-400">Advanced NLP extracts summaries, action items, and key decisions automatically.</p>
                     </div>
                   </div>
 
@@ -176,8 +176,8 @@ export default function AboutPage() {
                       <Zap className="w-4 h-4 text-black" />
                     </div>
                     <div>
-                      <h4 className="text-lg font-semibold text-white mb-1">Lightning Fast</h4>
-                      <p className="text-gray-400">Process hours of meetings in minutes, not hours.</p>
+                      <h4 className="text-lg font-semibold text-white mb-1">Fast Processing</h4>
+                      <p className="text-gray-400">Get results in under 2 minutes with fast mode, or detailed analysis in 10-20 min.</p>
                     </div>
                   </div>
 
@@ -186,18 +186,18 @@ export default function AboutPage() {
                       <Users className="w-4 h-4 text-black" />
                     </div>
                     <div>
-                      <h4 className="text-lg font-semibold text-white mb-1">Team-Focused</h4>
-                      <p className="text-gray-400">Built for collaboration with features that keep teams aligned and accountable.</p>
+                      <h4 className="text-lg font-semibold text-white mb-1">Speaker Tracking</h4>
+                      <p className="text-gray-400">Optional diarization mode identifies and tracks up to 15+ speakers.</p>
                     </div>
                   </div>
 
                   <div className="flex items-start gap-4">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] flex items-center justify-center flex-shrink-0 mt-1">
-                      <Shield className="w-4 h-4 text-black" />
+                      <Gauge className="w-4 h-4 text-black" />
                     </div>
                     <div>
-                      <h4 className="text-lg font-semibold text-white mb-1">Secure & Private</h4>
-                      <p className="text-gray-400">Your conversations stay private with enterprise-grade security.</p>
+                      <h4 className="text-lg font-semibold text-white mb-1">Flexible Modes</h4>
+                      <p className="text-gray-400">Choose speed or detail: fast transcription or full speaker diarization.</p>
                     </div>
                   </div>
                 </div>
@@ -325,21 +325,13 @@ export default function AboutPage() {
             <p className="text-xl text-gray-300 mb-8">
               See how our AI-powered meeting summarization can transform your workflow
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex justify-center">
               <Button
                 size="lg"
                 onClick={() => router.push('/core')}
                 className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black text-lg px-8 py-6"
               >
-                Meet Sumurai
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => router.push('/demo')}
-                className="border-[#00F5FF] text-[#00F5FF] hover:bg-[#00F5FF] hover:text-black text-lg px-8 py-6"
-              >
-                Try Demo
+                Get Started
               </Button>
             </div>
           </div>

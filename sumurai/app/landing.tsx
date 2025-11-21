@@ -1,18 +1,18 @@
 'use client';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { AuthDialog } from '@/components/AuthDialog';
 import {
   Users,
-  Calendar,
+  FileText,
   CheckCircle,
   Mic,
   Brain,
-  Shield,
+  Gauge,
   Zap,
   ArrowRight
 } from 'lucide-react';
@@ -20,83 +20,14 @@ import { useAuth } from '@/lib/context/auth-context';
 
 function Landing() {
   const router = useRouter();
-  const { user, session, loading: authLoading, error: authError, login, register, logout } = useAuth();
+  const { user, session } = useAuth();
   const [isVisible, setIsVisible] = useState(false);
   const [displayText, setDisplayText] = useState('');
   const [featuresVisible, setFeaturesVisible] = useState(false);
   const [swordSlicing, setSwordSlicing] = useState(false);
   const [hasTriggered, setHasTriggered] = useState(false);
-  const [loginOpen, setLoginOpen] = useState(false);
-  const [isRegister, setIsRegister] = useState(false);
-  const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '' });
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const fullText = 'actionable insights';
-
-  const openLogin = () => {
-    setLoginOpen(true);
-    setIsRegister(false);
-  };
-
-  const openSignUp = () => {
-    setLoginOpen(true);
-    setIsRegister(true);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
-
-    // Validate form data
-    if (!formData.email || !formData.password) {
-      setError('Email and password are required');
-      setIsLoading(false);
-      return;
-    }
-
-    if (isRegister && formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      if (isRegister) {
-        // Handle registration
-        await register(formData.email, formData.password);
-        console.log('Registration successful');
-      } else {
-        // Handle login
-        await login(formData.email, formData.password);
-        console.log('Login successful');
-      }
-
-      // On success: close dialog and redirect
-      setLoginOpen(false);
-      router.push('/profiling');
-    } catch (err: any) {
-      setError(err.message || 'An error occurred');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleInputChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, [field]: e.target.value }));
-  };
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-      // Optionally redirect to home or refresh page
-      router.push('/');
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
-  };
-
-  // Auth state is now managed by the AuthProvider context
 
   useEffect(() => {
     setIsVisible(true);
@@ -149,37 +80,37 @@ function Landing() {
     {
       icon: <Brain className="w-6 h-6" />,
       title: "AI-Powered Summarization",
-      description: "Transform lengthy meetings into concise, actionable summaries automatically.",
+      description: "Transform audio and video recordings into detailed, responsive summaries.",
       color: "bg-gradient-to-br from-[#00F5FF] to-[#06B6D4]"
     },
     {
       icon: <CheckCircle className="w-6 h-6" />,
-      title: "Action Item Extraction",
-      description: "Automatically identify tasks, deadlines, and responsibilities from discussions.",
+      title: "Smart Action Items",
+      description: "Automatically extract tasks with priorities and assignments—never miss a follow-up again.",
       color: "bg-gradient-to-br from-[#00F5FF] to-[#06B6D4]"
     },
     {
       icon: <Users className="w-6 h-6" />,
-      title: "Speaker Identification",
-      description: "Track who said what with intelligent speaker recognition technology.",
+      title: "Speaker Diarization",
+      description: "Optional speaker identification mode to track who said what throughout your meeting.",
       color: "bg-gradient-to-br from-[#00F5FF] to-[#06B6D4]"
     },
     {
-      icon: <Calendar className="w-6 h-6" />,
-      title: "Calendar Integration",
-      description: "Sync action items and deadlines to your favorite calendar apps seamlessly.",
+      icon: <FileText className="w-6 h-6" />,
+      title: "Export & Share",
+      description: "Download summaries, transcripts, and action items as PDFs to share with your team.",
       color: "bg-gradient-to-br from-[#00F5FF] to-[#06B6D4]"
     },
     {
-      icon: <Shield className="w-6 h-6" />,
-      title: "Enterprise Security",
-      description: "Keep your data secure with enterprise-grade encryption and compliance standards.",
+      icon: <Gauge className="w-6 h-6" />,
+      title: "Dual Processing Modes",
+      description: "Fast mode for quick results (~2 min) or diarized mode with full speaker tracking (10-20 min).",
       color: "bg-gradient-to-br from-[#00F5FF] to-[#06B6D4]"
     },
     {
       icon: <Zap className="w-6 h-6" />,
-      title: "Lightning Fast",
-      description: "Get comprehensive summaries in minutes, not hours.",
+      title: "Instant Transcription",
+      description: "Upload audio or video and get accurate transcripts with timestamps in minutes.",
       color: "bg-gradient-to-br from-[#00F5FF] to-[#06B6D4]"
     }
   ];
@@ -206,65 +137,43 @@ function Landing() {
           </h1>
           
           <p className={`text-xl md:text-2xl text-gray-300 mb-12 leading-relaxed max-w-3xl mx-auto transition-all duration-1000 delay-500 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            From messy discussions to clear action plans. Get structured outputs that keep you and your team aligned.
+            Slash lengthy meetings into structured, actionable summaries with AI.
           </p>
           
-          <div className={`flex flex-col sm:flex-row gap-4 justify-center mb-12 transition-all duration-1000 delay-700 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+          <div className={`flex justify-center mb-12 transition-all duration-1000 delay-700 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             {user && session ? (
-              <>
-                <Button
-                  size="lg"
-                  onClick={() => router.push('/profiling')}
-                  className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black text-lg px-8 py-6 shadow-xl hover:shadow-2xl transition-all duration-300"
-                >
-                  Go to Dashboard
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onClick={() => router.push('/demo')}
-                  className="text-lg px-8 py-6 border-2 border-[#333333] text-white hover:bg-[#1A1A1A] hover:text-[#00F5FF] transition-colors"
-                >
-                  <Mic className="w-5 h-5 mr-2" />
-                  Try Demo
-                </Button>
-              </>
+              <Button
+                size="lg"
+                onClick={() => router.push('/core')}
+                className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black text-lg px-8 py-6 shadow-xl hover:shadow-2xl transition-all duration-300"
+              >
+                Go to Dashboard
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
             ) : (
-              <>
-                <Button
-                  size="lg"
-                  onClick={openSignUp}
-                  className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black text-lg px-8 py-6 shadow-xl hover:shadow-2xl transition-all duration-300"
-                >
-                  Upload Meeting
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onClick={() => router.push('/demo')}
-                  className="text-lg px-8 py-6 border-2 border-[#333333] text-white hover:bg-[#1A1A1A] hover:text-[#00F5FF] transition-colors"
-                >
-                  <Mic className="w-5 h-5 mr-2" />
-                  Try Demo
-                </Button>
-              </>
+              <Button
+                size="lg"
+                onClick={() => setAuthDialogOpen(true)}
+                className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black text-lg px-8 py-6 shadow-xl hover:shadow-2xl transition-all duration-300"
+              >
+                Get Started
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
             )}
           </div>
 
           <div className={`flex items-center justify-center space-x-8 text-gray-400 text-sm transition-all duration-1000 delay-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'}`}>
             <div className="flex items-center space-x-2">
               <CheckCircle className="w-4 h-4 text-[#00F5FF]" />
-              <span>Workflow Integrated</span>
+              <span>AI-powered analysis</span>
             </div>
             <div className="flex items-center space-x-2">
               <CheckCircle className="w-4 h-4 text-[#00F5FF]" />
-              <span>Instant results</span>
+              <span>Fast & accurate</span>
             </div>
             <div className="flex items-center space-x-2">
               <CheckCircle className="w-4 h-4 text-[#00F5FF]" />
-              <span>Secure processing</span>
+              <span>Export ready</span>
             </div>
           </div>
         </div>
@@ -344,20 +253,20 @@ function Landing() {
         <div className="container mx-auto px-6">
           <div className="grid md:grid-cols-4 gap-8 text-center">
             <div className="hover:scale-105 transition-transform duration-300 cursor-pointer">
-              <div className="text-4xl md:text-5xl font-bold mb-2 animate-in fade-in slide-in-from-bottom-4" style={{animationDelay: '200ms'}}>90%</div>
-              <div className="text-black/70">Accuracy</div>
+              <div className="text-4xl md:text-5xl font-bold mb-2 animate-in fade-in slide-in-from-bottom-4" style={{animationDelay: '200ms'}}>90%+</div>
+              <div className="text-black/70">Transcription Accuracy</div>
             </div>
             <div className="hover:scale-105 transition-transform duration-300 cursor-pointer">
-              <div className="text-4xl md:text-5xl font-bold mb-2 animate-in fade-in slide-in-from-bottom-4" style={{animationDelay: '400ms'}}>&lt;3min</div>
-              <div className="text-black/70">Avg. Processing Time</div>
+              <div className="text-4xl md:text-5xl font-bold mb-2 animate-in fade-in slide-in-from-bottom-4" style={{animationDelay: '400ms'}}>&lt;2min</div>
+              <div className="text-black/70">Fast Mode Processing</div>
             </div>
             <div className="hover:scale-105 transition-transform duration-300 cursor-pointer">
-              <div className="text-4xl md:text-5xl font-bold mb-2 animate-in fade-in slide-in-from-bottom-4" style={{animationDelay: '600ms'}}>15</div>
-              <div className="text-black/70">Speakers</div>
+              <div className="text-4xl md:text-5xl font-bold mb-2 animate-in fade-in slide-in-from-bottom-4" style={{animationDelay: '600ms'}}>15+</div>
+              <div className="text-black/70">Speaker Tracking</div>
             </div>
             <div className="hover:scale-105 transition-transform duration-300 cursor-pointer">
-              <div className="text-4xl md:text-5xl font-bold mb-2 animate-in fade-in slide-in-from-bottom-4" style={{animationDelay: '800ms'}}>5+</div>
-              <div className="text-black/70">Meetings</div>
+              <div className="text-4xl md:text-5xl font-bold mb-2 animate-in fade-in slide-in-from-bottom-4" style={{animationDelay: '800ms'}}>PDF</div>
+              <div className="text-black/70">Export Format</div>
             </div>
           </div>
         </div>
@@ -370,17 +279,14 @@ function Landing() {
         <div className="container mx-auto px-6 text-center">
           <div className="max-w-3xl mx-auto">
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-              Ready to organize your conversations?
+              Ready to transform your meetings?
             </h2>
-            <p className="text-xl text-gray-300 mb-12">
-              Upload a recording and see AI-powered insights in action.
-            </p>
             <Button
               size="lg"
-              onClick={() => router.push('/profiling')}
+              onClick={() => router.push('/core')}
               className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black text-lg px-8 py-6 shadow-xl"
             >
-              Get Started Now
+              Get Started Free
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
           </div>
@@ -388,8 +294,16 @@ function Landing() {
       </section>
 
       {/* Footer */}
-      
+
       <Footer />
+
+      {/* Auth Dialog */}
+      <AuthDialog
+        open={authDialogOpen}
+        onOpenChange={setAuthDialogOpen}
+        defaultMode="register"
+        redirectTo="/core"
+      />
     </div>
   );
 }

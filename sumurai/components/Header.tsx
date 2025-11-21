@@ -127,13 +127,11 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
             <a href="/#features" className="text-white hover:text-[#00F5FF] transition-colors font-medium">
               Features
             </a>
-            <a href="/demo" className="text-white hover:text-[#00F5FF] transition-colors font-medium">
-              Demo
-            </a>
-            {/* ----TEMPORARY---- direct link to AI Engine. Breaks regular user flow, delete before prod*/}
-            <a href="/core" className="text-white hover:text-[#00F5FF] transition-colors font-medium">
-              AI Engine
-            </a>
+            {user && session && (
+              <a href="/core" className="text-white hover:text-[#00F5FF] transition-colors font-medium">
+                App
+              </a>
+            )}
             <a href="/about" className="text-white hover:text-[#00F5FF] transition-colors font-medium">
               About
             </a>
