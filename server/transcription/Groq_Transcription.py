@@ -92,12 +92,31 @@ class GroqTranscriptionService:
                     temperature=0.0  # Deterministic output
                 )
 
-            # Parse the response
+            # Parse the response and normalize segments format
+            segments = []
+            if hasattr(transcription, "segments") and transcription.segments:
+                for seg in transcription.segments:
+                    # Normalize segment format - handle both dict and object formats
+                    if isinstance(seg, dict):
+                        segment = {
+                            "start": seg.get("start", 0),
+                            "end": seg.get("end", 0),
+                            "text": seg.get("text", "")
+                        }
+                    else:
+                        # Object format (Groq API response)
+                        segment = {
+                            "start": getattr(seg, "start", 0),
+                            "end": getattr(seg, "end", 0),
+                            "text": getattr(seg, "text", "")
+                        }
+                    segments.append(segment)
+            
             result = {
                 "filename": filename,
                 "transcription": transcription.text,
                 "language": getattr(transcription, "language", None),
-                "segments": getattr(transcription, "segments", []),
+                "segments": segments,
                 "model_used": self.model,
                 "service": "groq",
                 "duration": getattr(transcription, "duration", None)
@@ -265,28 +284,144 @@ class HybridTranscriptionService:
         """Check if file type is supported by either service."""
         return self.local_service.is_supported_file_type(content_type)
     
-    def transcribe_with_speakers(self, file_content: bytes, filename: str, hf_token: str = None) -> Dict[str, Any]:
+    def transcribe_with_speakers(self, file_content: bytes, filename: str, hf_token: str = None, use_assemblyai: bool = True) -> Dict[str, Any]:
         """
-        Transcribe file with speaker diarization using local Whisper + pyannote.
+        Transcribe file with speaker diarization using FAST AssemblyAI (preferred) or parallel processing.
         
-        Note: Speaker diarization requires local processing, so this always uses LocalWhisperService
-        even if Groq is available, since Groq doesn't support speaker diarization.
+        Strategy:
+        - Try AssemblyAI first (fastest: 2-5 min for 30-min meeting, single API call)
+        - Fallback to parallel Groq + pyannote if AssemblyAI not available
         
         Args:
             file_content: Binary content of audio/video file
             filename: Original filename
-            hf_token: HuggingFace token for pyannote models
+            hf_token: HuggingFace token for pyannote models (not needed if using AssemblyAI)
+            use_assemblyai: Whether to try AssemblyAI first (default: True)
             
         Returns:
             Transcription result dict with speaker information
         """
-        print(f"Starting speaker diarization transcription for: {filename}")
-        print(f"Using local Whisper + pyannote for speaker identification")
+        # Try AssemblyAI first (fastest option)
+        if use_assemblyai:
+            try:
+                from .AssemblyAI_Transcription import AssemblyAITranscriptionService
+                print(f" Trying AssemblyAI for FAST speaker diarization...")
+                assemblyai_service = AssemblyAITranscriptionService()
+                result = assemblyai_service.transcribe_with_speakers(file_content, filename)
+                print(f" AssemblyAI transcription complete (fastest method)!")
+                return result
+            except ValueError as e:
+                # AssemblyAI not configured, fall back to parallel processing
+                print(f" AssemblyAI not configured: {str(e)}")
+                print(f" Falling back to parallel Groq + pyannote...")
+            except Exception as e:
+                # AssemblyAI failed, fall back
+                print(f" AssemblyAI failed: {str(e)}")
+                print(f" Falling back to parallel Groq + pyannote...")
         
-        # Always use local service for speaker diarization
-        result = self.local_service.transcribe_with_speakers(file_content, filename, hf_token)
-        result["service"] = "local_whisper_with_speakers"
-        result["model_used"] = f"{self.whisper_model} + pyannote"
+        # Fallback: Parallel processing with Groq + pyannote
+        from .SpeakerDiarization import SpeakerDiarizationService
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        import time
         
-        print(f"✅ Speaker diarization transcription complete!")
-        return result
+        print(f" Starting PARALLEL speaker diarization transcription for: {filename}")
+        print(f"⚡ Running Groq transcription and pyannote diarization in parallel...")
+        
+        start_time = time.time()
+        transcription_result = None
+        speaker_segments = None
+        transcription_error = None
+        diarization_error = None
+        
+        # Define transcription function
+        def run_transcription():
+            nonlocal transcription_result, transcription_error
+            try:
+                if self.groq_available:
+                    print(f"📝 [Thread 1] Starting Groq transcription...")
+                    transcription_result = self.groq_service.transcribe_file(file_content, filename)
+                    print(f"✅ [Thread 1] Groq transcription complete!")
+                else:
+                    print(f"📝 [Thread 1] Starting local Whisper transcription...")
+                    transcription_result = self.local_service.transcribe_file(file_content, filename)
+                    print(f"✅ [Thread 1] Local transcription complete!")
+            except Exception as e:
+                print(f"❌ [Thread 1] Transcription failed: {str(e)}")
+                transcription_error = e
+                # Fallback to local if Groq fails
+                if self.groq_available:
+                    try:
+                        print(f"🔄 [Thread 1] Falling back to local Whisper...")
+                        transcription_result = self.local_service.transcribe_file(file_content, filename)
+                        transcription_error = None
+                    except Exception as fallback_error:
+                        transcription_error = fallback_error
+        
+        # Define diarization function
+        def run_diarization():
+            nonlocal speaker_segments, diarization_error
+            try:
+                print(f"🎤 [Thread 2] Starting speaker diarization...")
+                diarization_service = SpeakerDiarizationService(hf_token=hf_token)
+                speaker_segments = diarization_service.process_audio(file_content, filename)
+                print(f"✅ [Thread 2] Speaker diarization complete: found {len(set(s['speaker'] for s in speaker_segments))} speakers")
+            except Exception as e:
+                print(f"❌ [Thread 2] Speaker diarization failed: {str(e)}")
+                diarization_error = e
+        
+        # Run both in parallel using ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            # Submit both tasks
+            transcription_future = executor.submit(run_transcription)
+            diarization_future = executor.submit(run_diarization)
+            
+            # Wait for both to complete
+            for future in as_completed([transcription_future, diarization_future]):
+                try:
+                    future.result()  # This will raise any exceptions
+                except Exception as e:
+                    print(f"⚠️ Task completed with error: {str(e)}")
+        
+        # Check if transcription succeeded
+        if transcription_error and not transcription_result:
+            raise Exception(f"Transcription failed: {str(transcription_error)}")
+        
+        if not transcription_result:
+            raise Exception("Transcription returned no result")
+        
+        # Ensure we have segments
+        if "segments" not in transcription_result:
+            transcription_result["segments"] = []
+        
+        # If diarization failed, return transcription without speakers
+        if diarization_error or not speaker_segments:
+            print(f"⚠️ Diarization failed, returning transcription without speaker tags...")
+            transcription_result["service"] = "groq" if self.groq_available else "local"
+            transcription_result["model_used"] = self.groq_model if self.groq_available else self.whisper_model
+            return transcription_result
+        
+        # Combine results - match each transcription segment with speakers
+        print(f"🔗 Combining transcription with speaker tags...")
+        for segment in transcription_result.get("segments", []):
+            start_time_seg = segment.get("start", 0)
+            end_time_seg = segment.get("end", 0)
+            
+            # Find overlapping speaker segments
+            speakers = []
+            for spk in speaker_segments:
+                if spk["start"] < end_time_seg and spk["end"] > start_time_seg:
+                    speakers.append(spk["speaker"])
+            
+            # Use most frequent speaker if multiple
+            if speakers:
+                segment["speaker"] = max(set(speakers), key=speakers.count)
+            else:
+                segment["speaker"] = "UNKNOWN"
+        
+        # Update metadata
+        transcription_result["service"] = "groq_with_speakers_parallel" if self.groq_available else "local_whisper_with_speakers_parallel"
+        transcription_result["model_used"] = f"{self.groq_model if self.groq_available else self.whisper_model} + pyannote (parallel)"
+        
+        elapsed_time = time.time() - start_time
+        print(f"✅ Speaker-tagged transcription complete in {elapsed_time:.1f}s (parallel processing)!")
+        return transcription_result
