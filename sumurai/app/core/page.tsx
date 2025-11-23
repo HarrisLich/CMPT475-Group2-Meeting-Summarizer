@@ -82,9 +82,9 @@ export default function CorePage() {
                   <Share2 className="w-5 h-5 text-black" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-white mb-1">4. Share & Integrate</h3>
+                  <h3 className="font-semibold text-white mb-1">4. Export & Share</h3>
                   <p className="text-sm text-gray-400">
-                    Export summaries or integrate with your favorite productivity tools
+                    Download summaries, transcripts, and action items as PDF
                   </p>
                 </div>
               </div>

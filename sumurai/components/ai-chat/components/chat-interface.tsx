@@ -9,8 +9,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Share, ThumbsUp, ThumbsDown, Send, Paperclip, Mic, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Users, Settings, Download, FileText, ListChecks, FileStack } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { downloadMeetingData, type MeetingData, type DownloadType } from '@/lib/services/output-download';
@@ -252,17 +250,46 @@ export function ChatInterface({
           <div className="px-6 pb-6 pt-3">
             <div className="space-y-4">
               {messages && messages.length === 0 && !isLoading && !isUploading ? (
-                <div className="flex flex-col items-center justify-center gap-4 min-h-[600px]">
-                  <p className="text-sm text-gray-500 italic text-center max-w-xs">
+                <div className="flex flex-col items-center justify-center gap-6 min-h-[600px]">
+                  <p className="text-sm text-gray-400 text-center max-w-xs">
                     Upload a meeting recording to generate an AI summary.
                   </p>
-                  <Button
-                    onClick={handleUploadClick}
-                    className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00F5FF]/80 hover:to-[#06B6D4]/80 text-gray-900 font-semibold"
-                  >
-                    <Paperclip className="h-4 w-4 mr-2" />
-                    Upload Meeting
-                  </Button>
+
+                  <div className="flex flex-col items-center gap-4">
+                    <Button
+                      onClick={handleUploadClick}
+                      size="lg"
+                      className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00F5FF]/90 hover:to-[#06B6D4]/90 text-black font-semibold shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-6 text-base"
+                    >
+                      <Paperclip className="h-5 w-5 mr-2" />
+                      Upload Meeting
+                    </Button>
+
+                    {/* Mode Toggle - only show on initial upload page */}
+                    {onFileUpload && setUseSpeakerDiarization && messages.length === 0 && !isUploading && (
+                      <div className="flex flex-col items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setUseSpeakerDiarization(!useSpeakerDiarization)}
+                          className="flex items-center gap-2.5 px-3 py-1.5 rounded-full border border-[#333333] hover:border-[#00F5FF]/30 transition-all duration-200"
+                        >
+                          <span className={`text-xs font-medium transition-colors ${!useSpeakerDiarization ? 'text-[#00F5FF]' : 'text-gray-500'}`}>
+                            Fast
+                          </span>
+                          <div className="relative w-9 h-5 bg-[#333333] rounded-full transition-colors duration-200">
+                            <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] rounded-full transition-transform duration-200 shadow-sm ${useSpeakerDiarization ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                          </div>
+                          <span className={`text-xs font-medium transition-colors ${useSpeakerDiarization ? 'text-[#00F5FF]' : 'text-gray-500'}`}>
+                            Diarized
+                          </span>
+                        </button>
+                        <span className="text-xs text-gray-500">
+                          {useSpeakerDiarization ? '10-20 min • identifies speakers' : '~2 min • no speakers'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
                 </div>
               ) : null}
               {isUploading && messages.length === 0 && (
@@ -382,24 +409,6 @@ export function ChatInterface({
             {/* Chat Input - Sticky at bottom */}
             <div className="sticky bottom-0 z-10 px-6 pb-12 pt-12 relative">
               <div className="absolute inset-0 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent pointer-events-none"></div>
-
-              {/* Speaker Diarization Toggle */}
-              {onFileUpload && setUseSpeakerDiarization && (
-                <div className="flex items-center gap-2 mb-3 relative z-10">
-                  <Switch
-                    id="speaker-mode"
-                    checked={useSpeakerDiarization}
-                    onCheckedChange={setUseSpeakerDiarization}
-                    className="data-[state=checked]:bg-[#00F5FF]"
-                  />
-                  <Label
-                    htmlFor="speaker-mode"
-                    className="text-sm text-gray-400 cursor-pointer select-none"
-                  >
-                    Enable Speaker Identification (slow, 10-20 min)
-                  </Label>
-                </div>
-              )}
 
               <form onSubmit={handleSubmit} className="flex items-center gap-2 relative z-10">
             <div className="bg-[#1A1A1A] flex flex-1 items-center rounded-lg border border-[#333333] px-3 py-2 relative shadow-lg hover:border-[#00F5FF] focus-within:border-[#00F5FF] transition-all duration-200">

@@ -219,39 +219,6 @@ export function Sidebar({ chats, selectedChatId, onNewChat, onSelectChat, onDele
           </ScrollArea>
         </div>
       </div>
-
-      {/* Footer */}
-      <div className="border-t p-[1px] flex-shrink-0">
-        {!isCollapsed ? (
-          <div className="space-y-1">
-            <Button variant="ghost" className="text-muted-foreground w-full justify-start gap-2">
-              <Settings className="h-4 w-4" />
-              Settings
-            </Button>
-            <Button variant="ghost" className="text-muted-foreground w-full justify-start gap-2">
-              <HelpCircle className="h-4 w-4" />
-              Help & Support
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <Button
-              variant="ghost"
-              className="w-full p-2 text-muted-foreground"
-              title="Settings"
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full p-2 text-muted-foreground"
-              title="Help & Support"
-            >
-              <HelpCircle className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
