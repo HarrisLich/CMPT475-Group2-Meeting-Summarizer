@@ -181,14 +181,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Add avatar upload function
   const uploadUserAvatar = async (file: File) => {
     try {
+      console.log("uploadUserAvatar: Starting upload for file:", file.name);
       const { data, error } = await uploadAvatar(file);
-      if (error) throw error;
+      if (error) {
+        console.error("uploadUserAvatar: Upload error:", error);
+        throw error;
+      }
       
-      // Update local profile state with new avatar
-      setProfile(prev => prev ? { ...prev, avatar_url: data } : null);
+      console.log("uploadUserAvatar: Upload successful, URL:", data);
+      
+      // Force refetch profile to get updated avatar URL from database
+      if (user?.id) {
+        lastFetchedUserIdRef.current = null; // Reset cache to force refetch
+        setIsFetchingProfile(false);
+        
+        const { data: profileData, error: profileError } = await getCurrentProfile();
+        if (profileError) {
+          console.error("uploadUserAvatar: Error refetching profile:", profileError);
+          // Fallback: update local state
+          setProfile(prev => {
+            const updated = prev ? { ...prev, avatar_url: data } : { avatar_url: data } as ProfileData;
+            console.log("uploadUserAvatar: Updated profile state (fallback):", updated);
+            return updated;
+          });
+        } else if (profileData) {
+          console.log("uploadUserAvatar: Profile refetched successfully:", profileData);
+          console.log("uploadUserAvatar: New avatar_url:", profileData.avatar_url);
+          setProfile(profileData);
+        } else {
+          // Fallback if no data returned
+          setProfile(prev => prev ? { ...prev, avatar_url: data } : { avatar_url: data } as ProfileData);
+        }
+      }
+      
       return data;
-      
     } catch (error: any) {
+      console.error("uploadUserAvatar: Exception:", error);
       setError(error.message || "Failed to upload avatar");
       throw error;
     }

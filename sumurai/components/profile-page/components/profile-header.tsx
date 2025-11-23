@@ -45,10 +45,18 @@ export default function ProfileHeader() {
       <CardContent className="p-6">
         <div className="flex flex-col items-start gap-6 md:flex-row md:items-center">
           <div className="relative">
-            <Avatar className="h-24 w-24">
-              <AvatarImage src={profile?.avatar_url || ""} alt="Profile" />
-              <AvatarFallback className="text-2xl">{getInitials()}</AvatarFallback>
-            </Avatar>
+            {profile?.avatar_url ? (
+              <img 
+                src={profile.avatar_url} 
+                alt="Profile" 
+                key={profile.avatar_url}
+                className="h-24 w-24 rounded-full object-cover ring-2 ring-[#00F5FF] ring-offset-2 ring-offset-background"
+              />
+            ) : (
+              <div className="h-24 w-24 rounded-full bg-[#00F5FF] flex items-center justify-center ring-2 ring-[#00F5FF] ring-offset-2 ring-offset-background">
+                <span className="text-2xl text-black font-semibold">{getInitials()}</span>
+              </div>
+            )}
           </div>
           <div className="flex-1 space-y-2">
             <div className="flex flex-col gap-2 md:flex-row md:items-center">
