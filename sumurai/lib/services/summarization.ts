@@ -342,7 +342,7 @@ export class SummarizationService {
   /**
    * Save speaker name mappings for a meeting
    */
-  static async saveSpeakerMappings(meetingId: string, mappings: Record<string, string>) {
+  static async saveSpeakerMappings(meetingId: string, mappings: Record<string, string>): Promise<{ success: boolean; message?: string; error?: string; mappings?: Record<string, string> }> {
     const response = await fetch(`${API_URL}/meetings/${meetingId}/speaker-mappings`, {
       method: 'POST',
       headers: {
@@ -355,8 +355,14 @@ export class SummarizationService {
     });
     
     if (!response.ok) {
-      throw new Error(`Failed to save speaker mappings: ${response.statusText}`);
+      const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+      return {
+        success: false,
+        error: errorData.detail || `Failed to save speaker mappings: ${response.statusText}`
+      };
     }
+    
+    return await response.json();
   }
 
   /**

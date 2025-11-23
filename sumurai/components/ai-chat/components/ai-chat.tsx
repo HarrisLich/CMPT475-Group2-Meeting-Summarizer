@@ -51,20 +51,36 @@ export default function AiChat() {
   /**
    * Match action items to speakers based on transcript segments
    * Finds which speaker mentioned each action item by searching segment text
+   * Uses speaker mappings to convert speaker IDs to actual names
    */
   const assignActionItemsToSpeakers = (
     actionItems: any[],
     segments: TranscriptionSegment[],
-    chatId: string
+    chatId: string,
+    speakerMappings?: Record<string, string>
   ): ActionItem[] => {
+    // Helper function to get speaker name from ID using mappings
+    const getSpeakerName = (speakerId: string | undefined): string => {
+      if (!speakerId) return "Unassigned";
+      // First try to get mapped name
+      if (speakerMappings && speakerMappings[speakerId]) {
+        return speakerMappings[speakerId];
+      }
+      // Fallback to speaker_name from segment if available
+      // Otherwise return the speaker ID
+      return speakerId;
+    };
+
     return actionItems.map((item, index) => {
       const taskText = item.task || item;
       if (!taskText || typeof taskText !== 'string') {
+        // Use mapped name if assigned_to is a speaker ID
+        const assignedTo = item.assigned_to ? getSpeakerName(item.assigned_to) : "Unassigned";
         return {
           id: `${chatId}-${index}`,
           priority: item.priority || "medium",
           task: taskText,
-          assignedTo: item.assigned_to || "Unassigned"
+          assignedTo: assignedTo
         };
       }
 
@@ -72,13 +88,14 @@ export default function AiChat() {
       const normalizedTask = taskText.toLowerCase().replace(/[^\w\s]/g, ' ').trim();
       const taskWords = normalizedTask.split(/\s+/).filter(w => w.length > 3); // Only words longer than 3 chars
       
-      // If task is too short, use original assigned_to
+      // If task is too short, use original assigned_to with mapping
       if (taskWords.length === 0) {
+        const assignedTo = item.assigned_to ? getSpeakerName(item.assigned_to) : "Unassigned";
         return {
           id: `${chatId}-${index}`,
           priority: item.priority || "medium",
           task: taskText,
-          assignedTo: item.assigned_to || "Unassigned"
+          assignedTo: assignedTo
         };
       }
 
@@ -109,20 +126,23 @@ export default function AiChat() {
       // If we found a good match (at least 2 words or 50% of words), use that speaker
       const matchThreshold = Math.max(2, Math.ceil(taskWords.length * 0.5));
       if (bestMatch && bestScore >= matchThreshold) {
+        // Use mapped name for the matched speaker
+        const speakerName = getSpeakerName(bestMatch.speaker);
         return {
           id: `${chatId}-${index}`,
           priority: item.priority || "medium",
           task: taskText,
-          assignedTo: bestMatch.speaker_name || bestMatch.speaker || item.assigned_to || "Unassigned"
+          assignedTo: speakerName
         };
       }
 
-      // Fallback to original assigned_to or "Unassigned"
+      // Fallback to original assigned_to with mapping
+      const assignedTo = item.assigned_to ? getSpeakerName(item.assigned_to) : "Unassigned";
       return {
         id: `${chatId}-${index}`,
         priority: item.priority || "medium",
         task: taskText,
-        assignedTo: item.assigned_to || "Unassigned"
+        assignedTo: assignedTo
       };
     });
   };
@@ -436,9 +456,24 @@ export default function AiChat() {
           segments = [];
         }
         
+        // Load speaker mappings if meeting_id is available
+        let speakerMappings: Record<string, string> = {};
+        if (transcriptionData.meeting_id) {
+          try {
+            const mappingsData = await getSpeakerMappings(transcriptionData.meeting_id);
+            if (mappingsData.success && mappingsData.mappings) {
+              speakerMappings = mappingsData.mappings;
+              console.log("Loaded speaker mappings:", speakerMappings);
+            }
+          } catch (error) {
+            console.warn("Could not load speaker mappings:", error);
+            // Continue without mappings - action items will use speaker IDs
+          }
+        }
+
         // Assign action items to speakers based on transcript segments
         const rawActionItems = actionItemsData.success ? actionItemsData.action_items || [] : [];
-        const assignedActionItems = assignActionItemsToSpeakers(rawActionItems, segments, targetChatId);
+        const assignedActionItems = assignActionItemsToSpeakers(rawActionItems, segments, targetChatId, speakerMappings);
         
         // Create AI message for chat history (from main branch)
         const aiMessage = {
@@ -454,16 +489,24 @@ export default function AiChat() {
           meetingId: transcriptionData.meeting_id || undefined,
           conversationId: transcriptionData.conversation_id,
           transcription: {
-            fullText: transcriptionData.transcription,
-            segments: segments,
+            fullText: transcriptionData.transcription || "",
+            segments: segments || [],
             fileName: file.name
           },
-          actionItems: assignedActionItems,
+          actionItems: assignedActionItems || [],
           messages: [aiMessage], // Cache the initial summary message
           // Use Supabase URL from backend if available, otherwise use blob URL for immediate playback
           audioUrl: transcriptionData.audio_url || audioUrl
         };
-        console.log("Complete chat data (including conversationId and cached messages):", chatData);
+        console.log("Complete chat data (including conversationId and cached messages):", {
+          ...chatData,
+          transcriptionLength: chatData.transcription.fullText?.length || 0,
+          segmentsCount: chatData.transcription.segments?.length || 0,
+          actionItemsCount: chatData.actionItems?.length || 0,
+          hasTranscription: !!chatData.transcription.fullText,
+          hasSegments: chatData.transcription.segments?.length > 0,
+          hasActionItems: chatData.actionItems?.length > 0
+        });
 
         // Use React 18's automatic batching or use a callback to ensure state updates happen together
         if (isNewChat) {
@@ -473,21 +516,62 @@ export default function AiChat() {
             timestamp: new Date(),
             ...chatData
           };
+          console.log("Creating new chat with data:", {
+            id: newChat.id,
+            hasTranscription: !!newChat.transcription,
+            transcriptionLength: newChat.transcription?.fullText?.length || 0,
+            segmentsCount: newChat.transcription?.segments?.length || 0,
+            actionItemsCount: newChat.actionItems?.length || 0,
+            fullTranscription: newChat.transcription?.fullText?.substring(0, 200),
+            firstSegment: newChat.transcription?.segments?.[0],
+            firstActionItem: newChat.actionItems?.[0]
+          });
           // Batch state updates by using functional updates
           setChats(prevChats => {
             const updatedChats = [newChat, ...prevChats];
+            console.log("Updated chats array, new chat at index 0:", {
+              totalChats: updatedChats.length,
+              firstChatId: updatedChats[0]?.id,
+              firstChatHasTranscription: !!updatedChats[0]?.transcription,
+              firstChatActionItemsCount: updatedChats[0]?.actionItems?.length || 0
+            });
             // Set selected chat ID in a separate microtask to ensure chats state is updated first
-            setTimeout(() => setSelectedChatId(targetChatId), 0);
+            setTimeout(() => {
+              setSelectedChatId(targetChatId);
+              console.log("Set selectedChatId to:", targetChatId);
+            }, 0);
             return updatedChats;
           });
         } else {
-          // Update EXISTING chat with new data
+          // Update EXISTING chat with new data (merge to preserve existing data)
           setChats(prevChats =>
-            prevChats.map(chat =>
-              chat.id === targetChatId
-                ? { ...chat, ...chatData }
-                : chat
-            )
+            prevChats.map(chat => {
+              if (chat.id === targetChatId) {
+                // Merge existing chat with new data, ensuring transcription and actionItems are set
+                const mergedChat = {
+                  ...chat,
+                  ...chatData,
+                  // Always use new transcription if provided, otherwise keep existing
+                  transcription: chatData.transcription?.fullText || chatData.transcription?.segments?.length 
+                    ? chatData.transcription 
+                    : (chat.transcription || chatData.transcription),
+                  // Always use new actionItems if provided, otherwise keep existing
+                  actionItems: chatData.actionItems?.length 
+                    ? chatData.actionItems 
+                    : (chat.actionItems || chatData.actionItems || [])
+                };
+                console.log("Merged chat data for existing chat:", {
+                  hasTranscription: !!mergedChat.transcription,
+                  transcriptionLength: mergedChat.transcription?.fullText?.length || 0,
+                  segmentsCount: mergedChat.transcription?.segments?.length || 0,
+                  actionItemsCount: mergedChat.actionItems?.length || 0,
+                  chatDataTranscription: !!chatData.transcription,
+                  chatDataActionItems: chatData.actionItems?.length || 0
+                });
+                return mergedChat;
+              }
+              return chat;
+            })
           );
         }
 
@@ -585,11 +669,18 @@ export default function AiChat() {
       return;
     }
 
-    // CHECK CACHE FIRST - If we've already loaded this chat, use cached data for INSTANT switching
-    if (selectedChat.messages && selectedChat.transcription) {
-      console.log("[SELECT] ⚡ Using cached data for instant switch");
+    // CHECK CACHE FIRST - If we've already loaded this chat with transcription/action items, use cached data for INSTANT switching
+    if (selectedChat.transcription || (selectedChat.messages && selectedChat.messages.length > 0)) {
+      console.log("[SELECT] ⚡ Using cached data for instant switch", {
+        hasTranscription: !!selectedChat.transcription,
+        hasActionItems: !!selectedChat.actionItems,
+        actionItemsCount: selectedChat.actionItems?.length || 0,
+        messagesCount: selectedChat.messages?.length || 0
+      });
       setSelectedChatId(chatId);
-      setCurrentMessages(selectedChat.messages);
+      if (selectedChat.messages && selectedChat.messages.length > 0) {
+        setCurrentMessages(selectedChat.messages);
+      }
       return;
     }
 
@@ -632,8 +723,8 @@ export default function AiChat() {
             // Cache messages for instant switching next time
             updatedChat.messages = transformedMessages;
 
-            // Add transcription if available
-            if (conversationData?.transcription) {
+            // Add transcription if available (preserve existing if already present)
+            if (conversationData?.transcription && !updatedChat.transcription) {
               // Unwrap segments from database format if needed
               let segments = conversationData.transcription.segments || [];
               // Database stores as { segments: [...], language: "en" }, unwrap if needed
@@ -650,7 +741,7 @@ export default function AiChat() {
               }
 
               updatedChat.transcription = {
-                fullText: conversationData.transcription.transcription_text,
+                fullText: conversationData.transcription.transcription_text || "",
                 segments: segments,
                 fileName: conversationData.conversation?.title || "Meeting Transcript"
               };
@@ -661,25 +752,62 @@ export default function AiChat() {
                 console.log("[SELECT] Cached audio URL:", updatedChat.audioUrl);
               }
 
-              console.log("[SELECT] Cached transcription:", {
+              console.log("[SELECT] Loaded transcription from database:", {
                 hasFullText: !!updatedChat.transcription.fullText,
                 textLength: updatedChat.transcription.fullText?.length,
                 segmentsCount: updatedChat.transcription.segments?.length || 0,
                 segmentsFormat: typeof conversationData.transcription.segments,
                 hasAudioUrl: !!updatedChat.audioUrl
               });
+            } else if (updatedChat.transcription) {
+              console.log("[SELECT] Preserving existing transcription:", {
+                hasFullText: !!updatedChat.transcription.fullText,
+                textLength: updatedChat.transcription.fullText?.length,
+                segmentsCount: updatedChat.transcription.segments?.length || 0
+              });
             }
 
-            // Add action items if available from database
-            if (conversationData?.action_items && conversationData.action_items.length > 0) {
+            // Add action items if available from database (preserve existing if already present)
+            if (conversationData?.action_items && conversationData.action_items.length > 0 && !updatedChat.actionItems) {
+              // Load speaker mappings to update action items with actual names
+              let speakerMappings: Record<string, string> = {};
+              if (selectedChat?.meetingId) {
+                try {
+                  const mappingsData = await getSpeakerMappings(selectedChat.meetingId);
+                  if (mappingsData.success && mappingsData.mappings) {
+                    speakerMappings = mappingsData.mappings;
+                    console.log("[SELECT] Loaded speaker mappings for action items:", speakerMappings);
+                  }
+                } catch (error) {
+                  console.warn("Could not load speaker mappings for action items:", error);
+                }
+              }
+
+              // Helper to get speaker name from ID
+              const getSpeakerName = (speakerId: string | undefined): string => {
+                if (!speakerId) return "Unassigned";
+                if (speakerMappings[speakerId]) {
+                  return speakerMappings[speakerId];
+                }
+                return speakerId;
+              };
+
               updatedChat.actionItems = conversationData.action_items.map((item: any) => ({
-                id: item.id,
+                id: item.id || `${chatId}-${Date.now()}-${Math.random()}`,
                 priority: item.priority || "medium",
-                task: item.task,
-                assignedTo: item.assigned_to || "Unassigned"
+                task: item.task || item.content || "",
+                assignedTo: getSpeakerName(item.assigned_to)
               }));
-              console.log("[SELECT] Cached action items:", updatedChat.actionItems?.length);
-            } else if (!updatedChat.actionItems) {
+              console.log("[SELECT] Loaded action items from database with speaker mappings:", {
+                count: updatedChat.actionItems?.length,
+                items: updatedChat.actionItems?.slice(0, 2)
+              });
+            } else if (updatedChat.actionItems) {
+              console.log("[SELECT] Preserving existing action items:", {
+                count: updatedChat.actionItems.length,
+                items: updatedChat.actionItems.slice(0, 2)
+              });
+            } else {
               updatedChat.actionItems = [];
             }
 
@@ -780,7 +908,9 @@ export default function AiChat() {
       foundChat: !!chat,
       hasTranscription: !!chat?.transcription,
       transcriptionLength: chat?.transcription?.fullText?.length || 0,
-      segmentsCount: chat?.transcription?.segments?.length || 0
+      segmentsCount: chat?.transcription?.segments?.length || 0,
+      actionItemsCount: chat?.actionItems?.length || 0,
+      fullChatData: chat
     });
     return chat;
   }, [chats, selectedChatId]);
@@ -788,34 +918,55 @@ export default function AiChat() {
   // Load and apply speaker mappings when displaying a chat with meeting_id
   useEffect(() => {
     const loadSpeakerMappings = async () => {
-      if (!currentChat?.meetingId || !currentChat?.transcription?.segments) {
+      if (!currentChat?.meetingId) {
         return;
       }
 
       try {
         const mappingsData = await getSpeakerMappings(currentChat.meetingId);
         if (mappingsData.success && mappingsData.mappings && Object.keys(mappingsData.mappings).length > 0) {
-          // Apply mappings to segments
-          const updatedSegments = currentChat.transcription.segments.map(segment => ({
-            ...segment,
-            speaker_name: segment.speaker && mappingsData.mappings[segment.speaker]
-              ? mappingsData.mappings[segment.speaker]
-              : segment.speaker_name
-          }));
+          const mappings = mappingsData.mappings;
+          
+          // Helper to get speaker name from ID
+          const getSpeakerName = (speakerId: string | undefined): string => {
+            if (!speakerId) return "Unassigned";
+            return mappings[speakerId] || speakerId;
+          };
 
-          // Update the chat with enriched segments
+          // Update the chat with enriched segments and action items
           setChats(prevChats =>
-            prevChats.map(chat =>
-              chat.id === currentChat.id
-                ? {
-                    ...chat,
-                    transcription: {
-                      ...chat.transcription!,
-                      segments: updatedSegments
-                    }
-                  }
-                : chat
-            )
+            prevChats.map(chat => {
+              if (chat.id !== currentChat.id) return chat;
+
+              const updates: Partial<Chat> = {};
+
+              // Apply mappings to segments
+              if (chat.transcription?.segments) {
+                const updatedSegments = chat.transcription.segments.map(segment => ({
+                  ...segment,
+                  speaker_name: segment.speaker && mappings[segment.speaker]
+                    ? mappings[segment.speaker]
+                    : segment.speaker_name
+                }));
+
+                updates.transcription = {
+                  ...chat.transcription,
+                  segments: updatedSegments
+                };
+              }
+
+              // Apply mappings to action items
+              if (chat.actionItems && chat.actionItems.length > 0) {
+                const updatedActionItems = chat.actionItems.map(item => ({
+                  ...item,
+                  assignedTo: getSpeakerName(item.assignedTo) || item.assignedTo
+                }));
+
+                updates.actionItems = updatedActionItems;
+              }
+
+              return { ...chat, ...updates };
+            })
           );
         }
       } catch (error) {
@@ -847,7 +998,15 @@ export default function AiChat() {
           </>
         ) : (
           <>
-            {console.log("Rendering ChatInterface for chatId:", selectedChatId)}
+            {console.log("Rendering ChatInterface for chatId:", selectedChatId, {
+              hasCurrentChat: !!currentChat,
+              transcriptLength: currentChat?.transcription?.fullText?.length || 0,
+              segmentsCount: currentChat?.transcription?.segments?.length || 0,
+              actionItemsCount: currentChat?.actionItems?.length || 0,
+              transcript: currentChat?.transcription?.fullText?.substring(0, 100) || "none",
+              segments: currentChat?.transcription?.segments?.slice(0, 2) || [],
+              actionItems: currentChat?.actionItems?.slice(0, 2) || []
+            })}
             <ChatInterface
               messages={currentMessages}
               input={input}

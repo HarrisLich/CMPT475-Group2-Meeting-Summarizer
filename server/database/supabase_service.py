@@ -171,13 +171,17 @@ class SupabaseService:
         
         return list(speakers_dict.values())
     
-    def save_speaker_mappings(self, meeting_id, mappings):
+    def save_speaker_mappings(self, meeting_id, mappings, user_id=None):
         """
         Save speaker name mappings for a meeting.
         
         Args:
             meeting_id: The meeting ID
             mappings: Dict mapping speaker IDs to names (e.g., {"SPEAKER_01": "John Doe"})
+            user_id: Optional user ID (for authentication/ownership)
+            
+        Returns:
+            Dict with success status and optional error message
         """
         # Adapt to your schema which has individual records per mapping
         try:
@@ -191,25 +195,34 @@ class SupabaseService:
             # Insert new mappings one by one
             mapping_entries = []
             for speaker_id, name in mappings.items():
-                mapping_entries.append({
+                entry = {
                     "meeting_id": meeting_id,
                     "speaker_id": speaker_id,
-                    "name": name,
-                    "user_id": "test_user"  # Default for testing, would normally come from auth
-                })
+                    "name": name
+                }
+                # Add user_id if provided
+                if user_id:
+                    entry["user_id"] = user_id
+                mapping_entries.append(entry)
                 
             # Bulk insert all mappings
             if mapping_entries:
-                return self.client.table("speaker_mappings")\
+                result = self.client.table("speaker_mappings")\
                     .insert(mapping_entries)\
                     .execute()
+                
+                # Check if result has data (successful insert)
+                if hasattr(result, 'data') and result.data:
+                    return {"success": True, "data": result.data, "count": len(result.data)}
+                else:
+                    return {"success": True, "data": [], "count": 0}
             
-            return {"data": [], "count": 0}
+            return {"success": True, "data": [], "count": 0}
                 
         except Exception as e:
             print(f"Error saving speaker mappings: {str(e)}")
-            # Return empty response on error
-            return {"data": [], "count": 0, "error": str(e)}
+            # Return error in response
+            return {"success": False, "error": str(e), "data": [], "count": 0}
     
     def get_speaker_mappings(self, meeting_id):
         """

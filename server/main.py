@@ -1231,7 +1231,10 @@ async def get_speaker_mappings(meeting_id: str):
         )
 
 @app.post("/meetings/{meeting_id}/speaker-mappings")
-async def save_speaker_mappings(meeting_id: str, request: SpeakerMappingsRequest):
+async def save_speaker_mappings(
+    meeting_id: str, 
+    request: SpeakerMappingsRequest
+):
     """
     Save speaker name mappings for a meeting.
     
@@ -1241,34 +1244,45 @@ async def save_speaker_mappings(meeting_id: str, request: SpeakerMappingsRequest
     Args:
         meeting_id: The meeting ID
         request: Contains mappings dict (speaker_id -> name)
+        current_user: Authenticated user (from JWT token)
     """
     try:
         # Validate that meeting_id in path matches request body
         if request.meeting_id != meeting_id:
-            raise HTTPException(
-                status_code=400,
-                detail="Meeting ID in path does not match request body"
-            )
+            return {
+                "success": False,
+                "error": "Meeting ID in path does not match request body"
+            }
         
         supabase = get_supabase()
-        result = supabase.save_speaker_mappings(meeting_id, request.mappings)
+        result = supabase.save_speaker_mappings(meeting_id, request.mappings, user_id=None)
+        
+        # Check if there was an error in the result
+        if not result.get("success", False):
+            return {
+                "success": False,
+                "error": result.get("error", "Failed to save speaker mappings")
+            }
         
         return {
             "success": True,
             "message": "Speaker mappings saved successfully",
             "mappings": request.mappings
         }
-    except HTTPException:
-        raise
+    except HTTPException as e:
+        return {
+            "success": False,
+            "error": e.detail
+        }
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
         print(f"Error saving speaker mappings: {str(e)}")
         print(f"Traceback:\n{error_trace}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to save speaker mappings: {str(e)}"
-        )
+        return {
+            "success": False,
+            "error": f"Failed to save speaker mappings: {str(e)}"
+        }
 # Conversation/Chat History Endpoints
 @app.post(
     "/conversations",

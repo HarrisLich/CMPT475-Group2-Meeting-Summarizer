@@ -95,10 +95,16 @@ export function ChatInterface({
   };
 
   React.useEffect(() => {
-    console.log("ChatInterface props:", {
-      transcript,
-      transcriptSegmentsLength: transcriptSegments.length,
-      actionItemsLength: actionItems.length
+    console.log("ChatInterface props updated:", {
+      transcriptLength: transcript?.length || 0,
+      segmentsCount: transcriptSegments?.length || 0,
+      actionItemsCount: actionItems?.length || 0,
+      hasTranscript: !!transcript && transcript.length > 0,
+      hasSegments: transcriptSegments && transcriptSegments.length > 0,
+      hasActionItems: actionItems && actionItems.length > 0,
+      transcriptPreview: transcript?.substring(0, 100) || "none",
+      segmentsPreview: transcriptSegments?.slice(0, 2) || [],
+      actionItemsPreview: actionItems?.slice(0, 2) || []
     });
   }, [transcript, transcriptSegments, actionItems]);
 
@@ -509,8 +515,8 @@ export function ChatInterface({
               </div>
             <div className="px-6 pb-6">
               <div className="space-y-3">
-                {transcript && transcript.length > 0 ? (
-                  transcriptSegments.length > 0 ? (
+                {(transcript && transcript.length > 0) || (transcriptSegments && transcriptSegments.length > 0) ? (
+                  transcriptSegments && transcriptSegments.length > 0 ? (
                     <div className="space-y-3">
                       {transcriptSegments.map((segment, index) => (
                         <div key={index} className="bg-[#1A1A1A] rounded-lg p-3 border border-[#333333] hover:shadow-lg transition-all duration-300">
@@ -531,7 +537,7 @@ export function ChatInterface({
                               {formatTime(segment.start)} - {formatTime(segment.end)}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-300 leading-relaxed flex-1">
+                          <p className="text-sm text-gray-300 leading-relaxed flex-1 whitespace-pre-wrap">
                             {segment.text}
                           </p>
                         </div>
@@ -627,38 +633,68 @@ export function ChatInterface({
               </div>
             <div className="px-6 pt-2 pb-6">
               {actionItems && actionItems.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  {actionItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="bg-[#1A1A1A] rounded-lg border border-[#333333] p-4 shadow-lg hover:shadow-xl transition-all duration-300 flex flex-col justify-between min-h-[110px]"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className={`h-2 w-2 rounded-full ${
-                            item.priority === 'high' ? 'bg-red-500' :
-                            item.priority === 'medium' ? 'bg-yellow-500' :
-                            'bg-green-500'
-                          }`}></div>
-                          <span className={`text-xs font-semibold uppercase tracking-wide ${
-                            item.priority === 'high' ? 'text-red-400' :
-                            item.priority === 'medium' ? 'text-yellow-400' :
-                            'text-green-400'
-                          }`}>
-                            {item.priority}
-                          </span>
+                (() => {
+                  // Group action items by assigned person
+                  const groupedByPerson: Record<string, ActionItem[]> = {};
+                  actionItems.forEach((item) => {
+                    const person = item.assignedTo || "Unassigned";
+                    if (!groupedByPerson[person]) {
+                      groupedByPerson[person] = [];
+                    }
+                    groupedByPerson[person].push(item);
+                  });
+
+                  return (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {Object.entries(groupedByPerson).map(([person, items]) => (
+                        <div
+                          key={person}
+                          className="bg-[#1A1A1A] rounded-lg border border-[#333333] p-4 shadow-lg hover:shadow-xl transition-all duration-300"
+                        >
+                          {/* Person Header */}
+                          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#333333]">
+                            <span className="text-xs text-gray-400">Assigned to:</span>
+                            <span className="text-base font-semibold text-[#00F5FF]">
+                              {person}
+                            </span>
+                            <span className="text-xs text-gray-500 ml-auto">
+                              {items.length} {items.length === 1 ? 'item' : 'items'}
+                            </span>
+                          </div>
+
+                          {/* Action Items List */}
+                          <div className="space-y-3">
+                            {items.map((item, index) => (
+                              <div
+                                key={item.id}
+                                className="bg-[#0F0F0F] rounded-md p-3 border border-[#2A2A2A]"
+                              >
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div className={`h-2 w-2 rounded-full ${
+                                    item.priority === 'high' ? 'bg-red-500' :
+                                    item.priority === 'medium' ? 'bg-yellow-500' :
+                                    'bg-green-500'
+                                  }`}></div>
+                                  <span className={`text-xs font-semibold uppercase tracking-wide ${
+                                    item.priority === 'high' ? 'text-red-400' :
+                                    item.priority === 'medium' ? 'text-yellow-400' :
+                                    'text-green-400'
+                                  }`}>
+                                    {item.priority}
+                                  </span>
+                                  <span className="text-xs text-gray-500 ml-auto">
+                                    #{index + 1}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-white leading-relaxed">{item.task}</p>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                        <p className="text-sm text-white mb-3 leading-relaxed">{item.task}</p>
-                      </div>
-                      <div className="flex items-center gap-1.5 pt-2 border-t border-[#333333]">
-                        <span className="text-xs text-gray-400">Assigned:</span>
-                        <span className="text-sm font-semibold text-[#00F5FF]">
-                          {item.assignedTo}
-                        </span>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  );
+                })()
               ) : (
                 <div className="flex items-center justify-center h-32">
                   <p className="text-sm text-gray-400 text-center max-w-xs">
