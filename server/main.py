@@ -967,7 +967,19 @@ async def transcribe_with_speakers(
                 audio_url = None
 
         # Transcribe with speaker diarization
-        result = transcription_service.transcribe_with_speakers(content, audio_file.filename, hf_token)
+        try:
+            print(f"[TRANSCRIPTION] Starting speaker diarization transcription...")
+            result = transcription_service.transcribe_with_speakers(content, audio_file.filename, hf_token)
+            print(f"[TRANSCRIPTION] Transcription complete!")
+        except Exception as transcribe_error:
+            import traceback
+            error_trace = traceback.format_exc()
+            print(f"[TRANSCRIPTION ERROR] Failed to transcribe with speakers: {str(transcribe_error)}")
+            print(f"[TRANSCRIPTION ERROR] Traceback:\n{error_trace}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Transcription failed: {str(transcribe_error)}"
+            )
 
         # Add audio_url to result
         if audio_url:
