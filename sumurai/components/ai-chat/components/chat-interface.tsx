@@ -653,13 +653,21 @@ export function ChatInterface({
                         >
                           {/* Person Header */}
                           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#333333]">
-                            <span className="text-xs text-gray-400">Assigned to:</span>
-                            <span className="text-base font-semibold text-[#00F5FF]">
+                            {person === "Unassigned" ? (
+                              <span className="text-base font-semibold text-[#00F5FF]">
                               {person}
-                            </span>
-                            <span className="text-xs text-gray-500 ml-auto">
-                              {items.length} {items.length === 1 ? 'item' : 'items'}
-                            </span>
+                              </span>
+                            ) : (
+                              <>
+                                <span className="text-xs text-gray-400">Assigned to:</span>
+                                <span className="text-base font-semibold text-[#00F5FF]">
+                                  {person}
+                                </span>
+                                <span className="text-xs text-gray-500 ml-auto">
+                                  {items.length} {items.length === 1 ? 'item' : 'items'}
+                                </span>
+                              </>
+                            )}
                           </div>
 
                           {/* Action Items List */}
