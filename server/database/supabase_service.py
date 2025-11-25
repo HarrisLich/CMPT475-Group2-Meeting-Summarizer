@@ -376,6 +376,74 @@ class SupabaseService:
     def get_conversation_action_items(self, conversation_id):
         """Get all action items for a conversation"""
         return self.client.table("action_items").select("*").eq("conversation_id", conversation_id).order("created_at", desc=False).execute()
+    
+    def update_action_items_with_speaker_names(self, meeting_id, speaker_mappings):
+        """
+        Update action items to replace speaker IDs with actual names.
+        
+        Args:
+            meeting_id: The meeting ID
+            speaker_mappings: Dict mapping speaker IDs to names (e.g., {"SPEAKER_01": "Marko Pavic"})
+            
+        Returns:
+            Number of action items updated
+        """
+        try:
+            # Get the conversation for this meeting
+            conversations = self.client.table("conversations")\
+                .select("id")\
+                .eq("meeting_id", meeting_id)\
+                .execute()
+            
+            if not conversations.data or len(conversations.data) == 0:
+                return 0
+            
+            conversation_id = conversations.data[0]["id"]
+            
+            # Get all action items for this conversation
+            action_items_result = self.get_conversation_action_items(conversation_id)
+            
+            if not action_items_result.data:
+                return 0
+            
+            updated_count = 0
+            
+            # Update each action item if assigned_to matches a speaker ID
+            for item in action_items_result.data:
+                assigned_to = item.get("assigned_to")
+                
+                # Check if assigned_to is a speaker ID that we have a mapping for
+                if assigned_to in speaker_mappings:
+                    actual_name = speaker_mappings[assigned_to]
+                    
+                    # Update the action item in the database
+                    self.client.table("action_items")\
+                        .update({"assigned_to": actual_name})\
+                        .eq("id", item["id"])\
+                        .execute()
+                    
+                    print(f"[DB] Updated action item: {assigned_to} → {actual_name}")
+                    updated_count += 1
+            
+            return updated_count
+            
+        except Exception as e:
+            print(f"[DB ERROR] Failed to update action items with speaker names: {str(e)}")
+            return 0
+    
+    def get_action_items_by_assigned(self, assigned_to: str, conversation_id: str = None):
+        """Get action items filtered by assigned person"""
+        query = self.client.table("action_items").select("*").eq("assigned_to", assigned_to)
+        if conversation_id:
+            query = query.eq("conversation_id", conversation_id)
+        return query.order("created_at", desc=False).execute()
+    
+    def get_pending_action_items(self, conversation_ids: list = None):
+        """Get all pending action items, optionally filtered by conversation IDs"""
+        query = self.client.table("action_items").select("*").neq("assigned_to", "Unassigned")
+        if conversation_ids:
+            query = query.in_("conversation_id", conversation_ids)
+        return query.order("created_at", desc=False).execute()
 
     # User account functions
     def delete_user_account(self, user_id):
