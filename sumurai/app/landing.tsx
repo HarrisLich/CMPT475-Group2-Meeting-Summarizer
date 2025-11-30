@@ -147,7 +147,7 @@ function Landing() {
                 onClick={() => router.push('/core')}
                 className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black text-lg px-8 py-6 shadow-xl hover:shadow-2xl transition-all duration-300"
               >
-                Go to Dashboard
+                Meet SumurAI
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
             ) : (

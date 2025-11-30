@@ -154,13 +154,6 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
                 >
                   Dashboard
                 </Button>
-                <Button
-                  onClick={handleLogout}
-                  variant="outline"
-                  className="border-red-600 hover:bg-red-900/20 text-red-400 hover:text-red-300 transition-colors"
-                >
-                  Log Out
-                </Button>
               </>
             ) : (
               <>

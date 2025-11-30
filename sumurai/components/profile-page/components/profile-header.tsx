@@ -41,7 +41,7 @@ export default function ProfileHeader() {
   }
 
   return (
-    <Card>
+    <Card className="border-[#333333] bg-[#1A1A1A]">
       <CardContent className="p-6">
         <div className="flex flex-col items-start gap-6 md:flex-row md:items-center">
           <div className="relative">
@@ -60,16 +60,16 @@ export default function ProfileHeader() {
           </div>
           <div className="flex-1 space-y-2">
             <div className="flex flex-col gap-2 md:flex-row md:items-center">
-              <h1 className="text-2xl font-bold">{profile?.name || "User"}</h1>
-              <Badge variant="secondary">{getMembershipBadge()}</Badge>
+              <h1 className="text-2xl font-bold text-white">{profile?.name || "User"}</h1>
+              <Badge variant="secondary" className="bg-[#00F5FF]/20 text-[#00F5FF] border-[#00F5FF]/30">{getMembershipBadge()}</Badge>
             </div>
             {(profile?.job_title || profile?.role) && (
-              <p className="text-muted-foreground">{profile.job_title || profile.role}</p>
+              <p className="text-gray-400">{profile.job_title || profile.role}</p>
             )}
             {profile?.company && (
-              <p className="text-muted-foreground text-sm">at {profile.company}</p>
+              <p className="text-gray-400 text-sm">at {profile.company}</p>
             )}
-            <div className="text-muted-foreground flex flex-wrap gap-4 text-sm">
+            <div className="text-gray-400 flex flex-wrap gap-4 text-sm">
               {profile?.email && (
                 <div className="flex items-center gap-1">
                   <Mail className="size-4" />
@@ -88,7 +88,11 @@ export default function ProfileHeader() {
               </div>
             </div>
           </div>
-          <Button variant="default" onClick={() => setIsEditing(true)}>
+          <Button
+            variant="outline"
+            onClick={() => setIsEditing(true)}
+            className="border-[#333333] text-white hover:bg-[#2A2A2A] hover:text-[#00F5FF]"
+          >
             Edit Profile
           </Button>
         </div>

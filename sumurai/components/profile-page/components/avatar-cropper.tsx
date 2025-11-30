@@ -30,6 +30,23 @@ export default function AvatarCropper({ imageFile, onCrop, onCancel }: AvatarCro
     reader.readAsDataURL(imageFile);
   }, [imageFile]);
 
+  // Handle wheel event with passive: false to allow preventDefault
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheelEvent = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      setScale((prev) => Math.max(0.5, Math.min(3, prev * delta)));
+    };
+
+    container.addEventListener('wheel', handleWheelEvent, { passive: false });
+    return () => {
+      container.removeEventListener('wheel', handleWheelEvent);
+    };
+  }, []);
+
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
     setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
@@ -45,12 +62,6 @@ export default function AvatarCropper({ imageFile, onCrop, onCancel }: AvatarCro
 
   const handleMouseUp = () => {
     setIsDragging(false);
-  };
-
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setScale((prev) => Math.max(0.5, Math.min(3, prev * delta)));
   };
 
   const cropImage = () => {
@@ -108,9 +119,7 @@ export default function AvatarCropper({ imageFile, onCrop, onCancel }: AvatarCro
         console.error("Failed to create blob from canvas");
         return;
       }
-      console.log("Cropped image blob created, size:", blob.size, "type:", blob.type);
       const croppedFile = new File([blob], `avatar-${Date.now()}.png`, { type: "image/png" });
-      console.log("Cropped file created:", croppedFile.name, croppedFile.size, croppedFile.type);
       onCrop(croppedFile);
     }, "image/png", 0.95); // Use high quality
   };
@@ -135,7 +144,6 @@ export default function AvatarCropper({ imageFile, onCrop, onCancel }: AvatarCro
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
-          onWheel={handleWheel}
         >
           {/* Image - positioned behind the circle */}
           {imageSrc && (
@@ -184,6 +192,9 @@ export default function AvatarCropper({ imageFile, onCrop, onCancel }: AvatarCro
         <p className="text-sm text-gray-400 mt-4 text-center">
           Drag to move • Scroll to zoom
         </p>
+
+        {/* Hidden canvas for cropping */}
+        <canvas ref={canvasRef} className="hidden" />
       </div>
     </div>
   );

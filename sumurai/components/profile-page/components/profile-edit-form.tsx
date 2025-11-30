@@ -144,9 +144,9 @@ export default function ProfileEditForm({ onCancel }: { onCancel: () => void }) 
                   alt="Profile" 
                   key={profile.avatar_url}
                   className="h-24 w-24 rounded-full object-cover ring-2 ring-[#00F5FF] ring-offset-2 ring-offset-background"
-                  onLoad={() => console.log("✅ Profile image loaded:", profile.avatar_url)}
+                  onLoad={() => console.log("Profile image loaded:", profile.avatar_url)}
                   onError={async (e) => {
-                    console.error("❌ Profile image failed to load:", profile.avatar_url);
+                    console.error("Profile image failed to load:", profile.avatar_url);
                     // Test if URL is accessible
                     if (profile.avatar_url) {
                       try {
