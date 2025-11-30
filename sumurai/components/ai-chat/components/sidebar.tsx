@@ -14,12 +14,12 @@ import {
   MessageCircle,
   Settings,
   HelpCircle,
-  User,
   ChevronLeft,
   ChevronRight,
   Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/context/auth-context";
 
 interface Chat {
   id: string;
@@ -39,6 +39,7 @@ interface SidebarProps {
 
 export function Sidebar({ chats, selectedChatId, onNewChat, onSelectChat, onDeleteChat, isUploading = false }: SidebarProps) {
   const router = useRouter();
+  const { profile } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [chatToDelete, setChatToDelete] = useState<string | null>(null);
@@ -46,6 +47,16 @@ export function Sidebar({ chats, selectedChatId, onNewChat, onSelectChat, onDele
   const truncateText = (text: string, maxLength: number) => {
     if (text.length <= maxLength) return text;
     return text.slice(0, maxLength) + "...";
+  };
+
+  const getInitials = () => {
+    if (!profile?.name) return "U";
+    return profile.name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   const filteredChats = chats.filter(
@@ -78,7 +89,7 @@ export function Sidebar({ chats, selectedChatId, onNewChat, onSelectChat, onDele
       <div className="border-b border-[#333333] p-4 flex-shrink-0">
         {!isCollapsed ? (
           <>
-            {/* Logo and Profile on same line */}
+            {/* Logo and Avatar */}
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center space-x-3 cursor-pointer" onClick={() => router.push('/')}>
                 <img src="/sumurai-icon-blue.png" alt="SumurAI Logo" className="w-8 h-8 rounded-lg" />
@@ -88,10 +99,20 @@ export function Sidebar({ chats, selectedChatId, onNewChat, onSelectChat, onDele
               </div>
               <button
                 onClick={() => router.push('/profiling')}
-                className="w-8 h-8 rounded-full bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] flex items-center justify-center transition-all duration-300 shadow-lg hover:shadow-xl"
-                title="Profile"
+                className="flex-shrink-0"
+                title="Go to Profile"
               >
-                <User className="w-4 h-4 text-black" />
+                {profile?.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt="Profile"
+                    className="w-8 h-8 rounded-full object-cover ring-2 ring-[#00F5FF] hover:ring-[#06B6D4] transition-all duration-300 cursor-pointer"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] flex items-center justify-center transition-all duration-300 cursor-pointer ring-2 ring-[#00F5FF]">
+                    <span className="text-xs text-black font-semibold">{getInitials()}</span>
+                  </div>
+                )}
               </button>
             </div>
 
