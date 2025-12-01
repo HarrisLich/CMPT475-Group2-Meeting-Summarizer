@@ -427,17 +427,19 @@ export default function AiChat() {
         console.log("Meeting ID from backend:", transcriptionData.meeting_id);
       }
 
-      // Backend already generated summary and action items, just use them
+      // Backend already generated summary
+      // Action items will be extracted AFTER speaker mapping is complete
       setUploadStatus("Finalizing...");
 
-      // Extract summary and action items from backend response
+      // Extract summary from backend response
       const summaryData = transcriptionData.summary || { success: false, error: "No summary provided" };
+      // Action items are not extracted yet - they'll be extracted after speaker mapping
       const actionItemsData = {
         success: true,
-        action_items: transcriptionData.action_items || []
+        action_items: [] // Empty initially, will be populated after speaker mapping
       };
       console.log("Summary data from backend:", summaryData);
-      console.log("Action items data from backend:", actionItemsData);
+      console.log("Action items will be extracted after speaker mapping");
 
       if (summaryData.success) {
         // Prepare segments - handle both flat array and nested object format
@@ -714,6 +716,29 @@ export default function AiChat() {
         content: msg.content
       })) : messagesData;
 
+      // Load speaker mappings for action items if needed (outside of setChats callback)
+      let speakerMappings: Record<string, string> = {};
+      if (conversationData?.action_items && conversationData.action_items.length > 0 && selectedChat?.meetingId) {
+        try {
+          const mappingsData = await getSpeakerMappings(selectedChat.meetingId);
+          if (mappingsData.success && mappingsData.mappings) {
+            speakerMappings = mappingsData.mappings;
+            console.log("[SELECT] Loaded speaker mappings for action items:", speakerMappings);
+          }
+        } catch (error) {
+          console.warn("Could not load speaker mappings for action items:", error);
+        }
+      }
+
+      // Helper to get speaker name from ID
+      const getSpeakerName = (speakerId: string | undefined): string => {
+        if (!speakerId) return "Unassigned";
+        if (speakerMappings[speakerId]) {
+          return speakerMappings[speakerId];
+        }
+        return speakerId;
+      };
+
       // Update chat with ALL data (messages, transcription, action items) for caching
       setChats(prevChats =>
         prevChats.map(chat => {
@@ -769,29 +794,6 @@ export default function AiChat() {
 
             // Add action items if available from database (preserve existing if already present)
             if (conversationData?.action_items && conversationData.action_items.length > 0 && !updatedChat.actionItems) {
-              // Load speaker mappings to update action items with actual names
-              let speakerMappings: Record<string, string> = {};
-              if (selectedChat?.meetingId) {
-                try {
-                  const mappingsData = await getSpeakerMappings(selectedChat.meetingId);
-                  if (mappingsData.success && mappingsData.mappings) {
-                    speakerMappings = mappingsData.mappings;
-                    console.log("[SELECT] Loaded speaker mappings for action items:", speakerMappings);
-                  }
-                } catch (error) {
-                  console.warn("Could not load speaker mappings for action items:", error);
-                }
-              }
-
-              // Helper to get speaker name from ID
-              const getSpeakerName = (speakerId: string | undefined): string => {
-                if (!speakerId) return "Unassigned";
-                if (speakerMappings[speakerId]) {
-                  return speakerMappings[speakerId];
-                }
-                return speakerId;
-              };
-
               updatedChat.actionItems = conversationData.action_items.map((item: any) => ({
                 id: item.id || `${chatId}-${Date.now()}-${Math.random()}`,
                 priority: item.priority || "medium",
@@ -1034,7 +1036,7 @@ export default function AiChat() {
                     onComplete={async () => {
                       setShowSpeakerMapping(false);
                       setSpeakersMapped(true);
-                      setUploadStatus("Complete! Speaker names assigned.");
+                      setUploadStatus("Extracting action items with speaker names...");
                       
                       // Refresh segments with speaker mappings
                       if (currentChat?.meetingId && currentChat?.transcription?.segments) {
@@ -1065,6 +1067,69 @@ export default function AiChat() {
                           }
                         } catch (error) {
                           console.error("Error refreshing speaker mappings:", error);
+                        }
+                      }
+
+                      // Extract action items AFTER speaker mapping is complete
+                      if (currentChat?.meetingId) {
+                        try {
+                          console.log("[ACTION ITEMS] Extracting action items after speaker mapping...");
+                          const actionItemsResult = await SummarizationService.extractActionItemsAfterSpeakerMapping(currentChat.meetingId);
+                          
+                          if (actionItemsResult.success && actionItemsResult.action_items) {
+                            console.log(`[ACTION ITEMS] Extracted ${actionItemsResult.action_items.length} action items`);
+                            
+                            // Load speaker mappings to update action items with actual names
+                            let speakerMappings: Record<string, string> = {};
+                            try {
+                              const mappingsData = await getSpeakerMappings(currentChat.meetingId);
+                              if (mappingsData.success && mappingsData.mappings) {
+                                speakerMappings = mappingsData.mappings;
+                              }
+                            } catch (error) {
+                              console.warn("Could not load speaker mappings for action items:", error);
+                            }
+
+                            // Helper to get speaker name from ID
+                            const getSpeakerName = (speakerId: string | undefined): string => {
+                              if (!speakerId) return "Unassigned";
+                              if (speakerMappings[speakerId]) {
+                                return speakerMappings[speakerId];
+                              }
+                              return speakerId;
+                            };
+
+                            // Transform action items to match frontend format
+                            const transformedActionItems = actionItemsResult.action_items.map((item: any, index: number) => ({
+                              id: item.id || `${currentChat.id}-${index}`,
+                              priority: item.priority || "medium",
+                              task: item.task || "",
+                              assignedTo: getSpeakerName(item.assigned_to) || item.assigned_to || "Unassigned"
+                            }));
+
+                            // Update the chat with new action items
+                            setChats(prevChats =>
+                              prevChats.map(chat =>
+                                chat.id === currentChat.id
+                                  ? {
+                                      ...chat,
+                                      actionItems: transformedActionItems
+                                    }
+                                  : chat
+                              )
+                            );
+
+                            setUploadStatus("Complete! Action items extracted and assigned.");
+                            setTimeout(() => setUploadStatus(""), 3000);
+                          } else {
+                            console.error("[ACTION ITEMS] Failed to extract action items:", actionItemsResult.error);
+                            setUploadStatus("Action items extraction failed. Please try again.");
+                            setTimeout(() => setUploadStatus(""), 5000);
+                          }
+                        } catch (error) {
+                          console.error("[ACTION ITEMS] Error extracting action items:", error);
+                          setUploadStatus("Error extracting action items. Please try again.");
+                          setTimeout(() => setUploadStatus(""), 5000);
                         }
                       }
                     }}
