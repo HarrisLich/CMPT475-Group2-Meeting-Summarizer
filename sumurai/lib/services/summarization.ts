@@ -366,6 +366,29 @@ export class SummarizationService {
   }
 
   /**
+   * Extract action items after speaker mapping is complete
+   * This allows the LLM to see actual names instead of speaker IDs
+   */
+  static async extractActionItemsAfterSpeakerMapping(meetingId: string): Promise<{ success: boolean; action_items?: any[]; count?: number; message?: string; error?: string }> {
+    const response = await fetch(`${API_URL}/meetings/${meetingId}/extract-action-items`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+      return {
+        success: false,
+        error: errorData.detail || `Failed to extract action items: ${response.statusText}`
+      };
+    }
+    
+    return await response.json();
+  }
+
+  /**
    * Helper to get auth headers with Supabase access token
    */
   private static async getAuthHeaders(): Promise<HeadersInit> {
