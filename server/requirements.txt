@@ -19,6 +19,7 @@ assemblyai>=0.28.0  # Fast cloud transcription with speaker diarization
 # Audio processing
 pydub==0.25.1
 torchcodec>=0.8.0
+pyaudioop
 # Speaker diarization (pyannote.audio requires PyTorch)
 # Using compatible versions: PyTorch 2.9.0 with pyannote.audio 4.0.1
 pyannote.audio>=4.0.0
@@ -26,3 +27,5 @@ torch==2.9.0
 torchaudio==2.9.0
 torchvision==0.24.0
 numpy>=2.0  # Required by pyannote-core and pyannote-metrics, compatible with PyTorch 2.9.0
+
+
