@@ -505,34 +505,11 @@ async def transcribe_audio(
                     except Exception as db_error:
                         print(f"[DB ERROR] Failed to save summary: {str(db_error)}")
 
-            # Step 5: Extract action items from transcription
-            action_items_start = time.time()
-            print(f"[AI] Extracting action items...")
-            action_items_result = summarization_service.extract_action_items(transcription_text)
-            action_items_duration = time.time() - action_items_start
-
-            if action_items_result.get("success"):
-                result["action_items"] = action_items_result.get("action_items", [])
-                print(f"[AI] Extracted {len(result['action_items'])} action items in {action_items_duration:.2f}s")
-
-                # Save action items to database if we have conversation_id
-                if conversation_id and user_id and len(result["action_items"]) > 0:
-                    try:
-                        supabase = get_supabase()
-                        print(f"[DB] Saving {len(result['action_items'])} action items to database...")
-                        supabase.save_action_items(
-                            conversation_id=conversation_id,
-                            action_items=result["action_items"]
-                        )
-                        print(f"[DB] ✓ All action items saved successfully")
-                    except Exception as db_error:
-                        print(f"[DB ERROR] Failed to save action items: {str(db_error)}")
-            else:
-                result["action_items"] = {
-                    "success": False,
-                    "error": action_items_result.get("error", "Failed to extract action items")
-                }
-                print(f"[AI] Action items extraction failed: {action_items_result.get('error')}")
+            # Step 5: Action items will be extracted AFTER speaker mapping is complete
+            # This allows the LLM to see actual names instead of speaker IDs
+            # Action items extraction is triggered via /meetings/{meeting_id}/extract-action-items endpoint
+            result["action_items"] = []
+            print(f"[AI] Action items will be extracted after speaker mapping is complete")
 
         else:
             result["summary"] = {
@@ -1283,6 +1260,380 @@ async def save_speaker_mappings(
             "success": False,
             "error": f"Failed to save speaker mappings: {str(e)}"
         }
+
+@app.post(
+    "/meetings/{meeting_id}/extract-action-items",
+    tags=["AI Processing"],
+    summary="Extract Action Items After Speaker Mapping",
+    description="""
+    Extract action items from a meeting transcription AFTER speaker names have been assigned.
+    
+    This endpoint:
+    1. Retrieves the meeting transcription
+    2. Gets speaker name mappings
+    3. Replaces speaker IDs (SPEAKER_01, etc.) with actual names in the transcript
+    4. Uses AI to extract action items with proper name assignments
+    5. Saves action items to the database
+    
+    ### When to Use
+    Call this endpoint AFTER the user has completed speaker mapping via `/meetings/{meeting_id}/speaker-mappings`.
+    
+    ### Benefits
+    - LLM sees actual names instead of generic speaker IDs
+    - More accurate action item assignments
+    - Better delegation based on who said what
+    """,
+    response_description="Extracted action items with proper name assignments"
+)
+async def extract_action_items_after_speaker_mapping(meeting_id: str):
+    """
+    Extract action items from a meeting transcription after speaker names have been assigned.
+    This allows the LLM to see actual names and make better assignment decisions.
+    """
+    import uuid
+    try:
+        # Validate meeting_id format
+        try:
+            uuid.UUID(meeting_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid meeting_id format. Expected UUID, got: {meeting_id}"
+            )
+        
+        supabase = get_supabase()
+        
+        # Step 1: Get the transcription
+        transcription_result = supabase.get_meeting_transcription(meeting_id)
+        if not transcription_result.data or len(transcription_result.data) == 0:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No transcription found for meeting {meeting_id}"
+            )
+        
+        transcription_data = transcription_result.data[0]
+        transcription_text = transcription_data.get("transcription_text", "")
+        segments_data = transcription_data.get("segments", {})
+        
+        # Handle segments format (could be array or object with segments property)
+        segments = []
+        if isinstance(segments_data, list):
+            segments = segments_data
+        elif isinstance(segments_data, dict) and "segments" in segments_data:
+            segments = segments_data.get("segments", [])
+        elif isinstance(segments_data, dict):
+            # Might be stored as a dict with other properties
+            segments = segments_data.get("segments", [])
+        
+        if not transcription_text:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Transcription text is empty for meeting {meeting_id}"
+            )
+        
+        # Step 2: Get speaker mappings
+        speaker_mappings = supabase.get_speaker_mappings(meeting_id)
+        
+        if not speaker_mappings:
+            # If no speaker mappings exist, use original transcript
+            print(f"[ACTION ITEMS] No speaker mappings found for meeting {meeting_id}, using original transcript")
+            enriched_transcript = transcription_text
+        else:
+            # Step 3: Replace speaker IDs with actual names in the transcript
+            print(f"[ACTION ITEMS] Found {len(speaker_mappings)} speaker mappings, enriching transcript...")
+            
+            # Build enriched transcript by replacing speaker IDs in segments
+            enriched_segments = []
+            for segment in segments:
+                speaker_id = segment.get("speaker")
+                text = segment.get("text", "")
+                
+                # Replace speaker ID with name if mapping exists
+                if speaker_id and speaker_id in speaker_mappings:
+                    speaker_name = speaker_mappings[speaker_id]
+                    # Add speaker name at the beginning of the segment
+                    enriched_text = f"{speaker_name}: {text}"
+                else:
+                    enriched_text = text
+                
+                enriched_segments.append({
+                    "speaker": speaker_id,
+                    "speaker_name": speaker_mappings.get(speaker_id, speaker_id),
+                    "text": enriched_text,
+                    "start": segment.get("start"),
+                    "end": segment.get("end")
+                })
+            
+            # Reconstruct transcript text with names
+            if enriched_segments:
+                # Build transcript with format: "Name: text" for better LLM understanding
+                # Note: enriched_segments already have names in the text field, so just use that
+                enriched_transcript_parts = []
+                for seg in enriched_segments:
+                    # The text field already has "Name: text" format from line 1355
+                    enriched_transcript_parts.append(seg.get("text", ""))
+                enriched_transcript = "\n".join(enriched_transcript_parts)
+            else:
+                # Fallback: replace speaker IDs in full text
+                enriched_transcript = transcription_text
+                for speaker_id, name in speaker_mappings.items():
+                    enriched_transcript = enriched_transcript.replace(speaker_id, name)
+            
+            print(f"[ACTION ITEMS] Transcript enriched with {len(speaker_mappings)} speaker names")
+            print(f"[ACTION ITEMS] Speaker mappings: {speaker_mappings}")
+            print(f"[ACTION ITEMS] Sample enriched transcript (first 500 chars): {enriched_transcript[:500]}")
+        
+        # Step 4: Extract action items using enriched transcript
+        print(f"[AI] Extracting action items with enriched transcript (length: {len(enriched_transcript)} chars)...")
+        action_items_start = time.time()
+        action_items_result = summarization_service.extract_action_items(enriched_transcript)
+        action_items_duration = time.time() - action_items_start
+        
+        if not action_items_result.get("success"):
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "error": "action_items_extraction_failed",
+                    "message": action_items_result.get("error", "Failed to extract action items")
+                }
+            )
+        
+        action_items = action_items_result.get("action_items", [])
+        print(f"[AI] Extracted {len(action_items)} action items in {action_items_duration:.2f}s")
+        
+        # Step 4.5: Post-process to convert speaker IDs to names and assign unassigned tasks
+        if speaker_mappings and action_items:
+            print(f"[ACTION ITEMS] Post-processing to convert speaker IDs to names using {len(speaker_mappings)} speaker mappings...")
+            assigned_names = list(speaker_mappings.values())
+            # Create a normalized mapping for fuzzy matching (case-insensitive)
+            normalized_name_map = {name.lower(): name for name in assigned_names}
+            
+            def validate_and_fix_name(name: str) -> str:
+                """Validate that a name is in the speaker mappings, fix if needed"""
+                if not name or name.strip() == "":
+                    return "Unassigned"
+                
+                name_clean = name.strip()
+                
+                # Exact match
+                if name_clean in assigned_names:
+                    return name_clean
+                
+                # Case-insensitive match
+                if name_clean.lower() in normalized_name_map:
+                    correct_name = normalized_name_map[name_clean.lower()]
+                    print(f"[ACTION ITEMS] Fixed case mismatch: '{name_clean}' -> '{correct_name}'")
+                    return correct_name
+                
+                # Fuzzy match - check if any part of the name matches
+                name_lower = name_clean.lower()
+                for actual_name in assigned_names:
+                    actual_lower = actual_name.lower()
+                    # Check if names are similar (one contains the other or vice versa)
+                    if name_lower in actual_lower or actual_lower in name_lower:
+                        print(f"[ACTION ITEMS] Fixed name mismatch: '{name_clean}' -> '{actual_name}'")
+                        return actual_name
+                    # Check first name match
+                    if name_lower.split()[0] == actual_lower.split()[0] if name_lower.split() and actual_lower.split() else False:
+                        print(f"[ACTION ITEMS] Fixed first name match: '{name_clean}' -> '{actual_name}'")
+                        return actual_name
+                
+                # If no match found, return original (will be handled by unassigned logic)
+                print(f"[ACTION ITEMS] WARNING: Name '{name_clean}' not found in speaker mappings: {assigned_names}")
+                return name_clean
+            
+            for item in action_items:
+                assigned_to = item.get("assigned_to", "").strip()
+                
+                # FIRST: Convert any speaker IDs to actual names
+                if assigned_to in speaker_mappings:
+                    item["assigned_to"] = speaker_mappings[assigned_to]
+                    print(f"[ACTION ITEMS] Converted '{assigned_to}' to '{speaker_mappings[assigned_to]}' for task: {item.get('task')}")
+                elif assigned_to.startswith("SPEAKER_"):
+                    # Handle case where LLM might return speaker IDs even though we gave it names
+                    # Try to find the name in the enriched transcript context
+                    task_text = item.get("task", "").lower()
+                    found_name = None
+                    
+                    # Search segments to find which speaker this task relates to
+                    for segment in segments:
+                        segment_text = segment.get("text", "").lower()
+                        segment_speaker_id = segment.get("speaker")
+                        
+                        # Check if this segment contains keywords from the task
+                        task_keywords = [word for word in task_text.split() if len(word) > 4]
+                        if any(keyword in segment_text for keyword in task_keywords):
+                            if segment_speaker_id in speaker_mappings:
+                                found_name = speaker_mappings[segment_speaker_id]
+                                break
+                    
+                    if found_name:
+                        item["assigned_to"] = found_name
+                        print(f"[ACTION ITEMS] Converted '{assigned_to}' to '{found_name}' based on transcript context")
+                    elif assigned_to in speaker_mappings:
+                        item["assigned_to"] = speaker_mappings[assigned_to]
+                    else:
+                        # If we can't find the mapping, use first available name as fallback
+                        if assigned_names:
+                            item["assigned_to"] = assigned_names[0]
+                            print(f"[ACTION ITEMS] Converted '{assigned_to}' to '{assigned_names[0]}' (fallback)")
+                elif assigned_to and assigned_to != "Unassigned":
+                    # Validate that the name returned by LLM is actually in our speaker mappings
+                    validated_name = validate_and_fix_name(assigned_to)
+                    if validated_name != assigned_to:
+                        item["assigned_to"] = validated_name
+                        print(f"[ACTION ITEMS] Validated and fixed name: '{assigned_to}' -> '{validated_name}' for task: {item.get('task')}")
+                
+                # SECOND: Handle unassigned tasks
+                if item.get("assigned_to") == "Unassigned" or not item.get("assigned_to") or item.get("assigned_to", "").strip() == "":
+                    task_text = item.get("task", "").lower()
+                    
+                    # Strategy 1: Check if task mentions a name directly
+                    for name in assigned_names:
+                        if name.lower() in task_text:
+                            item["assigned_to"] = name
+                            print(f"[ACTION ITEMS] Assigned '{item.get('task')}' to {name} (name found in task)")
+                            break
+                    
+                    # Strategy 2: If still unassigned, find the speaker who mentioned this task
+                    if item.get("assigned_to") == "Unassigned" or not item.get("assigned_to"):
+                        # Search segments for this task
+                        task_keywords = [word for word in task_text.split() if len(word) > 4]  # Get meaningful words
+                        best_match_speaker = None
+                        best_match_score = 0
+                        
+                        for segment in segments:
+                            segment_text = segment.get("text", "").lower()
+                            segment_speaker_id = segment.get("speaker")
+                            
+                            # Count how many task keywords appear in this segment
+                            match_score = sum(1 for keyword in task_keywords if keyword in segment_text)
+                            
+                            # Bonus if speaker says "I will" or "I'll" in same segment
+                            if any(phrase in segment_text for phrase in ["i will", "i'll", "i can", "let me", "i'll handle"]):
+                                match_score += 2
+                            
+                            if match_score > best_match_score and segment_speaker_id in speaker_mappings:
+                                best_match_score = match_score
+                                best_match_speaker = speaker_mappings[segment_speaker_id]
+                        
+                        if best_match_speaker and best_match_score >= 1:
+                            item["assigned_to"] = best_match_speaker
+                            print(f"[ACTION ITEMS] Assigned '{item.get('task')}' to {best_match_speaker} (found in transcript context)")
+                        elif assigned_names:
+                            # Strategy 3: If still unassigned and we have names, assign to first person (fallback)
+                            # This ensures every task has an owner
+                            item["assigned_to"] = assigned_names[0]
+                            print(f"[ACTION ITEMS] Assigned '{item.get('task')}' to {assigned_names[0]} (fallback assignment)")
+        
+        # Final pass: Validate all names and ensure no speaker IDs remain
+        if speaker_mappings:
+            for item in action_items:
+                assigned_to = item.get("assigned_to", "")
+                
+                # Convert speaker IDs
+                if assigned_to.startswith("SPEAKER_") and assigned_to in speaker_mappings:
+                    item["assigned_to"] = speaker_mappings[assigned_to]
+                    print(f"[ACTION ITEMS] Final pass: Converted '{assigned_to}' to '{speaker_mappings[assigned_to]}'")
+                elif assigned_to.startswith("SPEAKER_") and speaker_mappings:
+                    # Last resort: assign to first available name
+                    item["assigned_to"] = list(speaker_mappings.values())[0]
+                    print(f"[ACTION ITEMS] Final pass: Converted '{assigned_to}' to '{list(speaker_mappings.values())[0]}' (fallback)")
+                elif assigned_to and assigned_to != "Unassigned":
+                    # Validate that the name is in our speaker mappings
+                    validated_name = validate_and_fix_name(assigned_to)
+                    if validated_name != assigned_to:
+                        item["assigned_to"] = validated_name
+                    # If still not in mappings, try to find it in transcript segments
+                    elif validated_name not in assigned_names:
+                        # Search for this name in the enriched transcript to find the speaker
+                        task_text = item.get("task", "").lower()
+                        found_speaker_id = None
+                        for segment in segments:
+                            segment_text = segment.get("text", "").lower()
+                            # Check if the invalid name appears in this segment
+                            if validated_name.lower() in segment_text:
+                                segment_speaker_id = segment.get("speaker")
+                                if segment_speaker_id in speaker_mappings:
+                                    found_speaker_id = segment_speaker_id
+                                    break
+                        
+                        if found_speaker_id:
+                            correct_name = speaker_mappings[found_speaker_id]
+                            item["assigned_to"] = correct_name
+                            print(f"[ACTION ITEMS] Final pass: Mapped invalid name '{validated_name}' to correct speaker '{correct_name}'")
+                        else:
+                            # Last resort: use first available name
+                            item["assigned_to"] = list(speaker_mappings.values())[0]
+                            print(f"[ACTION ITEMS] Final pass: Replaced invalid name '{validated_name}' with '{list(speaker_mappings.values())[0]}' (fallback)")
+        
+        # Count how many are still unassigned or have speaker IDs after post-processing
+        unassigned_count = sum(1 for item in action_items if item.get("assigned_to") == "Unassigned" or not item.get("assigned_to"))
+        speaker_id_count = sum(1 for item in action_items if item.get("assigned_to", "").startswith("SPEAKER_"))
+        
+        # Summary: Show which names were actually used
+        if speaker_mappings:
+            used_names = set(item.get("assigned_to", "") for item in action_items if item.get("assigned_to") and item.get("assigned_to") != "Unassigned")
+            expected_names = set(speaker_mappings.values())
+            invalid_names = used_names - expected_names
+            
+            print(f"\n[ACTION ITEMS] Summary:")
+            print(f"  Expected names: {sorted(expected_names)}")
+            print(f"  Names used in action items: {sorted(used_names)}")
+            if invalid_names:
+                print(f"  ⚠️  WARNING: Invalid names found: {sorted(invalid_names)}")
+            else:
+                print(f"  ✓ All names are valid")
+        
+        if unassigned_count > 0:
+            print(f"[ACTION ITEMS] WARNING: {unassigned_count} action items still unassigned after post-processing")
+        if speaker_id_count > 0:
+            print(f"[ACTION ITEMS] WARNING: {speaker_id_count} action items still have speaker IDs after post-processing")
+        if unassigned_count == 0 and speaker_id_count == 0:
+            print(f"[ACTION ITEMS] ✓ All {len(action_items)} action items have been assigned with actual names")
+        
+        # Step 5: Get conversation_id for this meeting
+        conversation_result = supabase.client.table("conversations")\
+            .select("id")\
+            .eq("meeting_id", meeting_id)\
+            .execute()
+        
+        conversation_id = None
+        if conversation_result.data and len(conversation_result.data) > 0:
+            conversation_id = conversation_result.data[0]["id"]
+        
+        # Step 6: Save action items to database
+        if conversation_id and len(action_items) > 0:
+            try:
+                print(f"[DB] Saving {len(action_items)} action items to database...")
+                supabase.save_action_items(
+                    conversation_id=conversation_id,
+                    action_items=action_items
+                )
+                print(f"[DB] ✓ All action items saved successfully")
+            except Exception as db_error:
+                print(f"[DB ERROR] Failed to save action items: {str(db_error)}")
+                # Don't fail the request, just log the error
+        
+        return {
+            "success": True,
+            "action_items": action_items,
+            "count": len(action_items),
+            "message": f"Successfully extracted {len(action_items)} action items"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Error extracting action items: {str(e)}")
+        print(f"Traceback:\n{error_trace}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to extract action items: {str(e)}"
+        )
+
 # Conversation/Chat History Endpoints
 @app.post(
     "/conversations",
