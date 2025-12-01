@@ -245,28 +245,54 @@ Remember: The ## heading should be a SPECIFIC title about the meeting content, N
                 - error (str): Error message (if failed)
         """
         # Create specialized prompt for extracting action items
-        prompt = f"""Extract action items from this transcription. Look for tasks, to-dos, steps, assignments, deadlines, and responsibilities. This could be from a meeting, presentation, tutorial, or any instructional content.
+        # Extract unique names from the transcript to provide to LLM
+        import re
+        # Find all names in format "Name: text" from the transcript
+        name_pattern = r'^([^:]+):\s'
+        found_names = set()
+        for line in transcription_text.split('\n'):
+            match = re.match(name_pattern, line.strip())
+            if match:
+                name = match.group(1).strip()
+                if name and not name.startswith('SPEAKER_'):
+                    found_names.add(name)
+        
+        names_list = sorted(list(found_names)) if found_names else []
+        names_context = f"\n\nIMPORTANT: The following people are in this meeting: {', '.join(names_list)}. ONLY use these exact names when assigning tasks. Do NOT make up names or use names not in this list." if names_list else ""
+        
+        prompt = f"""Extract action items from this meeting transcription. Look for tasks, to-dos, steps, assignments, deadlines, and responsibilities.
 
     Transcription:
-    {transcription_text}
+    {transcription_text}{names_context}
 
         Return a JSON array where each action item has:
         - task: what needs to be done
         - priority: high, medium, or low (based on urgency or importance)
-        - assigned_to: IMPORTANT - Follow these rules strictly:
-            * ONLY use a person's name if they are EXPLICITLY mentioned as responsible for that specific task in the transcription
-            * Look for phrases like "John will...", "Sarah is going to...", "assigned to Alex", "Mike agreed to..."
-            * If a task is mentioned but NO specific person is assigned to it, use "Unassigned"
-            * Do NOT guess, infer, or make up names
-            * Do NOT assign to whoever is speaking unless they explicitly take responsibility
-            * When in doubt, use "Unassigned"
+        - assigned_to: CRITICAL - Every task MUST be assigned to someone. Follow these rules STRICTLY:
+            * The transcription shows who is speaking in format "Name: text"
+            * ONLY use names that appear in the transcription (the list provided above)
+            * Look for explicit commitments: "I will...", "I'll handle that", "I can do that", "I'll take care of it", "Let me...", "I'll work on..."
+            * Look for assignments: "John will...", "Sarah is going to...", "assigned to Alex", "Mike agreed to...", "Can you handle this, Sarah?"
+            * If a speaker commits to doing something (says "I will", "I'll", "Let me"), assign it to THAT SPEAKER'S NAME (the name before the colon)
+            * If someone is explicitly assigned a task by another speaker, use that person's name
+            * If a task is discussed in context of a specific person's role/responsibility, assign it to them
+            * If multiple people are involved, assign to the person who committed or is most directly responsible
+            * ONLY use "Unassigned" if the task is truly vague with no clear owner AND no one committed to it
+            * When someone says "I'll do it" or "I can handle that", that's a commitment - assign it to them
+            * Pay close attention to who is speaking when tasks are mentioned - the speaker often commits to their own tasks
+            * DO NOT invent names - only use names that appear in the transcription
+
+        IMPORTANT: 
+        - Minimize "Unassigned" - if a task exists, someone should be responsible
+        - ONLY use names from the list provided above
+        - If you see a name in the transcription, use that EXACT name (case-sensitive)
 
         Return ONLY valid JSON. Example:
             [
             {{"task": "Complete user testing by Friday", "priority": "high", "assigned_to": "Sarah Chen"}},
-            {{"task": "Update documentation", "priority": "medium", "assigned_to": "Unassigned"}},
+            {{"task": "Update documentation", "priority": "medium", "assigned_to": "John Doe"}},
             {{"task": "Review analytics dashboard", "priority": "high", "assigned_to": "Mike"}},
-            {{"task": "Send follow-up email", "priority": "low", "assigned_to": "Unassigned"}}
+            {{"task": "Send follow-up email", "priority": "low", "assigned_to": "Alex"}}
             ]
 
         If no action items exist, return: []"""
