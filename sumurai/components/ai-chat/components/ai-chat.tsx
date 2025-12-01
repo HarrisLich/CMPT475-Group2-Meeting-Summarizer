@@ -403,7 +403,7 @@ export default function AiChat() {
     const audioUrl = URL.createObjectURL(file);
 
     setIsUploading(true);
-    setUploadStatus("📤 Uploading audio file...");
+    setUploadStatus("Uploading audio file...");
 
     try {
       // Step 1: Transcribe the audio (with optional speaker diarization)

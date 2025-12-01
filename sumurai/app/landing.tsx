@@ -86,7 +86,21 @@ function Landing() {
     {
       icon: <CheckCircle className="w-6 h-6" />,
       title: "Smart Action Items",
-      description: "Automatically extract tasks with priorities and assignments—never miss a follow-up again.",
+      description: (
+        <>
+          Automatically extract tasks with priorities and assignments—slam{' '}
+          <a
+            href="https://www.youtube.com/watch?v=_Qf7q-nD74A"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-300 hover:text-gray-300 no-underline cursor-default hover:cursor-pointer"
+            style={{ color: 'inherit' }}
+          >
+            dunk
+          </a>
+          {' '}on your deadlines.
+        </>
+      ),
       color: "bg-gradient-to-br from-[#00F5FF] to-[#06B6D4]"
     },
     {
