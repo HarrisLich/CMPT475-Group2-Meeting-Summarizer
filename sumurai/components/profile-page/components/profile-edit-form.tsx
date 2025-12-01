@@ -7,13 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/lib/context/auth-context";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Camera, Loader2 } from "lucide-react";
+import AvatarCropper from "./avatar-cropper";
 
 export default function ProfileEditForm({ onCancel }: { onCancel: () => void }) {
-  const { profile, updateUserProfile, uploadUserAvatar, error } = useAuth();
+  const { profile, updateUserProfile, uploadUserAvatar } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [showCropper, setShowCropper] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({
     name: profile?.name || "",
     first_name: profile?.first_name || "",
@@ -53,16 +55,48 @@ export default function ProfileEditForm({ onCancel }: { onCancel: () => void }) 
     }
   };
 
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     
     const file = e.target.files[0];
+    
+    if (!file.type.startsWith('image/')) {
+      setLocalError('Please select an image file');
+      return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+      setLocalError('Image size must be less than 5MB');
+      return;
+    }
+    
+    setSelectedFile(file);
+    setShowCropper(true);
+    e.target.value = '';
+  };
+
+  const handleCrop = async (croppedFile: File) => {
+    setShowCropper(false);
     setIsLoading(true);
+    setLocalError(null);
     
     try {
-      await uploadUserAvatar(file);
+      console.log("Starting avatar upload with cropped file:", croppedFile.name, croppedFile.size);
+      const avatarUrl = await uploadUserAvatar(croppedFile);
+      console.log("Avatar upload successful, URL:", avatarUrl);
+      
+      // Force component to refresh by waiting a moment for state to update
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Verify the profile was updated
+      if (profile?.avatar_url !== avatarUrl) {
+        console.log("Profile avatar_url updated:", avatarUrl);
+      }
     } catch (error) {
-      console.error("Error uploading avatar:", error);
+      console.error("Avatar upload error:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to upload avatar.';
+      setLocalError(errorMessage);
+      setShowCropper(true); // Reopen cropper on error
     } finally {
       setIsLoading(false);
     }
@@ -85,25 +119,63 @@ export default function ProfileEditForm({ onCancel }: { onCancel: () => void }) 
         <CardTitle>Edit Profile</CardTitle>
       </CardHeader>
       <CardContent>
-        {(localError || error) && (
+        {localError && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-red-700 text-sm">{localError || error}</p>
+            <p className="text-red-700 text-sm">{localError}</p>
           </div>
+        )}
+        
+        {showCropper && selectedFile && (
+          <AvatarCropper
+            imageFile={selectedFile}
+            onCrop={handleCrop}
+            onCancel={() => {
+              setShowCropper(false);
+              setSelectedFile(null);
+            }}
+          />
         )}
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="flex justify-center mb-4">
             <div className="relative">
-              <Avatar className="h-24 w-24">
-                <AvatarImage src={profile?.avatar_url || ""} alt="Profile" />
-                <AvatarFallback className="text-2xl">
-                  {getInitials()}
-                </AvatarFallback>
-              </Avatar>
+              {profile?.avatar_url ? (
+                <img 
+                  src={profile.avatar_url} 
+                  alt="Profile" 
+                  key={profile.avatar_url}
+                  className="h-24 w-24 rounded-full object-cover ring-2 ring-[#00F5FF] ring-offset-2 ring-offset-background"
+                  onLoad={() => console.log("Profile image loaded:", profile.avatar_url)}
+                  onError={async (e) => {
+                    console.error("Profile image failed to load:", profile.avatar_url);
+                    // Test if URL is accessible
+                    if (profile.avatar_url) {
+                      try {
+                        const response = await fetch(profile.avatar_url, { method: 'HEAD' });
+                        console.error("URL test - Status:", response.status, "OK:", response.ok);
+                        if (!response.ok) {
+                          console.error("File does not exist or is not accessible");
+                        }
+                      } catch (fetchError) {
+                        console.error("URL fetch test failed:", fetchError);
+                      }
+                    }
+                  }}
+                />
+              ) : (
+                <div className="h-24 w-24 rounded-full bg-[#00F5FF] flex items-center justify-center ring-2 ring-[#00F5FF] ring-offset-2 ring-offset-background">
+                  <span className="text-2xl text-black font-semibold">{getInitials()}</span>
+                </div>
+              )}
+              {isLoading && (
+                <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center z-10">
+                  <Loader2 className="h-6 w-6 text-[#00F5FF] animate-spin" />
+                </div>
+              )}
               <Label
                 htmlFor="avatar-upload"
-                className="absolute -right-2 -bottom-2 h-8 w-8 rounded-full bg-primary flex items-center justify-center cursor-pointer hover:bg-primary/90 transition-colors"
+                className="absolute -right-2 -bottom-2 h-8 w-8 rounded-full bg-[#00F5FF] flex items-center justify-center cursor-pointer hover:bg-[#06B6D4] transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-20"
               >
-                <Camera className="h-4 w-4 text-white" />
+                <Camera className="h-4 w-4 text-black" />
               </Label>
               <Input
                 id="avatar-upload"

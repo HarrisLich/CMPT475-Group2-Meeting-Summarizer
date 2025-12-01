@@ -158,21 +158,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Add update profile function
   const updateUserProfile = async (updates: ProfileData) => {
     try {
-      console.log("Auth context: Updating profile with:", updates);
       const result = await updateProfile(updates);
-      console.log("Auth context: Update result:", result);
-      
+
       if (result.error) {
-        console.error("Auth context: Update error:", result.error);
         throw result.error;
       }
-      
+
       // Update local state
       setProfile(prev => prev ? { ...prev, ...updates } : null);
-      console.log("Auth context: Local profile state updated");
-      
+
     } catch (error: any) {
-      console.error("Auth context: updateUserProfile error:", error);
       setError(error.message || "Failed to update profile");
       throw error;
     }
@@ -182,12 +177,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const uploadUserAvatar = async (file: File) => {
     try {
       const { data, error } = await uploadAvatar(file);
-      if (error) throw error;
-      
-      // Update local profile state with new avatar
-      setProfile(prev => prev ? { ...prev, avatar_url: data } : null);
+      if (error) {
+        throw error;
+      }
+
+      // Force refetch profile to get updated avatar URL from database
+      if (user?.id) {
+        lastFetchedUserIdRef.current = null; // Reset cache to force refetch
+        setIsFetchingProfile(false);
+
+        const { data: profileData, error: profileError } = await getCurrentProfile();
+        if (profileError) {
+          // Fallback: update local state
+          setProfile(prev => prev ? { ...prev, avatar_url: data } : { avatar_url: data } as ProfileData);
+        } else if (profileData) {
+          setProfile(profileData);
+        } else {
+          // Fallback if no data returned
+          setProfile(prev => prev ? { ...prev, avatar_url: data } : { avatar_url: data } as ProfileData);
+        }
+      }
+
       return data;
-      
     } catch (error: any) {
       setError(error.message || "Failed to upload avatar");
       throw error;

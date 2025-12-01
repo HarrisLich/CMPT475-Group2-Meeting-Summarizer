@@ -1,152 +1,66 @@
-import { Shield, Key } from "lucide-react";
+"use client";
 
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import DeleteAccountDialog from "./delete-account-dialog";
+import { useAuth } from "@/lib/context/auth-context";
 
 export default function ProfileContent() {
+  const router = useRouter();
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      router.push('/');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+
   return (
-    <Tabs defaultValue="personal" className="space-y-6">
-      <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="account">Account</TabsTrigger>
-        <TabsTrigger value="security">Security</TabsTrigger>
-      </TabsList>
+    <div className="space-y-6">
+      {/* Account Management */}
+      <Card className="border-[#333333] bg-[#1A1A1A]">
+        <CardHeader>
+          <CardTitle className="text-white">Account Management</CardTitle>
+          <CardDescription className="text-gray-400">
+            Manage your account settings and preferences
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Label className="text-base text-white">Sign Out</Label>
+              <p className="text-sm text-gray-400">
+                Sign out of your account on this device
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={handleLogout}
+              className="border-[#333333] text-white hover:bg-[#2A2A2A] hover:text-[#00F5FF]"
+            >
+              Log Out
+            </Button>
+          </div>
 
-      {/* Account Settings */}
-      <TabsContent value="account" className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Account Settings</CardTitle>
-            <CardDescription>Manage your account preferences and subscription.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <Label className="text-base">Account Status</Label>
-                <p className="text-muted-foreground text-sm">Your account is currently active</p>
-              </div>
-              <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
-                Active
-              </Badge>
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <Label className="text-base">Subscription Plan</Label>
-                <p className="text-muted-foreground text-sm">Pro Plan - $29/month</p>
-              </div>
-              <Button variant="outline">Manage Subscription</Button>
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <Label className="text-base">Account Visibility</Label>
-                <p className="text-muted-foreground text-sm">
-                  Make your profile visible to other users
-                </p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <Label className="text-base">Data Export</Label>
-                <p className="text-muted-foreground text-sm">Download a copy of your data</p>
-              </div>
-              <Button variant="outline">Export Data</Button>
-            </div>
-          </CardContent>
-        </Card>
+          <Separator className="bg-[#333333]" />
 
-        <Card className="border-destructive/50">
-          <CardHeader>
-            <CardTitle className="text-destructive">Danger Zone</CardTitle>
-            <CardDescription>Irreversible and destructive actions</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <Label className="text-base">Delete Account</Label>
-                <p className="text-muted-foreground text-sm">
-                  Permanently delete your account and all data
-                </p>
-              </div>
-              <DeleteAccountDialog />
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Label className="text-base text-red-400">Delete Account</Label>
+              <p className="text-sm text-gray-400">
+                Permanently delete your account and all associated data
+              </p>
             </div>
-          </CardContent>
-        </Card>
-      </TabsContent>
-
-      {/* Security Settings */}
-      <TabsContent value="security" className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Security Settings</CardTitle>
-            <CardDescription>Manage your account security and authentication.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <Label className="text-base">Password</Label>
-                  <p className="text-muted-foreground text-sm">Last changed 3 months ago</p>
-                </div>
-                <Button variant="outline">
-                  <Key className="mr-2 h-4 w-4" />
-                  Change Password
-                </Button>
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <Label className="text-base">Two-Factor Authentication</Label>
-                  <p className="text-muted-foreground text-sm">
-                    Add an extra layer of security to your account
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
-                    Enabled
-                  </Badge>
-                  <Button variant="outline" size="sm">
-                    Configure
-                  </Button>
-                </div>
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <Label className="text-base">Login Notifications</Label>
-                  <p className="text-muted-foreground text-sm">
-                    Get notified when someone logs into your account
-                  </p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <Label className="text-base">Active Sessions</Label>
-                  <p className="text-muted-foreground text-sm">
-                    Manage devices that are logged into your account
-                  </p>
-                </div>
-                <Button variant="outline">
-                  <Shield className="mr-2 h-4 w-4" />
-                  View Sessions
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </TabsContent>
-    </Tabs>
+            <DeleteAccountDialog />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

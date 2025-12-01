@@ -68,6 +68,7 @@ export function ChatInterface({
   const [actionItemsCollapsed, setActionItemsCollapsed] = React.useState(false);
   const [downloadMenuOpen, setDownloadMenuOpen] = React.useState(false);
   const [showConsentDialog, setShowConsentDialog] = React.useState(false);
+  const [expandedGroups, setExpandedGroups] = React.useState<Record<string, boolean>>({});
   const downloadButtonRef = React.useRef<HTMLDivElement>(null);
 
   // Get unique speakers for color coding
@@ -646,52 +647,90 @@ export function ChatInterface({
 
                   return (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      {Object.entries(groupedByPerson).map(([person, items]) => (
-                        <div
-                          key={person}
-                          className="bg-[#1A1A1A] rounded-lg border border-[#333333] p-4 shadow-lg hover:shadow-xl transition-all duration-300"
-                        >
-                          {/* Person Header */}
-                          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#333333]">
-                            <span className="text-xs text-gray-400">Assigned to:</span>
-                            <span className="text-base font-semibold text-[#00F5FF]">
-                              {person}
-                            </span>
-                            <span className="text-xs text-gray-500 ml-auto">
-                              {items.length} {items.length === 1 ? 'item' : 'items'}
-                            </span>
-                          </div>
+                      {Object.entries(groupedByPerson).map(([person, items]) => {
+                        const isExpanded = expandedGroups[person] ?? false;
+                        const ITEMS_TO_SHOW = 1;
+                        const hasMore = items.length > ITEMS_TO_SHOW;
+                        const displayedItems = isExpanded ? items : items.slice(0, ITEMS_TO_SHOW);
 
-                          {/* Action Items List */}
-                          <div className="space-y-3">
-                            {items.map((item, index) => (
-                              <div
-                                key={item.id}
-                                className="bg-[#0F0F0F] rounded-md p-3 border border-[#2A2A2A]"
-                              >
-                                <div className="flex items-center gap-2 mb-2">
-                                  <div className={`h-2 w-2 rounded-full ${
-                                    item.priority === 'high' ? 'bg-red-500' :
-                                    item.priority === 'medium' ? 'bg-yellow-500' :
-                                    'bg-green-500'
-                                  }`}></div>
-                                  <span className={`text-xs font-semibold uppercase tracking-wide ${
-                                    item.priority === 'high' ? 'text-red-400' :
-                                    item.priority === 'medium' ? 'text-yellow-400' :
-                                    'text-green-400'
-                                  }`}>
-                                    {item.priority}
+                        return (
+                          <div
+                            key={person}
+                            className="bg-[#1A1A1A] rounded-lg border border-[#333333] p-4 shadow-lg hover:shadow-xl transition-all duration-300"
+                          >
+                            {/* Person Header */}
+                            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#333333]">
+                              {person === "Unassigned" ? (
+                                <span className="text-base font-semibold text-[#00F5FF]">
+                                  {person}
+                                </span>
+                              ) : (
+                                <>
+                                  <span className="text-xs text-gray-400">Assigned to:</span>
+                                  <span className="text-base font-semibold text-[#00F5FF]">
+                                    {person}
                                   </span>
-                                  <span className="text-xs text-gray-500 ml-auto">
-                                    #{index + 1}
-                                  </span>
+                                </>
+                              )}
+                              <span className="text-xs text-gray-500 ml-auto">
+                                {items.length} {items.length === 1 ? 'item' : 'items'}
+                              </span>
+                            </div>
+
+                            {/* Action Items List */}
+                            <div className="space-y-3">
+                              {displayedItems.map((item, index) => (
+                                <div
+                                  key={item.id}
+                                  className="bg-[#0F0F0F] rounded-md p-3 border border-[#2A2A2A]"
+                                >
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <div className={`h-2 w-2 rounded-full ${
+                                      item.priority === 'high' ? 'bg-red-500' :
+                                      item.priority === 'medium' ? 'bg-yellow-500' :
+                                      'bg-green-500'
+                                    }`}></div>
+                                    <span className={`text-xs font-semibold uppercase tracking-wide ${
+                                      item.priority === 'high' ? 'text-red-400' :
+                                      item.priority === 'medium' ? 'text-yellow-400' :
+                                      'text-green-400'
+                                    }`}>
+                                      {item.priority}
+                                    </span>
+                                    <span className="text-xs text-gray-500 ml-auto">
+                                      #{index + 1}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-white leading-relaxed">{item.task}</p>
                                 </div>
-                                <p className="text-sm text-white leading-relaxed">{item.task}</p>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
+
+                            {/* Expand/Collapse Button */}
+                            {hasMore && (
+                              <button
+                                onClick={() => setExpandedGroups(prev => ({
+                                  ...prev,
+                                  [person]: !isExpanded
+                                }))}
+                                className="w-full mt-3 py-2 text-xs font-medium text-[#00F5FF] hover:text-[#06B6D4] transition-colors flex items-center justify-center gap-1"
+                              >
+                                {isExpanded ? (
+                                  <>
+                                    Show Less
+                                    <ChevronUp className="w-3 h-3" />
+                                  </>
+                                ) : (
+                                  <>
+                                    Show {items.length - ITEMS_TO_SHOW} More
+                                    <ChevronDown className="w-3 h-3" />
+                                  </>
+                                )}
+                              </button>
+                            )}
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   );
                 })()

@@ -85,23 +85,23 @@ export default function DeleteAccountDialog() {
           Delete Account
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md bg-[#1A1A1A] border-[#333333]">
         <DialogHeader>
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
-            <AlertTriangle className="h-6 w-6 text-destructive" />
+          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10">
+            <AlertTriangle className="h-6 w-6 text-red-500" />
           </div>
-          <DialogTitle className="text-center text-destructive">
+          <DialogTitle className="text-center text-red-400">
             Delete Account
           </DialogTitle>
-          <DialogDescription className="text-center">
+          <DialogDescription className="text-center text-gray-400">
             This action cannot be undone. This will permanently delete your account and remove all your data from our servers.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4">
-            <p className="text-sm font-medium mb-2">This will permanently delete:</p>
-            <ul className="text-sm space-y-1 text-muted-foreground">
+          <div className="rounded-lg border border-red-500/50 bg-red-500/5 p-4">
+            <p className="text-sm font-medium mb-2 text-white">This will permanently delete:</p>
+            <ul className="text-sm space-y-1 text-gray-400">
               <li>• Your profile information</li>
               <li>• All your meetings and transcriptions</li>
               <li>• All summaries and action items</li>
@@ -113,7 +113,7 @@ export default function DeleteAccountDialog() {
 
         <DialogFooter className="sm:justify-between">
           <DialogClose asChild>
-            <Button type="button" variant="outline" disabled={isDeleting}>
+            <Button type="button" variant="outline" disabled={isDeleting} className="border-[#333333] text-white hover:bg-[#2A2A2A]">
               Cancel
             </Button>
           </DialogClose>

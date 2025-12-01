@@ -46,15 +46,10 @@ export type ProfileData = {
   
 export const getCurrentProfile = async () => {
   try {
-    console.log("Supabase service: getCurrentProfile called");
-    
     const { data: user } = await supabase.auth.getUser();
     if (!user.user) {
-      console.error("Supabase service: User not authenticated");
       return { data: null, error: new Error('Not authenticated') };
     }
-
-    console.log("Supabase service: Getting profile for user ID:", user.user.id);
 
     const result = await supabase
       .from('profiles')
@@ -62,26 +57,20 @@ export const getCurrentProfile = async () => {
       .eq('id', user.user.id)
       .single();
 
-    console.log("Supabase service: getCurrentProfile result:", result);
     return result;
-    
+
   } catch (error) {
-    console.error("Supabase service: getCurrentProfile error:", error);
+    console.error("Error fetching profile:", error);
     return { data: null, error };
   }
 };
   
 export const updateProfile = async (updates: ProfileData) => {
   try {
-    console.log("Supabase service: updateProfile called with:", updates);
-    
     const { data: user } = await supabase.auth.getUser();
     if (!user.user) {
-      console.error("Supabase service: User not authenticated");
       return { data: null, error: new Error('Not authenticated') };
     }
-
-    console.log("Supabase service: Authenticated user ID:", user.user.id);
 
     // Add updated_at timestamp
     const updatedData = {
@@ -89,19 +78,16 @@ export const updateProfile = async (updates: ProfileData) => {
       updated_at: new Date().toISOString()
     };
 
-    console.log("Supabase service: Updating with data:", updatedData);
-
     const result = await supabase
       .from('profiles')
       .update(updatedData)
       .eq('id', user.user.id)
-      .select(); // Add select to return the updated data
+      .select();
 
-    console.log("Supabase service: Update result:", result);
     return result;
-    
+
   } catch (error) {
-    console.error("Supabase service: updateProfile error:", error);
+    console.error("Error updating profile:", error);
     return { data: null, error };
   }
 };
@@ -109,22 +95,65 @@ export const updateProfile = async (updates: ProfileData) => {
 export const uploadAvatar = async (file: File) => {
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) return { data: null, error: new Error('Not authenticated') };
-  
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${user.user.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-  
+
+  // Always use .png for cropped images
+  const fileName = `${user.user.id}-${Math.random().toString(36).substring(2)}.png`;
+
   const { data, error } = await supabase.storage
     .from('avatars')
-    .upload(fileName, file);
-    
-  if (error) return { data: null, error };
-  
+    .upload(fileName, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type || 'image/png'
+    });
+
+  if (error) {
+    console.error('Avatar upload error:', error);
+    if (error.message?.includes('Bucket not found')) {
+      return { data: null, error: new Error('Storage bucket not found. Please contact support.') };
+    }
+    if (error.message?.includes('new row violates row-level security')) {
+      return { data: null, error: new Error('Permission denied. Please check your storage policies.') };
+    }
+    if (error.message?.includes('duplicate')) {
+      // If file exists, try with new name
+      const retryFileName = `${user.user.id}-${Math.random().toString(36).substring(2)}.png`;
+      const retryData = await supabase.storage
+        .from('avatars')
+        .upload(retryFileName, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type || 'image/png'
+        });
+      if (retryData.error) {
+        return { data: null, error: retryData.error };
+      }
+      const filePath = retryData.data?.path || retryFileName;
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      const publicUrl = urlData.publicUrl;
+      await updateProfile({ avatar_url: publicUrl });
+      return { data: publicUrl, error: null };
+    }
+    return { data: null, error };
+  }
+
+  // Get the file path from the upload response
+  const filePath = data?.path || fileName;
+
+  // Get public URL
   const { data: urlData } = supabase.storage
     .from('avatars')
-    .getPublicUrl(fileName);
-    
+    .getPublicUrl(filePath);
+
+  const publicUrl = urlData.publicUrl;
+
   // Update profile with new avatar URL
-  await updateProfile({ avatar_url: urlData.publicUrl });
-  
-  return { data: urlData.publicUrl, error: null };
+  const updateResult = await updateProfile({ avatar_url: publicUrl });
+
+  if (updateResult.error) {
+    console.error('Error updating profile with avatar:', updateResult.error);
+    return { data: null, error: updateResult.error };
+  }
+
+  return { data: publicUrl, error: null };
 };

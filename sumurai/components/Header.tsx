@@ -141,27 +141,30 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
             {authLoading ? (
               <div className="w-8 h-8 border-2 border-[#00F5FF] border-t-transparent rounded-full animate-spin"></div>
             ) : user && session ? (
-              <>
-                {profile && (
-                  <span className="text-white text-sm">
-                    Welcome, {profile.name || profile.first_name || user.email?.split('@')[0]}
-                  </span>
-                )}
-                <Button
+              <div className="flex items-center gap-4">
+                <span className="text-white text-sm">
+                  Welcome, {profile?.name || profile?.first_name || user.email?.split('@')[0]}
+                </span>
+                <button
                   onClick={() => router.push('/profiling')}
-                  variant="outline"
-                  className="border-[#333333] hover:bg-[#1A1A1A] text-white hover:text-[#00F5FF] transition-colors"
+                  className="flex-shrink-0"
+                  title="Go to Profile"
                 >
-                  Dashboard
-                </Button>
-                <Button
-                  onClick={handleLogout}
-                  variant="outline"
-                  className="border-red-600 hover:bg-red-900/20 text-red-400 hover:text-red-300 transition-colors"
-                >
-                  Log Out
-                </Button>
-              </>
+                  {profile?.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt="Profile"
+                      className="w-10 h-10 rounded-full object-cover ring-2 ring-[#00F5FF] hover:ring-[#06B6D4] transition-all duration-300 cursor-pointer"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] flex items-center justify-center transition-all duration-300 cursor-pointer ring-2 ring-[#00F5FF]">
+                      <span className="text-sm text-black font-semibold">
+                        {profile?.name ? profile.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'U'}
+                      </span>
+                    </div>
+                  )}
+                </button>
+              </div>
             ) : (
               <>
                 <Button onClick={openLogin} variant="outline" className="border-[#333333] hover:bg-[#1A1A1A] text-white hover:text-[#00F5FF] transition-colors">
