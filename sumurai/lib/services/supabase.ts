@@ -108,9 +108,8 @@ export const uploadAvatar = async (file: File) => {
     });
 
   if (error) {
-    console.error('Avatar upload error:', error);
-    if (error.message?.includes('Bucket not found')) {
-      return { data: null, error: new Error('Storage bucket not found. Please contact support.') };
+    if (error.message?.includes('Bucket not found') || (error as any).statusCode === '404') {
+      return { data: null, error: new Error('Storage bucket "avatars" not found. Please create the bucket in Supabase Storage.') };
     }
     if (error.message?.includes('new row violates row-level security')) {
       return { data: null, error: new Error('Permission denied. Please check your storage policies.') };
@@ -151,7 +150,6 @@ export const uploadAvatar = async (file: File) => {
   const updateResult = await updateProfile({ avatar_url: publicUrl });
 
   if (updateResult.error) {
-    console.error('Error updating profile with avatar:', updateResult.error);
     return { data: null, error: updateResult.error };
   }
 

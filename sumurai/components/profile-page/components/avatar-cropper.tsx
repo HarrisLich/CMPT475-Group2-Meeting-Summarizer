@@ -79,16 +79,48 @@ export default function AvatarCropper({ imageFile, onCrop, onCancel }: AvatarCro
     const containerCenterX = container.offsetWidth / 2;
     const containerCenterY = container.offsetHeight / 2;
 
-    // Image is centered at 50% with transform offset
-    // Calculate where the crop center is in the original image coordinates
-    // Image is centered, so we need to account for the position offset and scale
+    // Get natural image dimensions
     const imgNaturalWidth = img.naturalWidth;
     const imgNaturalHeight = img.naturalHeight;
-    
-    // The crop center in image coordinates
-    // Position offset is relative to the centered image
-    const cropCenterX = (imgNaturalWidth / 2) - (position.x / scale);
-    const cropCenterY = (imgNaturalHeight / 2) - (position.y / scale);
+
+    // Calculate the actual displayed size of the image BEFORE scale is applied
+    // The image has minWidth: 100%, minHeight: 100%, so it fills the container
+    const containerWidth = container.offsetWidth;
+    const containerHeight = container.offsetHeight;
+    const imgAspect = imgNaturalWidth / imgNaturalHeight;
+    const containerAspect = containerWidth / containerHeight;
+
+    let baseDisplayWidth, baseDisplayHeight;
+    if (imgAspect > containerAspect) {
+      // Image is wider - height fills container
+      baseDisplayHeight = containerHeight;
+      baseDisplayWidth = containerHeight * imgAspect;
+    } else {
+      // Image is taller - width fills container
+      baseDisplayWidth = containerWidth;
+      baseDisplayHeight = containerWidth / imgAspect;
+    }
+
+    // Now account for the user's scale
+    const actualDisplayWidth = baseDisplayWidth * scale;
+
+    // Calculate the top-left corner of the crop circle in container coordinates
+    const cropLeft = containerCenterX - (CROP_SIZE / 2);
+    const cropTop = containerCenterY - (CROP_SIZE / 2);
+
+    // The image center is at (containerCenterX + position.x, containerCenterY + position.y)
+    const imageCenterX = containerCenterX + position.x;
+    const imageCenterY = containerCenterY + position.y;
+
+    // Calculate the top-left corner of the crop area relative to the image center (in container coords)
+    const cropOffsetX = cropLeft - imageCenterX;
+    const cropOffsetY = cropTop - imageCenterY;
+
+    // Convert from displayed pixels to source image pixels
+    const pixelRatio = imgNaturalWidth / actualDisplayWidth;
+    const sourceX = (imgNaturalWidth / 2) + (cropOffsetX * pixelRatio);
+    const sourceY = (imgNaturalHeight / 2) + (cropOffsetY * pixelRatio);
+    const sourceSize = CROP_SIZE * pixelRatio;
 
     // Set canvas size
     canvas.width = CROP_SIZE;
@@ -100,11 +132,10 @@ export default function AvatarCropper({ imageFile, onCrop, onCancel }: AvatarCro
     ctx.clip();
 
     // Draw cropped image - source is the crop area in the original image
-    const sourceSize = CROP_SIZE / scale;
     ctx.drawImage(
       img,
-      cropCenterX - sourceSize / 2,
-      cropCenterY - sourceSize / 2,
+      sourceX,
+      sourceY,
       sourceSize,
       sourceSize,
       0,
