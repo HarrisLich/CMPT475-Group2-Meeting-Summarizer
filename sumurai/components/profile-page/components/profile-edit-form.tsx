@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,37 @@ export default function ProfileEditForm({ onCancel }: { onCancel: () => void }) 
     bio: profile?.bio || "",
     location: profile?.location || ""
   });
+
+  // Update form data when profile loads or changes
+  // Dependencies on individual fields ensure updates trigger even if object reference doesn't change
+  useEffect(() => {
+    if (profile) {
+      setFormData({
+        name: profile.name || "",
+        first_name: profile.first_name || "",
+        last_name: profile.last_name || "",
+        email: profile.email || "",
+        phone: profile.phone || "",
+        role: profile.role || "",
+        job_title: profile.job_title || "",
+        company: profile.company || "",
+        bio: profile.bio || "",
+        location: profile.location || ""
+      });
+    }
+  }, [
+    profile,
+    profile?.name,
+    profile?.first_name,
+    profile?.last_name,
+    profile?.email,
+    profile?.phone,
+    profile?.role,
+    profile?.job_title,
+    profile?.company,
+    profile?.bio,
+    profile?.location
+  ]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({
