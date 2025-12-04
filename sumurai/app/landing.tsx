@@ -118,7 +118,7 @@ function Landing() {
     {
       icon: <Gauge className="w-6 h-6" />,
       title: "Dual Processing Modes",
-      description: "Fast mode for quick results (~2 min) or diarized mode with full speaker tracking (10-20 min).",
+      description: "Fast mode for quick results (~2 min) or diarized mode with full speaker tracking (< 1 Min).",
       color: "bg-gradient-to-br from-[#00F5FF] to-[#06B6D4]"
     },
     {
