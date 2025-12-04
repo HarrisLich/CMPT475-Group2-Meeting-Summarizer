@@ -228,7 +228,7 @@ function Landing() {
               Perfect for individuals and teams
             </h2>
             <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Whether you're working solo or with a group, organize your conversations effectively.
+              Whether you&apos;re working solo or with a group, organize your conversations effectively.
             </p>
           </div>
 

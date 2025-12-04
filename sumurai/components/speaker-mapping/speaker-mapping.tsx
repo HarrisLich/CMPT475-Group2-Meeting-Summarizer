@@ -168,7 +168,7 @@ export default function SpeakerMapping({ meetingId, onComplete }: SpeakerMapping
               
               <div className="ml-5 p-3 bg-gray-50 rounded-md border-l-4 border-gray-300">
                 <p className="text-sm text-gray-600 italic">
-                  Sample: "{speaker.sample_text}..."
+                  Sample: &quot;{speaker.sample_text}...&quot;
                 </p>
               </div>
               

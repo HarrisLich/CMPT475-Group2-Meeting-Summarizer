@@ -1,5 +1,6 @@
 'use client';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -124,9 +125,9 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
           </div>
 
           <nav className="hidden md:flex items-center space-x-8 ml-12">
-            <a href="/#features" className="text-white hover:text-[#00F5FF] transition-colors font-medium">
+            <Link href="/#features" className="text-white hover:text-[#00F5FF] transition-colors font-medium">
               Features
-            </a>
+            </Link>
             {user && session && (
               <a href="/core" className="text-white hover:text-[#00F5FF] transition-colors font-medium">
                 App
@@ -327,7 +328,7 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
 
             <div className="text-center space-y-3">
               <p className="text-gray-300">
-                We've sent a verification email to:
+                We&apos;ve sent a verification email to:
               </p>
               <p className="text-[#00F5FF] font-semibold text-lg">
                 {registeredEmail}

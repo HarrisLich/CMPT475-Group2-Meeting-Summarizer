@@ -110,7 +110,7 @@ export default function CorePage() {
                 onClick={handleAccept}
                 className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00D4E6] hover:to-[#0891B2] text-black font-semibold"
               >
-                Got it, let's start
+                Got it, let&apos;s start
               </Button>
             </div>
           </div>
