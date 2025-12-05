@@ -198,6 +198,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      // Ensure we return a string (throw if data is null since we should have a URL)
+      if (!data) {
+        throw new Error("Failed to get avatar URL after upload");
+      }
       return data;
     } catch (error: any) {
       setError(error.message || "Failed to upload avatar");
