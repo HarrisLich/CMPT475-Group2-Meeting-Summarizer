@@ -39,7 +39,7 @@ export default function AboutPage() {
     {
       name: "Evan Brown ",
       role: "Frontend Developer & UI/UX Designer",
-      description: "Dev blurb",
+      description: "Marist University '26, forever trying to better myself as a programmer. First example, this app.",
       skills: ["React", "TypeScript", "UI/UX Design", "Next.js", "Tailwind CSS"],
       github: "https://github.com/teammember4",
       linkedin: "https://linkedin.com/in/teammember4",
