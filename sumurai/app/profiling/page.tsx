@@ -1,4 +1,5 @@
 'use client';
+import { Suspense } from 'react';
 import ProfileSection from '@/components/profile-page/components/profile-section';
 import ProfileContent from '@/components/profile-page/components/profile-content';
 import Header from '@/components/Header';
@@ -10,7 +11,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-export default function ProfilingPage() {
+// Force dynamic rendering to avoid static generation issues
+export const dynamic = 'force-dynamic';
+
+function ProfilingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showBanner, setShowBanner] = useState(false);
@@ -28,7 +32,6 @@ export default function ProfilingPage() {
       }
     }
   }, [searchParams]);
-
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gradient-to-b from-[#111111] via-[#111111] to-[#1A1A1A]">
@@ -65,5 +68,20 @@ export default function ProfilingPage() {
         <Footer />
       </div>
     </ProtectedRoute>
+  );
+}
+
+export default function ProfilingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#111111] flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-16 h-16 border-4 border-[#00F5FF] border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-white text-lg">Loading...</p>
+        </div>
+      </div>
+    }>
+      <ProfilingContent />
+    </Suspense>
   );
 }
