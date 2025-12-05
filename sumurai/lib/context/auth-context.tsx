@@ -189,12 +189,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data: profileData, error: profileError } = await getCurrentProfile();
         if (profileError) {
           // Fallback: update local state
-          setProfile(prev => prev ? { ...prev, avatar_url: data } : { avatar_url: data } as ProfileData);
+          setProfile(prev => prev ? { ...prev, avatar_url: data ?? undefined } : { avatar_url: data ?? undefined } as ProfileData);
         } else if (profileData) {
           setProfile(profileData);
         } else {
           // Fallback if no data returned
-          setProfile(prev => prev ? { ...prev, avatar_url: data } : { avatar_url: data } as ProfileData);
+          setProfile(prev => prev ? { ...prev, avatar_url: data ?? undefined } : { avatar_url: data ?? undefined } as ProfileData);
         }
       }
 
