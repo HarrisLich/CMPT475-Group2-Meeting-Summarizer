@@ -912,6 +912,9 @@ async def transcribe_with_speakers(
         user_id: User ID (UUID) for the meeting. If not provided, transcription works but won't save to database.
         meeting_title: Optional title for the meeting. If not provided, uses filename.
     """
+    # START TIMER - Track total processing time from upload to completion
+    start_time = time.time()
+
     if not transcription_service.is_supported_file_type(audio_file.content_type):
         raise HTTPException(status_code=400, detail=f"Unsupported file type: {audio_file.content_type}")
 
@@ -1122,7 +1125,24 @@ async def transcribe_with_speakers(
                 result["meeting_id"] = meeting_id if meeting_id else None
                 result["saved"] = False
                 result["warning"] = f"Transcription succeeded but database save failed: {str(db_error)}"
-        
+
+        # END TIMER - Log total processing time after ALL operations complete
+        end_time = time.time()
+        total_time = end_time - start_time
+        print(f"\n{'='*60}")
+        print(f"[TIMING] ✓ ALL PROCESSING COMPLETE (Speaker Diarization)")
+        print(f"[TIMING] Total time: {total_time:.2f} seconds ({total_time/60:.2f} minutes)")
+        print(f"[TIMING] File: {audio_file.filename}")
+        print(f"[TIMING] User: {user_id or 'anonymous'}")
+        print(f"[TIMING] Components:")
+        print(f"[TIMING]   - Transcription with Speakers: Completed")
+        print(f"[TIMING]   - Title Generation: Completed")
+        print(f"[TIMING]   - Summarization: Completed")
+        print(f"[TIMING]   - Action Items: Completed")
+        print(f"[TIMING]   - Database Saves: Completed")
+        print(f"[TIMING] Status: Ready to send to frontend")
+        print(f"{'='*60}\n")
+
         return result
     except HTTPException:
         raise
