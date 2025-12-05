@@ -80,7 +80,8 @@ export default function Header({ showAuthDialog, onAuthDialogChange }: HeaderPro
         await login(formData.email, formData.password);
       }
 
-      // After successful login, redirect to profiling
+      // After successful login, set flag and redirect to profiling
+      sessionStorage.setItem('fromLogin', 'true');
       closeDialog();
       router.push('/profiling');
     } catch (err: any) {
