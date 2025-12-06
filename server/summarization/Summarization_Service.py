@@ -56,15 +56,104 @@ Remember: The ## heading should be a SPECIFIC title about the meeting content, N
 
     def __init__(self):
         """
-        Initialize the SummarizationService with Ollama.
+        Initialize the SummarizationService with hybrid Ollama/Groq support.
 
         Reads configuration from environment variables:
         - OLLAMA_HOST: Where Ollama is running (e.g., http://localhost:11434)
-        - OLLAMA_MODEL: Which AI model to use (e.g., llama3.2:1b, llama3.2)
+        - OLLAMA_MODEL: Which Ollama model to use (e.g., llama3.2:1b, llama3.2)
+        - GROQ_API_KEY: Groq API key for fallback (optional)
+        - USE_GROQ_FALLBACK: Whether to use Groq if Ollama fails (default: True)
         """
         self.ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-        self.model = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
+        self.ollama_model = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
         self.prompt_template = self.DEFAULT_PROMPT_TEMPLATE
+        
+        # Initialize Groq client if available
+        self.use_groq_fallback = os.getenv("USE_GROQ_FALLBACK", "true").lower() == "true"
+        self.groq_client = None
+        self.groq_model = os.getenv("GROQ_LLM_MODEL", "llama-3.1-8b-instant")  # Fast Groq model
+        
+        if GROQ_AVAILABLE and self.use_groq_fallback:
+            groq_api_key = os.getenv("GROQ_API_KEY")
+            if groq_api_key:
+                try:
+                    self.groq_client = Groq(api_key=groq_api_key)
+                    print("[SUMMARIZATION] Groq LLM fallback enabled")
+                except Exception as e:
+                    print(f"[SUMMARIZATION] Failed to initialize Groq: {e}")
+                    self.groq_client = None
+            else:
+                print("[SUMMARIZATION] GROQ_API_KEY not found - Groq fallback disabled")
+    
+    def _call_ollama(self, prompt: str, timeout: int = 300) -> Dict[str, Any]:
+        """Call Ollama API with a prompt."""
+        try:
+            response = requests.post(
+                f"{self.ollama_host}/api/chat",
+                json={
+                    "model": self.ollama_model,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    "stream": False
+                },
+                timeout=timeout
+            )
+            response.raise_for_status()
+            result = response.json()
+            message = result.get("message", {})
+            return {"success": True, "content": message.get("content", ""), "model": self.ollama_model}
+        except requests.exceptions.ConnectionError:
+            return {"success": False, "error": "Could not connect to Ollama"}
+        except Exception as e:
+            return {"success": False, "error": f"Ollama error: {str(e)}"}
+    
+    def _call_groq(self, prompt: str) -> Dict[str, Any]:
+        """Call Groq LLM API with a prompt."""
+        if not self.groq_client:
+            return {"success": False, "error": "Groq client not available"}
+        
+        try:
+            chat_completion = self.groq_client.chat.completions.create(
+                model=self.groq_model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                temperature=0.7,
+                max_tokens=4096
+            )
+            content = chat_completion.choices[0].message.content
+            return {"success": True, "content": content, "model": self.groq_model}
+        except Exception as e:
+            return {"success": False, "error": f"Groq error: {str(e)}"}
+    
+    def _call_llm(self, prompt: str, timeout: int = 300) -> Dict[str, Any]:
+        """
+        Call LLM with hybrid approach: Try Ollama first, fallback to Groq.
+        
+        Returns:
+            Dict with success, content/model, or error
+        """
+        # Try Ollama first
+        result = self._call_ollama(prompt, timeout)
+        if result["success"]:
+            return result
+        
+        # Fallback to Groq if Ollama failed and Groq is available
+        if self.use_groq_fallback and self.groq_client:
+            print(f"[SUMMARIZATION] Ollama unavailable, using Groq LLM fallback...")
+            result = self._call_groq(prompt)
+            if result["success"]:
+                return result
+        
+        # Both failed
+        return result
 
     def summarize_transcription(self, transcription_text: str) -> Dict[str, Any]:
         """
