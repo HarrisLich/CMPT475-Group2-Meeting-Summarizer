@@ -1,8 +1,11 @@
 """
 Summarization Service Module
 
-This module provides AI-powered summarization of meeting transcriptions using LOCAL Ollama.
-All operations (summarization, chat, action items) run on your machine - unlimited and free.
+This module provides AI-powered summarization of meeting transcriptions using HYBRID approach:
+- LOCAL Ollama (for local development - free, unlimited)
+- Groq LLM API (for production on Render - fast, reliable)
+
+Automatically falls back to Groq if Ollama is unavailable.
 """
 
 import os
@@ -14,16 +17,29 @@ import json
 # Load environment variables from .env file
 load_dotenv()
 
+# Try to import Groq for cloud LLM fallback
+try:
+    from groq import Groq
+    GROQ_AVAILABLE = True
+except ImportError:
+    GROQ_AVAILABLE = False
+    Groq = None
+
 
 class SummarizationService:
     """
-    Ollama-based summarization service for meeting transcriptions.
-
-    All AI operations run locally - no cloud API calls, completely unlimited.
+    Hybrid summarization service for meeting transcriptions.
+    
+    Strategy:
+    - Try Ollama first (local, free, unlimited)
+    - Fallback to Groq LLM API if Ollama unavailable (production on Render)
 
     Attributes:
         ollama_host (str): The URL where Ollama is running (default: http://localhost:11434)
-        model (str): The Ollama model to use (default: llama3.2:1b for speed)
+        ollama_model (str): The Ollama model to use (default: llama3.2:1b for speed)
+        groq_client: Groq API client (if available)
+        groq_model (str): Groq LLM model to use (default: llama-3.1-8b-instant)
+        use_groq_fallback (bool): Whether to use Groq as fallback (default: True)
     """
 
     # Default prompt template for summarization
@@ -173,57 +189,21 @@ Remember: The ## heading should be a SPECIFIC title about the meeting content, N
         # Format the prompt with the transcription text
         prompt = self.prompt_template.format(transcription_text=transcription_text)
 
-        try:
-            # Send POST request to LOCAL Ollama's chat API endpoint (v0.12+)
-            response = requests.post(
-                f"{self.ollama_host}/api/chat",
-                json={
-                    "model": self.model,
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
-                    "stream": False  # Get full response at once
-                },
-                timeout=300  # 5 minute timeout for long transcriptions
-            )
-
-            # Raise exception if HTTP request failed
-            response.raise_for_status()
-
-            # Parse JSON response from Ollama
-            result = response.json()
-
-            # Extract message content from chat response
-            message = result.get("message", {})
-            summary_text = message.get("content", "")
-
+        # Use hybrid LLM call (Ollama first, Groq fallback)
+        result = self._call_llm(prompt, timeout=300)
+        
+        if result["success"]:
             return {
                 "success": True,
-                "summary": summary_text,
-                "model_used": self.model,
+                "summary": result["content"],
+                "model_used": result["model"],
                 "transcription_length": len(transcription_text)
             }
-
-        except requests.exceptions.ConnectionError:
+        else:
             return {
                 "success": False,
-                "error": "Could not connect to Ollama. Make sure Ollama is running on your machine.",
-                "hint": "Run 'ollama serve' in a terminal"
-            }
-
-        except requests.exceptions.Timeout:
-            return {
-                "success": False,
-                "error": "Summarization timed out. The transcription might be too long."
-            }
-
-        except Exception as e:
-            return {
-                "success": False,
-                "error": f"Summarization failed: {str(e)}"
+                "error": result.get("error", "Summarization failed"),
+                "transcription_length": len(transcription_text)
             }
 
     def chat_about_meeting(self, meeting_context: str, user_question: str) -> Dict[str, Any]:
@@ -268,52 +248,19 @@ Remember: The ## heading should be a SPECIFIC title about the meeting content, N
 
         SumurAI:"""
 
-        try:
-            # Send POST request to LOCAL Ollama's chat API
-            response = requests.post(
-                f"{self.ollama_host}/api/chat",
-                json={
-                    "model": self.model,
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
-                    "stream": False
-                },
-                timeout=120  # 2 minute timeout for chat
-            )
-
-            response.raise_for_status()
-            result = response.json()
-
-            # Extract message content from chat response
-            message = result.get("message", {})
-            response_text = message.get("content", "")
-
+        # Use hybrid LLM call (Ollama first, Groq fallback)
+        result = self._call_llm(prompt, timeout=120)
+        
+        if result["success"]:
             return {
                 "success": True,
-                "response": response_text,
-                "model_used": self.model
+                "response": result["content"],
+                "model_used": result["model"]
             }
-
-        except requests.exceptions.ConnectionError:
+        else:
             return {
                 "success": False,
-                "error": "Could not connect to Ollama. Make sure Ollama is running on your machine."
-            }
-
-        except requests.exceptions.Timeout:
-            return {
-                "success": False,
-                "error": "Request timed out. Please try again."
-            }
-
-        except Exception as e:
-            return {
-                "success": False,
-                "error": f"Chat failed: {str(e)}"
+                "error": result.get("error", "Chat failed")
             }
 
     def extract_action_items(self, transcription_text: str) -> Dict[str, Any]:
@@ -349,7 +296,7 @@ Remember: The ## heading should be a SPECIFIC title about the meeting content, N
         names_list = sorted(list(found_names)) if found_names else []
         names_context = f"\n\nIMPORTANT: The following people are in this meeting: {', '.join(names_list)}. ONLY use these exact names when assigning tasks. Do NOT make up names or use names not in this list." if names_list else ""
         
-        prompt = f"""Extract action items from this meeting transcription. Look for tasks, to-dos, steps, assignments, deadlines, and responsibilities.
+        prompt = f"""Extract action items from this meeting transcription. Look for tasks, to-dos, steps, assignments, deadlines, and responsibilities for each speaker.
 
     Transcription:
     {transcription_text}{names_context}
@@ -386,29 +333,18 @@ Remember: The ## heading should be a SPECIFIC title about the meeting content, N
 
         If no action items exist, return: []"""
 
+        # Use hybrid LLM call (Ollama first, Groq fallback)
+        llm_result = self._call_llm(prompt, timeout=300)
+        
+        if not llm_result["success"]:
+            return {
+                "success": False,
+                "error": llm_result.get("error", "Action item extraction failed")
+            }
+        
         try:
-            # Send POST request to LOCAL Ollama's chat API (v0.12+)
-            response = requests.post(
-                f"{self.ollama_host}/api/chat",
-                json={
-                    "model": self.model,
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
-                    "stream": False
-                },
-                timeout=300  # 5 minute timeout
-            )
-
-            response.raise_for_status()
-            result = response.json()
-
-            # Extract message content from chat response
-            message = result.get("message", {})
-            ai_response = message.get("content", "").strip()
+            # Extract AI response
+            ai_response = llm_result["content"].strip()
 
             # Parse AI response as JSON
             # Clean up the response - remove markdown code blocks
@@ -463,7 +399,7 @@ Remember: The ## heading should be a SPECIFIC title about the meeting content, N
             return {
                 "success": True,
                 "action_items": normalized_items,
-                "model_used": self.model
+                "model_used": llm_result["model"]
             }
 
         except json.JSONDecodeError:
@@ -476,20 +412,8 @@ Remember: The ## heading should be a SPECIFIC title about the meeting content, N
                     "priority": "medium",
                     "assigned_to": "Unassigned"
                 }],
-                "model_used": self.model,
+                "model_used": llm_result.get("model", "unknown"),
                 "warning": "Could not parse action items from AI response - using fallback"
-            }
-
-        except requests.exceptions.ConnectionError:
-            return {
-                "success": False,
-                "error": "Could not connect to Ollama. Make sure Ollama is running on your machine."
-            }
-
-        except requests.exceptions.Timeout:
-            return {
-                "success": False,
-                "error": "Action item extraction timed out. Please try again."
             }
 
         except Exception as e:
@@ -514,32 +438,18 @@ Remember: The ## heading should be a SPECIFIC title about the meeting content, N
 
     Return ONLY the title text, nothing else."""
 
-        try:
-            response = requests.post(
-                f"{self.ollama_host}/api/chat",
-                json={
-                    "model": self.model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "stream": False
-                },
-                timeout=30
-            )
-            response.raise_for_status()
-            result = response.json()
-
-            title = result.get("message", {}).get("content", "").strip().strip('"').strip("'").strip()
-
+        # Use hybrid LLM call (Ollama first, Groq fallback)
+        result = self._call_llm(prompt, timeout=30)
+        
+        if result["success"]:
+            title = result["content"].strip().strip('"').strip("'").strip()
+            
             if len(title) > 100:
                 title = title[:100].rsplit(' ', 1)[0] + "..."
-
-            return {"success": True, "title": title, "model_used": self.model}
-
-        except requests.exceptions.ConnectionError:
-            return {"success": False, "error": "Could not connect to Ollama"}
-        except requests.exceptions.Timeout:
-            return {"success": False, "error": "Title generation timed out"}
-        except Exception as e:
-            return {"success": False, "error": f"Title generation failed: {str(e)}"}
+            
+            return {"success": True, "title": title, "model_used": result["model"]}
+        else:
+            return {"success": False, "error": result.get("error", "Title generation failed")}
 
     def check_ollama_status(self) -> Dict[str, Any]:
         """

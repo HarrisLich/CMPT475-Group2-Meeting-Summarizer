@@ -221,8 +221,8 @@ transcription_service = HybridTranscriptionService(
     groq_model="whisper-large-v3"
 )
 
-# Initialize summarization service (LOCAL ONLY - Ollama)
-# ALL summarization, chat, and action items run locally - unlimited and free!
+# Initialize summarization service (HYBRID: Ollama local + Groq fallback)
+# Tries Ollama first (local, free), falls back to Groq LLM API (production on Render)
 summarization_service = SummarizationService()
 
 # Transcription endpoint (authentication disabled for testing)
