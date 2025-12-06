@@ -27,7 +27,18 @@ function Landing() {
   const [swordSlicing, setSwordSlicing] = useState(false);
   const [hasTriggered, setHasTriggered] = useState(false);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const fullText = 'actionable insights';
+
+  // Detect if user is on mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     setIsVisible(true);
@@ -53,11 +64,14 @@ function Landing() {
           if (entry.isIntersecting && !hasTriggered) {
             setHasTriggered(true);
             setTimeout(() => {
-              setSwordSlicing(true);
+              // Only trigger sword slice on desktop devices
+              if (!isMobile) {
+                setSwordSlicing(true);
+              }
               setTimeout(() => {
                 setFeaturesVisible(true);
-              }, 800);
-            }, 300);
+              }, isMobile ? 0 : 800); // Skip animation delay on mobile
+            }, isMobile ? 0 : 300); // Skip initial delay on mobile
           }
         });
       },
@@ -74,7 +88,7 @@ function Landing() {
         observer.unobserve(featuresSection);
       }
     };
-  }, [hasTriggered]);
+  }, [hasTriggered, isMobile]);
 
   const features = [
     {
@@ -193,8 +207,8 @@ function Landing() {
         </div>
       </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-20 bg-gradient-to-b from-[#111111] via-[#111111] to-[#1A1A1A] relative overflow-hidden">
+      {/* Features Section - Desktop with Animation */}
+      <section id="features" className="hidden md:block py-20 bg-gradient-to-b from-[#111111] via-[#111111] to-[#1A1A1A] relative overflow-hidden">
         {/* Sword Slicing Effect */}
         {swordSlicing && (
           <>
@@ -253,6 +267,41 @@ function Landing() {
                     {feature.title}
                   </h3>
                   <p className="text-gray-300 leading-relaxed">
+                    {feature.description}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section - Mobile (Always Visible, No Animation) */}
+      <section className="block md:hidden py-20 bg-gradient-to-b from-[#111111] via-[#111111] to-[#1A1A1A]">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-white mb-4">
+              Perfect for individuals and teams
+            </h2>
+            <p className="text-lg text-gray-300">
+              Whether you're working solo or with a group, organize your conversations effectively.
+            </p>
+          </div>
+
+          <div className="grid gap-6">
+            {features.map((feature, index) => (
+              <Card
+                key={index}
+                className="border-0 shadow-lg bg-[#111111] border border-[#333333]"
+              >
+                <CardContent className="p-6">
+                  <div className={`w-12 h-12 ${feature.color} rounded-xl flex items-center justify-center mb-4 text-black`}>
+                    {feature.icon}
+                  </div>
+                  <h3 className="text-lg font-semibold text-white mb-3">
+                    {feature.title}
+                  </h3>
+                  <p className="text-gray-300 text-sm leading-relaxed">
                     {feature.description}
                   </p>
                 </CardContent>
