@@ -26,6 +26,10 @@ services:
         value: http://localhost:11434
       - key: OLLAMA_MODEL
         value: llama3.2:3b
+      - key: USE_GROQ_FALLBACK
+        value: "true"
+      - key: GROQ_LLM_MODEL
+        value: llama-3.1-8b-instant
       - key: CORS_ORIGINS
         value: https://sumurai-frontend.onrender.com,https://sumurai.pro
 
