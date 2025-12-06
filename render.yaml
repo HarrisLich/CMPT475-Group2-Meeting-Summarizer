@@ -27,7 +27,7 @@ services:
       - key: OLLAMA_MODEL
         value: llama3.2:3b
       - key: CORS_ORIGINS
-        value: https://sumurai-frontend.onrender.com
+        value: https://sumurai-frontend.onrender.com,https://sumurai.pro
 
   # Frontend Service
   - type: web
