@@ -433,13 +433,13 @@ export default function AiChat() {
 
       // Extract summary from backend response
       const summaryData = transcriptionData.summary || { success: false, error: "No summary provided" };
-      // Action items are not extracted yet - they'll be extracted after speaker mapping
+      // Extract action items from the transcription response
       const actionItemsData = {
-        success: true,
-        action_items: [] // Empty initially, will be populated after speaker mapping
+        success: transcriptionData.action_items && transcriptionData.action_items.length > 0,
+        action_items: transcriptionData.action_items || []
       };
       console.log("Summary data from backend:", summaryData);
-      console.log("Action items will be extracted after speaker mapping");
+      console.log("Action items from backend:", actionItemsData);
 
       if (summaryData.success) {
         // Prepare segments - handle both flat array and nested object format

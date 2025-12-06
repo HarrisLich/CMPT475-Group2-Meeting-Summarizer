@@ -84,15 +84,18 @@ app = FastAPI(
 
     ### Features
     - **Audio Transcription**: Upload audio/video files for automatic transcription using Groq Whisper API with local fallback
+    - **Speaker Diarization**: Automatically identify and differentiate multiple speakers in meetings using AssemblyAI or local pyannote.audio
+    - **Speaker Name Mapping**: Map detected speaker IDs to real names for better context and readability
     - **AI Summarization**: Generate structured meeting summaries using local Ollama LLM (unlimited and free)
-    - **Action Items Extraction**: Automatically identify and extract action items from meetings
+    - **Action Items Extraction**: Automatically identify and extract action items from meetings with speaker-based delegation
     - **Conversational Chat**: Ask questions about your meetings and get intelligent responses
     - **Chat History Management**: Store and retrieve conversation history with full CRUD operations
     - **Authentication**: Secure endpoints with Supabase authentication and JWT tokens
 
     ### Technology Stack
     - **Transcription**: Hybrid approach using Groq Whisper API (cloud) + Local Whisper (fallback)
-    - **AI Processing**: Ollama (local LLM - llama3.2:1b)
+    - **Speaker Diarization**: AssemblyAI (cloud) + pyannote.audio (local) for speaker identification
+    - **AI Processing**: Ollama (local LLM - llama3.2:3b for chat, llama3.2:1b for summaries)
     - **Database**: Supabase (PostgreSQL)
     - **Authentication**: Supabase Auth with JWT
     - **File Processing**: Automatic audio compression for large files (>25MB)
@@ -125,6 +128,10 @@ app = FastAPI(
             "description": "Health check and status endpoints"
         },
         {
+            "name": "Authentication",
+            "description": "User registration, login, and account management"
+        },
+        {
             "name": "Audio Processing",
             "description": "Upload and transcribe audio/video files"
         },
@@ -143,6 +150,10 @@ app = FastAPI(
         {
             "name": "Meetings",
             "description": "Retrieve meeting summaries and transcriptions"
+        },
+        {
+            "name": "Speakers",
+            "description": "Manage speaker identification and name mappings for meetings"
         },
         {
             "name": "Testing",
@@ -506,11 +517,30 @@ async def transcribe_audio(
                     except Exception as db_error:
                         print(f"[DB ERROR] Failed to save summary: {str(db_error)}")
 
-            # Step 5: Action items will be extracted AFTER speaker mapping is complete
-            # This allows the LLM to see actual names instead of speaker IDs
-            # Action items extraction is triggered via /meetings/{meeting_id}/extract-action-items endpoint
-            result["action_items"] = []
-            print(f"[AI] Action items will be extracted after speaker mapping is complete")
+            # Step 5: Extract action items automatically
+            # Note: This endpoint doesn't use speaker diarization, so action items won't have speaker assignments
+            # For speaker-based action item delegation, use /transcribe-with-speakers instead
+            print(f"[AI] Extracting action items...")
+            action_items_result = summarization_service.extract_action_items(transcription_text)
+
+            if action_items_result.get("success"):
+                result["action_items"] = action_items_result.get("action_items", [])
+                print(f"[AI] Extracted {len(result['action_items'])} action items")
+
+                # Save action items to database if we have a conversation_id
+                if conversation_id and len(result["action_items"]) > 0:
+                    try:
+                        print(f"[DB] Saving {len(result['action_items'])} action items to database...")
+                        supabase.save_action_items(
+                            conversation_id=conversation_id,
+                            action_items=result["action_items"]
+                        )
+                        print(f"[DB] ✓ All action items saved successfully")
+                    except Exception as db_error:
+                        print(f"[DB ERROR] Failed to save action items: {str(db_error)}")
+            else:
+                print(f"[AI] Action items extraction failed: {action_items_result.get('error')}")
+                result["action_items"] = []
 
         else:
             result["summary"] = {
@@ -1153,11 +1183,43 @@ async def transcribe_with_speakers(
         print(f"Full traceback:\n{error_trace}")
         raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
 
-@app.get("/meetings/{meeting_id}/speakers")
+@app.get(
+    "/meetings/{meeting_id}/speakers",
+    tags=["Speakers"],
+    summary="Get Meeting Speakers",
+    description="""
+Retrieve unique speakers detected in a meeting transcription.
+
+### Returns
+Returns a list of speakers with their IDs and sample text to help users identify and name each speaker.
+
+### Response Format
+```json
+{
+  "success": true,
+  "speakers": [
+    {
+      "speaker_id": "SPEAKER_00",
+      "sample_text": "First words spoken by this speaker..."
+    }
+  ]
+}
+```
+
+### Use Cases
+- Identify how many speakers were detected in the meeting
+- Get sample text to help map speaker IDs to real names
+- Prepare for speaker name mapping workflow
+
+### Note
+This endpoint should be called after transcription with speaker diarization is complete, before mapping speaker names.
+    """,
+    response_description="List of detected speakers with sample text for identification"
+)
 async def get_meeting_speakers(meeting_id: str):
     """
     Get unique speakers detected in a meeting transcription.
-    
+
     Returns a list of speakers with their IDs and sample text to help users
     identify and name each speaker.
     """
@@ -1191,11 +1253,47 @@ async def get_meeting_speakers(meeting_id: str):
             detail=f"Failed to get speakers: {str(e)}"
         )
 
-@app.get("/meetings/{meeting_id}/speaker-mappings")
+@app.get(
+    "/meetings/{meeting_id}/speaker-mappings",
+    tags=["Speakers"],
+    summary="Get Speaker Name Mappings",
+    description="""
+Retrieve speaker name mappings for a meeting.
+
+### Returns
+Returns a dictionary mapping speaker IDs (e.g., "SPEAKER_00") to real names (e.g., "John Doe").
+
+### Response Format
+```json
+{
+  "success": true,
+  "mappings": {
+    "SPEAKER_00": "John Doe",
+    "SPEAKER_01": "Jane Smith",
+    "SPEAKER_02": "Bob Johnson"
+  }
+}
+```
+
+### Use Cases
+- Retrieve previously saved speaker name mappings
+- Display speaker names in the UI
+- Prepare context for action item extraction with speaker names
+
+### Workflow Position
+This endpoint is typically called:
+1. After speaker name mappings have been saved via POST /meetings/{meeting_id}/speaker-mappings
+2. Before extracting action items to ensure names are available
+
+### Note
+If no mappings have been saved for the meeting, returns an empty mappings object.
+    """,
+    response_description="Dictionary mapping speaker IDs to real names"
+)
 async def get_speaker_mappings(meeting_id: str):
     """
     Get speaker name mappings for a meeting.
-    
+
     Returns a dictionary mapping speaker IDs to names.
     """
     import uuid
@@ -1228,21 +1326,74 @@ async def get_speaker_mappings(meeting_id: str):
             detail=f"Failed to get speaker mappings: {str(e)}"
         )
 
-@app.post("/meetings/{meeting_id}/speaker-mappings")
+@app.post(
+    "/meetings/{meeting_id}/speaker-mappings",
+    tags=["Speakers"],
+    summary="Save Speaker Name Mappings",
+    description="""
+Save speaker name mappings for a meeting.
+
+### Purpose
+Maps generic speaker IDs (e.g., "SPEAKER_00", "SPEAKER_01") to actual names (e.g., "John Doe", "Jane Smith") that users provide.
+
+### Request Body
+```json
+{
+  "meeting_id": "uuid-here",
+  "mappings": {
+    "SPEAKER_00": "John Doe",
+    "SPEAKER_01": "Jane Smith",
+    "SPEAKER_02": "Bob Johnson"
+  }
+}
+```
+
+### Response Format
+```json
+{
+  "success": true,
+  "message": "Speaker mappings saved successfully",
+  "mappings": {
+    "SPEAKER_00": "John Doe",
+    "SPEAKER_01": "Jane Smith"
+  }
+}
+```
+
+### Workflow
+1. User uploads audio with speaker diarization
+2. System assigns generic IDs (SPEAKER_00, SPEAKER_01, etc.)
+3. User calls GET /meetings/{meeting_id}/speakers to see who spoke
+4. **User calls this endpoint** to map IDs to real names
+5. User calls POST /meetings/{meeting_id}/extract-action-items to get properly named action items
+
+### Use Cases
+- Assign real names to automatically detected speakers
+- Improve readability of transcripts and action items
+- Enable accurate speaker-based task delegation
+
+### Note
+The meeting_id in the path must match the meeting_id in the request body.
+
+### Error Responses
+- **400**: Meeting ID mismatch between path and body
+- **500**: Database error during save
+    """,
+    response_description="Confirmation with saved speaker mappings"
+)
 async def save_speaker_mappings(
-    meeting_id: str, 
+    meeting_id: str,
     request: SpeakerMappingsRequest
 ):
     """
     Save speaker name mappings for a meeting.
-    
+
     Maps generic speaker IDs (e.g., "SPEAKER_01", "SPEAKER_02") to actual
     names (e.g., "John Doe", "Jane Smith") that users provide.
-    
+
     Args:
         meeting_id: The meeting ID
         request: Contains mappings dict (speaker_id -> name)
-        current_user: Authenticated user (from JWT token)
     """
     try:
         # Validate that meeting_id in path matches request body

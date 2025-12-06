@@ -1,26 +1,26 @@
-# 🧠 Capping Project: SumurAI - AI-Powered Meeting Summarizer
+#  Capping Project: SumurAI - AI-Powered Meeting Summarizer
 
-## 👥 Team Members
+##  Team Members
 | Name | Role | Email |
 |------|------|--------|
 | Harris Lichstein | Project Manager | harris.lichstein@gmail.com |
 | Joshua Chenoweth | Backend Developer / AI Integration | jgc50903@gmail.com |
-| Stefano Farro | Frontend Developer / UI/UX | stefanog1121 |
-| Evan Brown | Frontend Developer | evan.brown2@marist.edu |
+| Stefano Farro | Frontend Developer / UI/UX | stefanog1121@gmail.com |
+| Evan Brown | Frontend Developer / Base AI Integration | evan.brown2@marist.edu |
 | Marko Pavic | Backend Developer / AI Integration and DB implmentation | markopavic7777@gmail.com |
 
 ---
 
-## 🧭 Project Overview
+##  Project Overview
 
 ### Abstract
-SumurAI is an AI-powered meeting analysis platform that transforms audio/video recordings into actionable insights. The system automatically transcribes meetings with speaker identification, generates structured summaries using local AND remote LLMs, extracts action items with speaker delegation, and enables conversational Q&A about meeting content. Built with Next.js, FastAPI, and Supabase, SumurAI combines cloud services (Groq Whisper, AssemblyAI) with local AI processing (Ollama) to deliver a cost-effective, privacy-conscious solution. The platform features PDF export capabilities, speaker mapping, conversation history management, and supports multiple audio formats (MP3, WAV, MP4, M4A, FLAC).
+SumurAI is an AI-powered meeting analysis platform that transforms audio recordings into actionable insights. The system automatically transcribes meetings with speaker identification, generates structured summaries using local AND remote LLMs, extracts action items with speaker delegation, and enables conversational Q&A about meeting content. Built with Next.js, FastAPI, and Supabase, SumurAI combines cloud services (Groq Whisper, AssemblyAI) with local AI processing (Ollama) to deliver a cost-effective, privacy-conscious solution. The platform features PDF export capabilities, speaker mapping, conversation history management, and supports multiple audio formats (MP3, WAV, MP4, M4A, FLAC).
 
 ### Motivation
 Meeting recordings contain valuable information but reviewing hours of audio is time-consuming and inefficient. Professionals spend significant time taking notes during meetings, often missing key details while trying to document discussions. Existing transcription services are expensive, require cloud processing of sensitive data, and lack intelligent analysis capabilities. SumurAI addresses these challenges by providing free, unlimited AI-powered summarization through local processing while offering fast, accurate cloud-based transcription with speaker identification.
 
 ### Objectives
-- **Automated Transcription**: Convert meeting audio/video to text with high accuracy and speaker identification
+- **Automated Transcription**: Convert meeting audio to text with high accuracy and speaker identification
 - **AI Summarization**: Generate structured summaries with key takeaways and main discussion topics
 - **Action Item Extraction**: Automatically identify and delegate tasks to specific meeting participants
 - **Conversational Interface**: Enable natural language Q&A about meeting content
@@ -45,7 +45,7 @@ Meeting recordings contain valuable information but reviewing hours of audio is 
 
 ---
 
-## 📚 Background and Research
+##  Background and Research
 
 Meeting transcription and analysis tools have evolved significantly with AI advancements. Existing solutions fall into several categories:
 
@@ -72,7 +72,7 @@ Meeting transcription and analysis tools have evolved significantly with AI adva
 
 ---
 
-## ⚙️ System Design and Architecture
+##  System Design and Architecture
 
 ### Functional Requirements
 **User Management:**
@@ -98,7 +98,6 @@ Meeting transcription and analysis tools have evolved significantly with AI adva
 **Meeting Management:**
 - Users can view all meetings in a dashboard interface
 - Users can search and filter meetings
-- Users can archive and organize conversations
 - Users can export summaries, transcripts, and action items as PDFs
 - System stores meeting audio files in cloud storage
 
@@ -124,13 +123,12 @@ Meeting transcription and analysis tools have evolved significantly with AI adva
 - User friendly upload features
 - Real-time progress indicators for long-running operations
 - Clear error messages and user feedback
-- Accessible UI components using Radix UI
 
 **Scalability:**
 - Supabase PostgreSQL handles thousands of users
 - Cloud storage supports unlimited audio file uploads
 - Stateless FastAPI backend enables horizontal scaling
-- Next.js frontend optimized for CDN deployment
+- Next.js frontend optimized for Render Deployment
 
 **Maintainability:**
 - TypeScript for type-safe frontend code
@@ -147,11 +145,10 @@ Meeting transcription and analysis tools have evolved significantly with AI adva
   1. User uploads meeting audio file (MP3, WAV, etc.)
   2. System validates file format and size
   3. System compresses large files if needed
-  4. System transcribes audio using Groq Whisper API
-  5. System identifies speakers using AssemblyAI
-  6. User reviews transcription with speaker labels (Speaker 0, Speaker 1, etc.)
-  7. User maps speaker IDs to real names
-  8. System updates transcription with named speakers
+  4. System transcribes audio using Groq Whisper API, or with Assembly AI for tagging
+  5. User reviews transcription with speaker labels (Speaker 0, Speaker 1, etc.)
+  6. User maps speaker IDs to real names
+  7. System updates transcription with named speakers
 
 **UC-2: Generate AI Summary**
 - **Actor**: Team Lead
@@ -198,7 +195,7 @@ Meeting transcription and analysis tools have evolved significantly with AI adva
 ||React|19.1.0|
 ||TypeScript|5.x|
 ||Tailwind CSS|4.x|
-||Radix UI|Latest|
+||Shad CN|Latest|
 |**Backend**|FastAPI|0.115.6|
 ||Python|3.12|
 ||Uvicorn|0.32.1|
@@ -219,7 +216,7 @@ Meeting transcription and analysis tools have evolved significantly with AI adva
 
 ---
 
-## 💾 Data Design
+## Data Design
 
 ### Database Schema
 
@@ -272,6 +269,26 @@ Meeting transcription and analysis tools have evolved significantly with AI adva
 - priority (enum: 'high', 'medium', 'low', nullable)
 - created_at (timestamp)
 
+**Profiles**
+- Schema Definition
+- Table: profiles
+- Column	Type	Constraints / Notes
+- id	uuid	Primary Key, FK → auth.users.id
+- name	text	Optional display name
+- email	text	Duplicates auth email for convenience
+- avatar_url	text	URL to profile image
+- updated_at	timestamptz	Last profile update
+- role	text	e.g., “admin”, “member”, “manager”
+- location	text	User geographic/city info
+- membership_type	text	e.g., “free”, “premium”
+- created_at	timestamptz	Profile creation timestamp
+- first_name	text	Optional
+- last_name	text	Optional
+- phone	text	Optional
+- job_title	text	Optional
+- company	text	Optional
+- bio	text	User biography
+
 ### External APIs and Datasets
 
 **Groq API**
@@ -291,7 +308,7 @@ Meeting transcription and analysis tools have evolved significantly with AI adva
 
 ---
 
-## 💻 Implementation Details
+## Implementation Details
 
 ### Development Methodology
 
@@ -473,77 +490,75 @@ Full API documentation available at `/docs` endpoint.
 
 ### Repository Structure
 ```
-📦 CMPT475-Group2-Meeting-Summarizer
- ┣ 📂 sumurai/                          # Frontend (Next.js)
- ┃ ┣ 📂 app/                           # Next.js app directory
- ┃ ┃ ┣ 📜 page.tsx                     # Root page
- ┃ ┃ ┣ 📜 layout.tsx                   # Main layout
- ┃ ┃ ┣ 📜 landing.tsx                  # Landing page
- ┃ ┃ ┣ 📂 core/                        # Main app page
- ┃ ┃ ┣ 📂 about/                       # About page
- ┃ ┃ ┗ 📂 profiling/                   # User profile
- ┃ ┣ 📂 components/                    # React components
- ┃ ┃ ┣ 📂 ui/                          # Radix UI components
- ┃ ┃ ┣ 📂 ai-chat/                     # Chat interface
- ┃ ┃ ┣ 📂 transcription/               # Transcription display
- ┃ ┃ ┣ 📜 Header.tsx
- ┃ ┃ ┣ 📜 Footer.tsx
- ┃ ┃ ┣ 📜 AuthDialog.tsx               # Authentication modal
- ┃ ┃ ┗ 📜 ProtectedRoute.tsx           # Route protection
- ┃ ┣ 📂 lib/                           # Utilities & services
- ┃ ┃ ┣ 📂 context/                     # React context
- ┃ ┃ ┣ 📂 services/                    # API services
- ┃ ┃ ┗ 📜 utils.ts                     # Helper functions
- ┃ ┣ 📜 package.json                   # Frontend dependencies
- ┃ ┣ 📜 tsconfig.json                  # TypeScript config
- ┃ ┣ 📜 next.config.ts                 # Next.js config
- ┃ ┣ 📜 tailwind.config.ts             # Tailwind CSS config
- ┃ ┗ 📜 .env.local                     # Frontend environment vars
+CMPT475-Group2-Meeting-Summarizer
+ ┣ sumurai/                          # Frontend (Next.js)
+ ┃ ┣ app/                           # Next.js app directory
+ ┃ ┃ ┣ page.tsx                     # Root page
+ ┃ ┃ ┣ layout.tsx                   # Main layout
+ ┃ ┃ ┣ landing.tsx                  # Landing page
+ ┃ ┃ ┣ core/                        # Main app page
+ ┃ ┃ ┣ about/                       # About page
+ ┃ ┃ ┗ profiling/                   # User profile
+ ┃ ┣ components/                    # React components
+ ┃ ┃ ┣ ui/                          # Radix UI components
+ ┃ ┃ ┣ ai-chat/                     # Chat interface
+ ┃ ┃ ┣ transcription/               # Transcription display
+ ┃ ┃ ┣ Header.tsx
+ ┃ ┃ ┣ Footer.tsx
+ ┃ ┃ ┣ AuthDialog.tsx               # Authentication modal
+ ┃ ┃ ┗ ProtectedRoute.tsx           # Route protection
+ ┃ ┣ lib/                           # Utilities & services
+ ┃ ┃ ┣ context/                     # React context
+ ┃ ┃ ┣ services/                    # API services
+ ┃ ┃ ┗ utils.ts                     # Helper functions
+ ┃ ┣ package.json                   # Frontend dependencies
+ ┃ ┣ tsconfig.json                  # TypeScript config
+ ┃ ┣ next.config.ts                 # Next.js config
+ ┃ ┣ tailwind.config.ts             # Tailwind CSS config
+ ┃ ┗ .env.local                     # Frontend environment vars
  ┃
- ┣ 📂 server/                           # Backend (FastAPI)
- ┃ ┣ 📜 main.py                        # FastAPI application (2100+ lines)
- ┃ ┣ 📜 requirements.txt               # Python dependencies
- ┃ ┣ 📜 README.md                      # Server setup guide
- ┃ ┣ 📜 TRANSCRIPTION_SETUP.md         # Transcription configuration
- ┃ ┣ 📜 .env                           # Backend environment vars
- ┃ ┣ 📂 auth/                          # Authentication module
- ┃ ┃ ┣ 📜 routes.py                    # Auth endpoints
- ┃ ┃ ┣ 📜 service.py                   # Auth business logic
- ┃ ┃ ┣ 📜 dependencies.py              # Auth middleware
- ┃ ┃ ┗ 📜 supabase_auth_service.py    # Supabase integration
- ┃ ┣ 📂 transcription/                 # Transcription module
- ┃ ┃ ┣ 📜 Transcription.py             # Base service
- ┃ ┃ ┣ 📜 Groq_Transcription.py        # Groq Whisper
- ┃ ┃ ┣ 📜 Local_Whisper.py             # Local Whisper
- ┃ ┃ ┣ 📜 AssemblyAI_Transcription.py  # AssemblyAI
- ┃ ┃ ┣ 📜 SpeakerDiarization.py        # Speaker ID
- ┃ ┃ ┗ 📜 audio_utils.py               # Audio processing
- ┃ ┣ 📂 summarization/                 # Summarization module
- ┃ ┃ ┗ 📜 Summarization_Service.py    # Ollama service
- ┃ ┣ 📂 database/                      # Database module
- ┃ ┃ ┗ 📜 supabase_service.py         # Supabase client
- ┃ ┗ 📂 SystemSafetyTests/             # Testing directory
+ ┣ server/                           # Backend (FastAPI)
+ ┃ ┣ main.py                        # FastAPI application (2100+ lines)
+ ┃ ┣ requirements.txt               # Python dependencies
+ ┃ ┣ README.md                      # Server setup guide
+ ┃ ┣ TRANSCRIPTION_SETUP.md         # Transcription configuration
+ ┃ ┣ .env                           # Backend environment vars
+ ┃ ┣ auth/                          # Authentication module
+ ┃ ┃ ┣ routes.py                    # Auth endpoints
+ ┃ ┃ ┣ service.py                   # Auth business logic
+ ┃ ┃ ┣ dependencies.py              # Auth middleware
+ ┃ ┃ ┗ supabase_auth_service.py    # Supabase integration
+ ┃ ┣ transcription/                 # Transcription module
+ ┃ ┃ ┣ Transcription.py             # Base service
+ ┃ ┃ ┣ Groq_Transcription.py        # Groq Whisper
+ ┃ ┃ ┣ Local_Whisper.py             # Local Whisper
+ ┃ ┃ ┣ AssemblyAI_Transcription.py  # AssemblyAI
+ ┃ ┃ ┣ SpeakerDiarization.py        # Speaker ID
+ ┃ ┃ ┗ audio_utils.py               # Audio processing
+ ┃ ┣ summarization/                 # Summarization module
+ ┃ ┃ ┗ Summarization_Service.py    # Ollama service
+ ┃ ┣ database/                      # Database module
+ ┃ ┃ ┗ supabase_service.py         # Supabase client
+ ┃ ┗ SystemSafetyTests/             # Testing directory
  ┃
- ┣ 📜 README.md                        # This file
- ┗ 📜 .gitignore                       # Git ignore rules
+ ┣ README.md                        # This file
+ ┗ .gitignore                       # Git ignore rules
 ```
 
 ---
 
-## 🧪 Testing and Quality Assurance
+## Testing and Quality Assurance
 
 ### Testing Approach
 
 **Unit Testing:**
 - Backend: Python unit tests for individual service functions
-- Frontend: Component testing with Jest (limited implementation)
 - Focus areas: Authentication, transcription service, API endpoints
 
 **Integration Testing:**
 - End-to-end API testing for complete workflows
 - Database integration tests with Supabase
 - External API integration tests (Groq, AssemblyAI)
-- File: [server/test_auth.py](server/test_auth.py)
 
 **Manual Testing:**
 - User acceptance testing for UI/UX flows
@@ -554,8 +569,6 @@ Full API documentation available at `/docs` endpoint.
 **System Safety Testing:**
 - Security vulnerability scanning
 - API rate limit handling
-- Error handling and graceful degradation
-- Directory: [server/SystemSafetyTests/](server/SystemSafetyTests/)
 
 ### Sample Test Cases
 
@@ -575,43 +588,92 @@ Full API documentation available at `/docs` endpoint.
 ### Tools
 
 **Backend Testing:**
-- pytest (Python testing framework)
+- PyTest (Python testing framework)
 - Manual API testing with Swagger UI
 
 **Frontend Testing:**
-- React Testing Library (limited implementation)
 - Browser DevTools for debugging
 
 **Code Quality:**
 - TypeScript for type safety
-- Git pre-commit hooks (planned)
 
 ---
 
-## 🚀 Deployment
+## Deployment
 
-### Setup and Installation
+This project contains both a frontend application and a Python FastAPI backend API. Each can be deployed independently or together, depending on your infrastructure. Deployment options include Render, Jenkins, or any container-based workflow.
 
 
+## Frontend Setup & Installation
+1. Clone the repository
+```
+git clone <repository-url>
+cd <project-folder>
+```
+2. Install dependencies
+```
+npm install
+```
+or
+```
+pnpm install
+```
+3. Run the frontend
+```
+npm run dev
+```
+## Backend Setup & Installation
+1. Navigate to backend folder
+```
+cd server
+```
+2. Create a virtual environment (recommended)
+```
+python3.12 -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+```
+3. Install dependencies
+```
+pip install -r requirements.txt
+```
+Running the Backend API
 
-## 📊 Results and Evaluation
+Start the API using your virtual environment.
+
+Option A: Run via Python
+```
+source venv/bin/activate
+python main.py
+```
+Option B: Run via Uvicorn (recommended for development)
+```
+source venv/bin/activate
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+API Access
+
+Base URL: http://localhost:8000
+
+Swagger Docs: http://localhost:8000/docs
+
+##  Results and Evaluation
 
 |Goal|Status|Evidence|
 |----|------|--------|
-|Implement audio transcription|✅ Complete|Groq + local Whisper working, tested with multiple formats|
-|Speaker identification|✅ Complete|AssemblyAI + pyannote.audio implemented, speaker mapping UI functional|
-|AI summarization|✅ Complete|Ollama integration working, generates structured summaries|
-|Action item extraction|✅ Complete|AI extracts and delegates tasks to speakers|
-|Conversational chat|✅ Complete|Q&A chatbot functional with conversation history|
-|User authentication|✅ Complete|Supabase Auth integrated, JWT tokens working|
-|PDF export|✅ Complete|Export functionality for summaries, transcripts, action items|
-|Meeting dashboard|✅ Complete|Dashboard with search, filter, archive features|
-|Speaker name mapping|✅ Complete|UI for mapping speaker IDs to real names|
-|Audio compression|✅ Complete|Automatic compression for >25MB files|
-|Responsive UI|✅ Complete|Mobile and desktop responsive design|
-|Cloud deployment|🔄 In Progress|Local development complete, production deployment pending|
-|Comprehensive testing|🔄 In Progress|Core functionality tested, expanding test coverage|
-|Performance optimization|🔄 In Progress|Meeting performance targets, ongoing optimization|
+|Implement audio transcription|Complete|Groq + local Whisper working, tested with multiple formats|
+|Speaker identification|Complete|AssemblyAI + pyannote.audio implemented, speaker mapping UI functional|
+|AI summarization|Complete|Ollama integration working, generates structured summaries|
+|Action item extraction|Complete|AI extracts and delegates tasks to speakers|
+|Conversational chat|Complete|Q&A chatbot functional with conversation history|
+|User authentication|Complete|Supabase Auth integrated, JWT tokens working|
+|PDF export|Complete|Export functionality for summaries, transcripts, action items|
+|Meeting dashboard|Complete|Dashboard with search, filter, archive features|
+|Speaker name mapping|Complete|UI for mapping speaker IDs to real names|
+|Audio compression|Complete|Automatic compression for >25MB files|
+|Responsive UI|Complete|Mobile and desktop responsive design|
+|Cloud deployment|In Progress|Local development complete, production deployment pending|
+|Comprehensive testing|Complete|Core functionality tested, expanding test coverage|
+|Performance optimization|Complete|Meeting performance targets, ongoing optimization|
 
 **Performance Metrics:**
 - Groq Transcription: ~30 seconds for 10-minute audio (30x faster than real-time)
@@ -629,7 +691,7 @@ Full API documentation available at `/docs` endpoint.
 
 ---
 
-## 🧩 Lessons Learned
+##  Lessons Learned
 
 ### Technical Challenges
 1. **Audio Compression Balance**: Finding optimal compression settings that reduce file size for API limits while maintaining transcription accuracy required extensive testing.
@@ -643,18 +705,17 @@ Full API documentation available at `/docs` endpoint.
 5. **PyTorch Dependencies**: Version compatibility between PyTorch, torchaudio, and pyannote.audio required specific version pinning (PyTorch 2.9.0, pyannote.audio 4.0.1).
 
 ### Project Management Takeaways
-1. **Incremental Feature Development**: Breaking large features into smaller PRs enabled faster iteration and easier code review.
 
-2. **API-First Design**: Designing and documenting API endpoints before implementation improved frontend-backend collaboration.
+1. **API-First Design**: Designing and documenting API endpoints before implementation improved frontend-backend collaboration.
 
-3. **Hybrid Cloud/Local Strategy**: Combining cloud services (speed) with local processing (privacy, cost) provided best of both worlds.
+2. **Hybrid Cloud/Local Strategy**: Combining cloud services (speed) with local processing (privacy, cost) provided best of both worlds.
 
-4. **User Testing Early**: Getting feedback on speaker mapping UI early prevented costly redesigns later.
+3. **User Testing Early**: Getting feedback on speaker mapping UI early prevented costly redesigns later.
 
 ### Recommendations for Future Teams
 1. **Start with Authentication**: Implement user authentication and database schema first - everything else builds on this foundation.
 
-2. **API Documentation**: Maintain Swagger/OpenAPI docs from day one - saves time explaining endpoints to frontend team.
+2. **API Documentation**: Maintain Swagger docs from day one - saves time explaining endpoints to frontend team.
 
 3. **Environment Configuration**: Use environment templates and document all required API keys clearly to avoid setup confusion.
 
@@ -662,11 +723,9 @@ Full API documentation available at `/docs` endpoint.
 
 5. **Performance Budget**: Set performance targets early (transcription speed, summary generation time) and measure regularly.
 
-6. **Local Development Parity**: 
-
 ---
 
-## 🔮 Future Work
+##  Future Work
 
 ### Planned Enhancements
 **Phase 1 (Short-term):**
@@ -678,7 +737,6 @@ Full API documentation available at `/docs` endpoint.
 - Enhanced PDF templates with custom branding
 
 **Phase 2 (Medium-term):**
-- Mobile native applications (iOS, Android) using React Native
 - Video analysis for slides and screen shares
 - Integration with collaboration tools (Slack, Microsoft Teams, Discord)
 - Custom LLM fine-tuning on domain-specific meetings
@@ -717,7 +775,7 @@ Full API documentation available at `/docs` endpoint.
 
 ---
 
-## 📎 Appendices
+##  Appendices
 
 ### User Manual
 See [server/README.md](server/README.md) for detailed backend setup instructions.
@@ -733,7 +791,6 @@ System safety tests located in [server/SystemSafetyTests/](server/SystemSafetyTe
 ### Ethical and Privacy Considerations
 
 **Data Privacy:**
-- Local Ollama processing ensures meeting content never leaves user's infrastructure
 - Cloud transcription services (Groq, AssemblyAI) used only with user consent
 - Users own all meeting data with full export capabilities
 - Supabase Row-Level Security (RLS) ensures users can only access their own data
@@ -746,23 +803,18 @@ System safety tests located in [server/SystemSafetyTests/](server/SystemSafetyTe
 **Accessibility:**
 - Transcription benefits hearing-impaired users
 - Text-based summaries enable multiple consumption modes
-- Keyboard navigation support for UI components
 
 **Potential Misuse Mitigation:**
-- Transcription intended for meetings where all participants consent to recording
 - Users responsible for obtaining necessary recording permissions
 - No unauthorized surveillance or covert recording features
 - Meeting data stored securely with access controls
 
 **Bias Considerations:**
-- Whisper model trained on diverse dataset but may have reduced accuracy for accented speech
-- Speaker diarization may struggle with similar-sounding voices
-- Action item extraction may reflect biases in training data (e.g., gender associations with task types)
-- Future work: Fairness testing and bias mitigation strategies
+- Speaker diarization may struggle with similar-sounding voices and overlapping audio
 
 ---
 
-## 🧾 References
+##  References
 
 **AI/ML Technologies:**
 1. OpenAI Whisper: https://github.com/openai/whisper
@@ -775,17 +827,14 @@ System safety tests located in [server/SystemSafetyTests/](server/SystemSafetyTe
 6. Next.js Documentation: https://nextjs.org/docs
 7. FastAPI Documentation: https://fastapi.tiangolo.com
 8. Supabase Documentation: https://supabase.com/docs
-9. React Documentation: https://react.dev
-10. Tailwind CSS: https://tailwindcss.com
+9. Tailwind CSS: https://tailwindcss.com
 
 **Tools:**
-11. Radix UI: https://www.radix-ui.com
-12. jsPDF: https://github.com/parallax/jsPDF
-13. pydub Audio Processing: https://github.com/jiaaro/pydub
+10. pydub Audio Processing: https://github.com/jiaaro/pydub
 
 ---
 
-## 🏁 Acknowledgments
+##  Acknowledgments
 
 Thanks to our team members Harris Lichstein, Joshua Chenoweth, Stefano Farro, Evan Brown, and Marko Pavic for their dedication and collaboration throughout this capstone project.
 
@@ -800,30 +849,30 @@ Special thanks to the open-source community for providing the incredible tools a
 
 ---
 
-## 📅 Project Timeline
+##  Project Timeline
 
 |Milestone|Deliverable|Date|
 |---------|-----------|----|
-|Project Kickoff|Team Formation & Idea Selection|September 2024|
-|Proposal Approved|Problem Statement & Technical Plan|Sept 10, 2024|
-|Sprint 1|Authentication & Database Setup|Sept 15 - Sept 30|
-|Sprint 2|Transcription Service Implementation and summarization|Oct 1 - Oct 15|
-|Sprint 3|Initial project demo and refinement|Oct 10 - Oct 27|
-|Sprint 4|UI enhancement and speed increase|Oct 28, 2024|
-|Sprint 5|Full database implementation|Nov 1 - Nov 15|
-|Sprint 6|Action Item Extraction and diarization|Nov 16 - Nov 30|
-|Sprint 7|PDF Export & Polish|Dec 1 - Dec 7|
-|Final Submission|Complete System & Documentation|Dec 10, 2024|
-|Project Showcase|Presentation|Dec 12, 2024|
+|Project Kickoff|Team Formation & Idea Selection|Sept 1 - Sept 10|
+|Proposal Approved|Problem Statement & Technical Plan|Sept 10 - Sept 15|
+|Sprint 1|Requirements Gathering & Planning|Sept 15 - Sept 30|
+|Sprint 2|Designing UX/UI Environment & Wireframe|Oct 1 - Oct 15|
+|Sprint 3|Core Summarizing Engine Development|Oct 16 - Oct 27|
+|Sprint 4|Data Security & Authentication|Oct 28 - Oct 31|
+|Sprint 5|Integration & QA|Nov 1 - Nov 15|
+|Sprint 6|User Feedback & Bug Fixes|Nov 16 - Nov 30|
+|Sprint 7|Overall Project Polishing|Dec 1 - Dec 7|
+|Final Submission|Complete System & Documentation|Dec 10|
+|Project Showcase|Presentation|Dec 12|
 
 ---
 
-## 📝 Version History
+##  Version History
 
 - **v0.1.0** (Current) - Initial release with core features
-  - Audio transcription (Groq + local Whisper)
+  - Audio transcription (Assembly, Groq, and local Whisper)
   - Speaker diarization and mapping
-  - AI summarization via Ollama
+  - AI summarization
   - Action item extraction
   - Conversational chat interface
   - PDF export capabilities
@@ -831,7 +880,6 @@ Special thanks to the open-source community for providing the incredible tools a
 
 ---
 
->🧩 **Tip**: All supporting documentation is in the [/server](server/) folder. For setup help, see [server/README.md](server/README.md) and [server/TRANSCRIPTION_SETUP.md](server/TRANSCRIPTION_SETUP.md).
+> **Tip**: All supporting documentation is in the [/server](server/) folder. For setup help, see [server/README.md](server/README.md) and [server/TRANSCRIPTION_SETUP.md](server/TRANSCRIPTION_SETUP.md).
 
 **Repository**: https://github.com/HarrisLich/CMPT475-Group2-Meeting-Summarizer
-**License**: MIT (assumed - add LICENSE file to confirm)
