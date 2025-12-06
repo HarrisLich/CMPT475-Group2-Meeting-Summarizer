@@ -163,19 +163,29 @@ app = FastAPI(
 )
 
 # Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+# Get allowed origins from environment variable or use defaults
+cors_origins_env = os.getenv("CORS_ORIGINS", "")
+if cors_origins_env:
+    # Split comma-separated origins from environment variable
+    allowed_origins = [origin.strip() for origin in cors_origins_env.split(",")]
+else:
+    # Default origins if not set in environment
+    allowed_origins = [
         "http://localhost:3000",  # Next.js development server
         "http://127.0.0.1:3000",
         "https://localhost:3000",
         "https://127.0.0.1:3000",
         "https://sumurai-frontend.onrender.com",
-        # Add your production frontend URL here when deployed
-    ],
+        "https://sumurai.pro",  # Custom domain
+    ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Include authentication routes
