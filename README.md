@@ -601,7 +601,7 @@ CMPT475-Group2-Meeting-Summarizer
 
 ## Deployment
 
-This project contains both a frontend application and a Python FastAPI backend API. Each can be deployed independently or together, depending on your infrastructure. Deployment options include Render, Jenkins, or any container-based workflow.
+This project contains both a frontend application and a Python FastAPI backend API. Each can be deployed independently or together, depending on your infrastructure needs. Deployment was done with Render
 
 
 ## Frontend Setup & Installation
