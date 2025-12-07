@@ -30,27 +30,27 @@ services:
         value: "true"
       - key: GROQ_LLM_MODEL
         value: llama-3.1-8b-instant
-            - key: CORS_ORIGINS
-              value: https://sumurai-frontend.onrender.com,https://sumurai.pro
-            # Email notification configuration
-            - key: EMAIL_PROVIDER
-              value: "smtp"  # Options: "smtp" or "sendgrid"
-            - key: SMTP_HOST
-              value: smtp.gmail.com
-            - key: SMTP_PORT
-              value: "587"
-            - key: SMTP_USER
-              sync: false  # Your email address
-            - key: SMTP_PASSWORD
-              sync: false  # Your email app password
-            - key: FROM_EMAIL
-              value: noreply@sumurai.app
-            # SendGrid (alternative to SMTP - set EMAIL_PROVIDER=sendgrid to use)
-            - key: SENDGRID_API_KEY
-              sync: false
-            # Slack notification configuration
-            - key: SLACK_WEBHOOK_URL
-              sync: false  # Slack incoming webhook URL
+      - key: CORS_ORIGINS
+        value: https://sumurai-frontend.onrender.com,https://sumurai.pro
+      # Email notification configuration
+      - key: EMAIL_PROVIDER
+        value: "smtp"  # Options: "smtp" or "sendgrid"
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false  # Your email address
+      - key: SMTP_PASSWORD
+        sync: false  # Your email app password
+      - key: FROM_EMAIL
+        value: noreply@sumurai.app
+      # SendGrid (alternative to SMTP - set EMAIL_PROVIDER=sendgrid to use)
+      - key: SENDGRID_API_KEY
+        sync: false
+      # Slack notification configuration
+      - key: SLACK_WEBHOOK_URL
+        sync: false  # Slack incoming webhook URL
 
   # Frontend Service
   - type: web

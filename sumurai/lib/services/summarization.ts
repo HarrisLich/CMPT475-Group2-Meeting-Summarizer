@@ -342,15 +342,30 @@ export class SummarizationService {
   /**
    * Save speaker name mappings for a meeting
    */
-  static async saveSpeakerMappings(meetingId: string, mappings: Record<string, string>): Promise<{ success: boolean; message?: string; error?: string; mappings?: Record<string, string> }> {
+  static async saveSpeakerMappings(
+    meetingId: string, 
+    mappings: Record<string, string>,
+    contactMappings?: Record<string, string>
+  ): Promise<{ success: boolean; message?: string; error?: string; mappings?: Record<string, string> }> {
+    // Get auth token
+    const { supabase } = await import('@/lib/services/supabase');
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json'
+    };
+    
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
+    
     const response = await fetch(`${API_URL}/meetings/${meetingId}/speaker-mappings`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers,
       body: JSON.stringify({
         meeting_id: meetingId,
-        mappings
+        mappings,
+        contact_mappings: contactMappings || {}
       })
     });
     
