@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Share, ThumbsUp, ThumbsDown, Send, Paperclip, Mic, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Users, Settings, Download, FileText, ListChecks, FileStack } from "lucide-react";
+import { Copy, Share, ThumbsUp, ThumbsDown, Send, Paperclip, Mic, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Users, Settings, Download, FileText, ListChecks, FileStack, Menu } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { downloadMeetingData, type MeetingData, type DownloadType } from '@/lib/services/output-download';
@@ -42,6 +42,7 @@ interface ChatInterfaceProps {
   useSpeakerDiarization?: boolean;
   setUseSpeakerDiarization?: (value: boolean) => void;
   audioUrl?: string;
+  onToggleSidebar?: () => void;
 }
 
 export function ChatInterface({
@@ -59,7 +60,8 @@ export function ChatInterface({
   actionItems = [],
   useSpeakerDiarization = false,
   setUseSpeakerDiarization,
-  audioUrl
+  audioUrl,
+  onToggleSidebar
 }: ChatInterfaceProps) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = React.useState(false);
@@ -69,6 +71,7 @@ export function ChatInterface({
   const [downloadMenuOpen, setDownloadMenuOpen] = React.useState(false);
   const [showConsentDialog, setShowConsentDialog] = React.useState(false);
   const [expandedGroups, setExpandedGroups] = React.useState<Record<string, boolean>>({});
+  const [mobileBottomSheet, setMobileBottomSheet] = React.useState<'transcript' | 'actions' | null>(null);
   const downloadButtonRef = React.useRef<HTMLDivElement>(null);
 
   // Get unique speakers for color coding
@@ -166,12 +169,12 @@ export function ChatInterface({
 
   return (
     <div className="flex h-full overflow-hidden bg-[#111111]">
-      {/* Left Side: Summary Section (50% width, full height) */}
-      <div className={`flex flex-col min-h-0 border-r border-[#333333] transition-all duration-300 relative ${rightPanelCollapsed ? 'w-full' : 'w-1/2'}`}>
-        {/* Horizontal Collapse Handle */}
+      {/* Left Side: Summary Section - Full width on mobile, 50% on desktop */}
+      <div className={`flex flex-col min-h-0 border-r border-[#333333] transition-all duration-300 relative ${rightPanelCollapsed ? 'w-full' : 'w-full md:w-1/2'}`}>
+        {/* Horizontal Collapse Handle - Hidden on mobile */}
         <div
           onClick={() => setRightPanelCollapsed(!rightPanelCollapsed)}
-          className="absolute right-0 top-0 bottom-0 w-1 bg-transparent hover:bg-[#00F5FF]/30 cursor-col-resize transition-all duration-200 z-50 group"
+          className="hidden md:block absolute right-0 top-0 bottom-0 w-1 bg-transparent hover:bg-[#00F5FF]/30 cursor-col-resize transition-all duration-200 z-50 group"
           title={rightPanelCollapsed ? "Show transcript & action items" : "Hide transcript & action items"}
         >
           <div className={`absolute top-1/2 -translate-y-1/2 w-3 h-12 bg-[#1A1A1A] group-hover:bg-[#00F5FF]/80 border border-[#333333] flex items-center justify-center transition-all duration-200 ${rightPanelCollapsed ? '-left-3 rounded-l-md' : '-right-3 rounded-r-md'}`}>
@@ -193,6 +196,16 @@ export function ChatInterface({
             <div className="sticky top-0 z-10 px-6 pt-6 pb-3 bg-gradient-to-b from-[#111111] via-[#111111]/95 to-transparent">
               <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-[#333333] bg-[#1A1A1A] shadow-lg">
                 <div className="flex items-center gap-3">
+                  {/* Mobile Menu Button */}
+                  {onToggleSidebar && (
+                    <Button
+                      onClick={onToggleSidebar}
+                      variant="ghost"
+                      className="h-8 w-8 p-0 md:hidden flex items-center justify-center text-gray-300 hover:text-white hover:bg-[#00F5FF]/10 border border-[#333333] hover:border-[#00F5FF]/50 transition-all"
+                    >
+                      <Menu className="h-4 w-4" />
+                    </Button>
+                  )}
                   {chatTitle && (
                     <>
                       <h2 className="text-lg font-bold bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] bg-clip-text text-transparent leading-none">
@@ -203,16 +216,42 @@ export function ChatInterface({
                   )}
                 </div>
 
-                {/* Export/Download Button with Dropdown */}
-                {messages && messages.length > 0 && (
-                  <div className="relative" ref={downloadButtonRef}>
+                {/* Mobile Quick Access Buttons - Only show when there's content */}
+                <div className="flex items-center gap-2">
+                  {/* Transcript Button - Mobile Only */}
+                  {transcript && (
                     <Button
-                      onClick={() => setDownloadMenuOpen(!downloadMenuOpen)}
+                      onClick={() => setMobileBottomSheet(mobileBottomSheet === 'transcript' ? null : 'transcript')}
                       variant="ghost"
-                      className="h-8 w-8 p-0 flex items-center justify-center text-gray-300 hover:text-white hover:bg-[#00F5FF]/10 border border-[#333333] hover:border-[#00F5FF]/50 transition-all"
+                      className="md:hidden h-8 w-8 p-0 flex items-center justify-center text-gray-300 hover:text-white hover:bg-[#00F5FF]/10 border border-[#333333] hover:border-[#00F5FF]/50 transition-all"
+                      title="View Transcript"
                     >
-                      <Download className="h-4 w-4" />
+                      <FileText className="h-4 w-4" />
                     </Button>
+                  )}
+
+                  {/* Action Items Button - Mobile Only */}
+                  {actionItems && actionItems.length > 0 && (
+                    <Button
+                      onClick={() => setMobileBottomSheet(mobileBottomSheet === 'actions' ? null : 'actions')}
+                      variant="ghost"
+                      className="md:hidden h-8 w-8 p-0 flex items-center justify-center text-gray-300 hover:text-white hover:bg-[#00F5FF]/10 border border-[#333333] hover:border-[#00F5FF]/50 transition-all"
+                      title="View Action Items"
+                    >
+                      <ListChecks className="h-4 w-4" />
+                    </Button>
+                  )}
+
+                  {/* Export/Download Button with Dropdown */}
+                  {messages && messages.length > 0 && (
+                    <div className="relative" ref={downloadButtonRef}>
+                      <Button
+                        onClick={() => setDownloadMenuOpen(!downloadMenuOpen)}
+                        variant="ghost"
+                        className="h-8 w-8 p-0 flex items-center justify-center text-gray-300 hover:text-white hover:bg-[#00F5FF]/10 border border-[#333333] hover:border-[#00F5FF]/50 transition-all"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
 
                     {/* Dropdown Menu */}
                     {downloadMenuOpen && (
@@ -250,8 +289,9 @@ export function ChatInterface({
                         </div>
                       </div>
                     )}
-                  </div>
-                )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           <div className="px-6 pb-6 pt-3">
@@ -482,8 +522,8 @@ export function ChatInterface({
         </div>
       </div>
 
-      {/* Right Side: Transcript & Action Items (50% width, stacked vertically) */}
-      <div className={`flex flex-col min-h-0 transition-all duration-300 bg-[#111111] ${rightPanelCollapsed ? 'w-0 overflow-hidden' : 'w-1/2'}`}>
+      {/* Right Side: Transcript & Action Items - Hidden on mobile, 50% width on desktop */}
+      <div className={`hidden md:flex flex-col min-h-0 transition-all duration-300 bg-[#111111] ${rightPanelCollapsed ? 'w-0 overflow-hidden' : 'md:w-1/2'}`}>
         <div className="flex flex-col w-full min-h-0 h-full">
         {/* Transcript Section (Top, 50% of right side) */}
         <div className={`flex flex-col border-b border-[#333333] transition-all duration-300 bg-[#111111] relative ${transcriptCollapsed ? 'h-0 overflow-hidden' : (actionItemsCollapsed ? 'h-full' : 'h-1/2')} min-h-0`}>
@@ -816,6 +856,115 @@ export function ChatInterface({
                 I Understand & Consent
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Bottom Sheet for Transcript and Action Items */}
+      {mobileBottomSheet && (
+        <div className="md:hidden fixed inset-0 z-50 flex items-end">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setMobileBottomSheet(null)}
+          />
+
+          {/* Bottom Sheet */}
+          <div className="relative w-full bg-[#111111] rounded-t-2xl border-t border-[#333333] max-h-[80vh] flex flex-col animate-in slide-in-from-bottom duration-300">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[#333333]">
+              <h3 className="text-lg font-bold text-white">
+                {mobileBottomSheet === 'transcript' ? 'Transcript' : 'Action Items'}
+              </h3>
+              <Button
+                onClick={() => setMobileBottomSheet(null)}
+                variant="ghost"
+                className="h-8 w-8 p-0 text-gray-400 hover:text-white"
+              >
+                <ChevronDown className="h-5 w-5" />
+              </Button>
+            </div>
+
+            {/* Content */}
+            <ScrollArea className="flex-1 overflow-y-auto">
+              {mobileBottomSheet === 'transcript' && transcript && (
+                <div className="p-4">
+                  {/* Audio Player */}
+                  {audioUrl && (
+                    <div className="mb-4 p-3 bg-[#1A1A1A] rounded-lg border border-[#333333]">
+                      <audio controls className="w-full" src={audioUrl}>
+                        Your browser does not support the audio element.
+                      </audio>
+                    </div>
+                  )}
+
+                  {/* Transcript Content */}
+                  <div className="space-y-2">
+                    {transcriptSegments && transcriptSegments.length > 0 ? (
+                      <>
+                        {transcriptSegments.map((segment, index) => (
+                          <div key={index} className="p-3 bg-[#1A1A1A] rounded-lg border border-[#333333]">
+                            <div className="flex items-start gap-2 mb-1">
+                              <span className="text-xs text-[#00F5FF] font-mono">
+                                {formatTime(segment.start)}
+                              </span>
+                              {segment.speaker && (
+                                <span
+                                  className="text-xs font-semibold px-2 py-0.5 rounded"
+                                  style={{
+                                    backgroundColor: speakerColors[segment.speaker] + '20',
+                                    color: speakerColors[segment.speaker]
+                                  }}
+                                >
+                                  {segment.speaker_name || segment.speaker}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-300">{segment.text}</p>
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-300 whitespace-pre-wrap">{transcript}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {mobileBottomSheet === 'actions' && actionItems && actionItems.length > 0 && (
+                <div className="p-4 space-y-3">
+                  {actionItems.map((item, index) => (
+                    <div
+                      key={item.id || index}
+                      className="p-4 bg-[#1A1A1A] rounded-lg border border-[#333333] hover:border-[#00F5FF]/30 transition-all"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`flex-shrink-0 w-2 h-2 rounded-full mt-1.5 ${
+                          item.priority === 'high' ? 'bg-red-500' :
+                          item.priority === 'medium' ? 'bg-yellow-500' :
+                          'bg-green-500'
+                        }`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-white mb-2">{item.task}</p>
+                          <div className="flex items-center gap-2 text-xs">
+                            <Badge variant="outline" className="text-gray-400 border-[#333333]">
+                              {item.assignedTo}
+                            </Badge>
+                            <Badge variant="outline" className={`border-[#333333] ${
+                              item.priority === 'high' ? 'text-red-400' :
+                              item.priority === 'medium' ? 'text-yellow-400' :
+                              'text-green-400'
+                            }`}>
+                              {item.priority}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
           </div>
         </div>
       )}

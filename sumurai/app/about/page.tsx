@@ -34,7 +34,7 @@ export default function AboutPage() {
       skills: ["TypeScript", "Next.js", "ShadCN", "Tailwind CSS"],
       github: "https://github.com/stefanog1121",
       linkedin: "https://www.linkedin.com/in/stefanogfarro/",
-      email: "stefano.farro1@marist.edu"
+      email: "stefanogfarro@gmail.com"
     },
     {
       name: "Evan Brown ",
