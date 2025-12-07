@@ -1073,6 +1073,7 @@ export default function AiChat() {
               setUseSpeakerDiarization={setUseSpeakerDiarization}
               audioUrl={currentChat?.audioUrl}
               onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+              meetingId={currentChat?.meetingId}
             />
             
             {/* Speaker Mapping Overlay */}

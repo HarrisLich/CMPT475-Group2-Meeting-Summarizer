@@ -5,9 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/lib/context/auth-context";
 import { getSpeakers, saveSpeakerMappings } from "@/lib/services/summarization";
-import { Loader2, User } from "lucide-react";
+import { ContactService, Contact } from "@/lib/services/contacts";
+import { Loader2, User, Plus } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 interface Speaker {
   id: string;
@@ -23,9 +26,15 @@ export default function SpeakerMapping({ meetingId, onComplete }: SpeakerMapping
   const { session } = useAuth();
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [mappings, setMappings] = useState<Record<string, string>>({});
+  const [contactMappings, setContactMappings] = useState<Record<string, string>>({}); // speaker_id -> contact_id
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showNewContactDialog, setShowNewContactDialog] = useState(false);
+  const [newContactName, setNewContactName] = useState("");
+  const [newContactEmail, setNewContactEmail] = useState("");
+  const [pendingSpeakerForNewContact, setPendingSpeakerForNewContact] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchSpeakers = async () => {
@@ -60,11 +69,90 @@ export default function SpeakerMapping({ meetingId, onComplete }: SpeakerMapping
     }
   }, [meetingId]);
 
+  // Load contacts on mount
+  useEffect(() => {
+    const loadContacts = async () => {
+      try {
+        const contactList = await ContactService.getContacts();
+        setContacts(contactList);
+      } catch (err) {
+        console.error("Error loading contacts:", err);
+        // Silently fail - contacts are optional
+      }
+    };
+    loadContacts();
+  }, []);
+
   const handleChange = (speakerId: string, name: string) => {
     setMappings(prev => ({
       ...prev,
       [speakerId]: name
     }));
+  };
+
+  const handleContactChange = (speakerId: string, contactId: string) => {
+    if (contactId === "new") {
+      setPendingSpeakerForNewContact(speakerId);
+      setShowNewContactDialog(true);
+      return;
+    }
+
+    if (contactId === "none") {
+      // Clear contact mapping
+      setContactMappings(prev => {
+        const updated = { ...prev };
+        delete updated[speakerId];
+        return updated;
+      });
+      return;
+    }
+
+    // Set contact mapping
+    setContactMappings(prev => ({
+      ...prev,
+      [speakerId]: contactId
+    }));
+
+    // Also update name mapping
+    const contact = contacts.find(c => c.id === contactId);
+    if (contact) {
+      handleChange(speakerId, contact.name);
+    }
+  };
+
+  const handleCreateContact = async () => {
+    if (!newContactName.trim()) {
+      setError("Contact name is required");
+      return;
+    }
+
+    try {
+      const newContact = await ContactService.createContact({
+        name: newContactName,
+        email: newContactEmail || undefined
+      });
+
+      // Add to contacts list
+      setContacts(prev => [...prev, newContact]);
+      
+      // If there's a pending speaker, assign the new contact to it
+      if (pendingSpeakerForNewContact) {
+        setContactMappings(prev => ({
+          ...prev,
+          [pendingSpeakerForNewContact]: newContact.id
+        }));
+        handleChange(pendingSpeakerForNewContact, newContact.name);
+        setPendingSpeakerForNewContact(null);
+      }
+      
+      // Clear form
+      setNewContactName("");
+      setNewContactEmail("");
+      setShowNewContactDialog(false);
+    } catch (err) {
+      console.error("Error creating contact:", err);
+      setError(err instanceof Error ? err.message : "Failed to create contact");
+    }
   };
 
   const handleSubmit = async () => {
@@ -84,7 +172,15 @@ export default function SpeakerMapping({ meetingId, onComplete }: SpeakerMapping
         return;
       }
       
-      const result = await saveSpeakerMappings(meetingId, filteredMappings);
+      // Filter contact mappings to only include speakers that have names
+      const filteredContactMappings: Record<string, string> = {};
+      Object.keys(filteredMappings).forEach(speakerId => {
+        if (contactMappings[speakerId]) {
+          filteredContactMappings[speakerId] = contactMappings[speakerId];
+        }
+      });
+
+      const result = await saveSpeakerMappings(meetingId, filteredMappings, filteredContactMappings);
       console.log("Speaker mappings saved:", result);
       
       if (result.success) {
@@ -172,7 +268,32 @@ export default function SpeakerMapping({ meetingId, onComplete }: SpeakerMapping
                 </p>
               </div>
               
-              <div className="ml-5">
+              <div className="ml-5 space-y-2">
+                <div className="flex gap-2">
+                  <Select
+                    value={contactMappings[speaker.id] || "none"}
+                    onValueChange={(value) => handleContactChange(speaker.id, value)}
+                    disabled={isLoading}
+                  >
+                    <SelectTrigger className="max-w-md">
+                      <SelectValue placeholder="Select contact or enter name" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Enter name manually</SelectItem>
+                      <SelectItem value="new">
+                        <div className="flex items-center gap-2">
+                          <Plus className="h-4 w-4" />
+                          Create New Contact
+                        </div>
+                      </SelectItem>
+                      {contacts.map(contact => (
+                        <SelectItem key={contact.id} value={contact.id}>
+                          {contact.name} {contact.email && `(${contact.email})`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <Input
                   id={`speaker-${speaker.id}`}
                   value={mappings[speaker.id] || ""}
@@ -203,6 +324,51 @@ export default function SpeakerMapping({ meetingId, onComplete }: SpeakerMapping
             Save Speaker Names
           </Button>
         </div>
+
+        {/* New Contact Dialog */}
+        <Dialog open={showNewContactDialog} onOpenChange={setShowNewContactDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Contact</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <Label htmlFor="new-contact-name">Name *</Label>
+                <Input
+                  id="new-contact-name"
+                  value={newContactName}
+                  onChange={(e) => setNewContactName(e.target.value)}
+                  placeholder="John Doe"
+                />
+              </div>
+              <div>
+                <Label htmlFor="new-contact-email">Email (optional)</Label>
+                <Input
+                  id="new-contact-email"
+                  type="email"
+                  value={newContactEmail}
+                  onChange={(e) => setNewContactEmail(e.target.value)}
+                  placeholder="john@example.com"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowNewContactDialog(false);
+                    setNewContactName("");
+                    setNewContactEmail("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateContact}>
+                  Create Contact
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
