@@ -790,46 +790,46 @@ export function ChatInterface({
 
       {/* Consent Dialog */}
       {showConsentDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#1A1A1A] border border-[#333333] rounded-lg shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-[#1A1A1A] border border-[#333333] rounded-lg shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
             {/* Header */}
-            <div className="border-b border-[#333333] px-6 py-4">
-              <div className="flex items-center gap-3">
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#00F5FF]/10 border border-[#00F5FF]/30 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-[#00F5FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="border-b border-[#333333] px-4 md:px-6 py-3 md:py-4 flex-shrink-0">
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-[#00F5FF]/10 border border-[#00F5FF]/30 flex items-center justify-center">
+                  <svg className="w-4 h-4 md:w-5 md:h-5 text-[#00F5FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white">Data Privacy Notice</h3>
+                  <h3 className="text-base md:text-lg font-bold text-white">Data Privacy Notice</h3>
                   <p className="text-xs text-gray-400">Please review before uploading</p>
                 </div>
               </div>
             </div>
 
-            {/* Content */}
-            <div className="px-6 py-5 space-y-4">
-              <p className="text-sm text-gray-300 leading-relaxed">
+            {/* Content - Scrollable */}
+            <div className="px-4 md:px-6 py-3 md:py-5 space-y-3 md:space-y-4 overflow-y-auto flex-1">
+              <p className="text-xs md:text-sm text-gray-300 leading-relaxed">
                 <span className="font-semibold text-[#00F5FF]">Important:</span> Do not upload recordings containing sensitive information.
               </p>
 
               <div>
                 <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-2">Avoid uploading:</p>
-                <ul className="space-y-1.5 text-sm text-gray-300">
+                <ul className="space-y-1 md:space-y-1.5 text-xs md:text-sm text-gray-300">
                   <li className="flex items-start gap-2">
-                    <span className="text-[#00F5FF]/60 mt-1 text-xs">▸</span>
+                    <span className="text-[#00F5FF]/60 mt-0.5 text-xs">▸</span>
                     <span>Personal identifying information</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-[#00F5FF]/60 mt-1 text-xs">▸</span>
+                    <span className="text-[#00F5FF]/60 mt-0.5 text-xs">▸</span>
                     <span>Financial or payment data</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-[#00F5FF]/60 mt-1 text-xs">▸</span>
+                    <span className="text-[#00F5FF]/60 mt-0.5 text-xs">▸</span>
                     <span>Health or medical records</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-[#00F5FF]/60 mt-1 text-xs">▸</span>
+                    <span className="text-[#00F5FF]/60 mt-0.5 text-xs">▸</span>
                     <span>Confidential business information</span>
                   </li>
                 </ul>
@@ -841,17 +841,19 @@ export function ChatInterface({
             </div>
 
             {/* Footer */}
-            <div className="bg-[#111111] border-t border-[#333333] px-6 py-4 flex items-center justify-end gap-3">
+            <div className="bg-[#111111] border-t border-[#333333] px-4 md:px-6 py-3 md:py-4 flex items-center justify-end gap-2 md:gap-3 flex-shrink-0">
               <Button
                 onClick={handleConsentDecline}
                 variant="ghost"
-                className="text-gray-400 hover:text-white hover:bg-[#1A1A1A] border border-[#333333] hover:border-[#00F5FF]/30 transition-all"
+                size="sm"
+                className="text-gray-400 hover:text-white hover:bg-[#1A1A1A] border border-[#333333] hover:border-[#00F5FF]/30 transition-all text-xs md:text-sm"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleConsentAccept}
-                className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00F5FF]/90 hover:to-[#06B6D4]/90 text-gray-900 font-semibold"
+                size="sm"
+                className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00F5FF]/90 hover:to-[#06B6D4]/90 text-gray-900 font-semibold text-xs md:text-sm whitespace-nowrap"
               >
                 I Understand & Consent
               </Button>

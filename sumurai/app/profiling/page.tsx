@@ -18,20 +18,32 @@ function ProfilingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showBanner, setShowBanner] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     // Check if user came from login flow (via query param or session storage)
     const fromLogin = searchParams.get('from') === 'login';
     const sessionFromLogin = sessionStorage.getItem('fromLogin') === 'true';
 
-    if (fromLogin || sessionFromLogin) {
+    // Show banner if: from login flow OR always on mobile
+    if (fromLogin || sessionFromLogin || isMobile) {
       setShowBanner(true);
       // Clear the session storage flag after showing banner once
       if (sessionFromLogin) {
         sessionStorage.removeItem('fromLogin');
       }
     }
-  }, [searchParams]);
+  }, [searchParams, isMobile]);
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gradient-to-b from-[#111111] via-[#111111] to-[#1A1A1A]">
