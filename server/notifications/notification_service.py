@@ -8,6 +8,8 @@ Handles sending notifications via:
 
 import os
 import smtplib
+import html
+import re
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import requests
@@ -40,6 +42,58 @@ class NotificationService:
         
         # Slack configuration
         self.slack_webhook_url = os.getenv("SLACK_WEBHOOK_URL")
+    
+    def _escape_html(self, text: str) -> str:
+        """
+        Escape HTML special characters to prevent XSS/injection.
+        
+        Args:
+            text: Text to escape
+        
+        Returns:
+            Escaped text safe for HTML embedding
+        """
+        if not text:
+            return ""
+        return html.escape(str(text), quote=True)
+    
+    def _escape_slack(self, text: str) -> str:
+        """
+        Escape Slack markdown special characters.
+        
+        Args:
+            text: Text to escape
+        
+        Returns:
+            Escaped text safe for Slack messages
+        """
+        if not text:
+            return ""
+        # Escape Slack markdown special characters: < > & 
+        text = str(text)
+        text = text.replace("&", "&amp;")
+        text = text.replace("<", "&lt;")
+        text = text.replace(">", "&gt;")
+        return text
+    
+    def _sanitize_subject(self, text: str) -> str:
+        """
+        Sanitize email subject line by removing newlines and excessive whitespace.
+        
+        Args:
+            text: Text to sanitize
+        
+        Returns:
+            Sanitized text safe for email subject
+        """
+        if not text:
+            return ""
+        # Remove newlines and carriage returns
+        text = re.sub(r'[\r\n]+', ' ', str(text))
+        # Collapse multiple spaces
+        text = re.sub(r'\s+', ' ', text)
+        # Limit length to prevent email client issues
+        return text.strip()[:200]
     
     def send_email(
         self, 
@@ -174,8 +228,13 @@ class NotificationService:
         try:
             # Format message with action item details
             if action_item:
+                # Escape all user input for Slack
+                task_text = self._escape_slack(action_item.get('task', ''))
+                priority_text = self._escape_slack(action_item.get('priority', 'medium').upper())
+                assigned_text = self._escape_slack(slack_user_id)
+                
                 slack_message = {
-                    "text": f"📋 Action Item Assigned: {action_item.get('task', '')}",
+                    "text": f"📋 Action Item Assigned: {task_text}",
                     "blocks": [
                         {
                             "type": "header",
@@ -188,7 +247,7 @@ class NotificationService:
                             "type": "section",
                             "text": {
                                 "type": "mrkdwn",
-                                "text": f"*Task:* {action_item.get('task', '')}\n*Priority:* {action_item.get('priority', 'medium').upper()}\n*Assigned to:* {slack_user_id}"
+                                "text": f"*Task:* {task_text}\n*Priority:* {priority_text}\n*Assigned to:* {assigned_text}"
                             }
                         }
                     ]
@@ -231,7 +290,9 @@ class NotificationService:
         
         # Send email if contact has email
         if contact.get("email"):
-            subject = f"Action Item: {action_item.get('task', 'New Task')}"
+            # Sanitize subject line
+            task_text = action_item.get('task', 'New Task')
+            subject = f"Action Item: {self._sanitize_subject(task_text)}"
             body_html = self._format_action_item_email(action_item, contact)
             body_text = self._format_action_item_email_text(action_item, contact)
             
@@ -249,9 +310,11 @@ class NotificationService:
         
         # Send Slack if contact has Slack ID
         if contact.get("slack_user_id"):
+            # Escape task text for Slack message
+            task_text = self._escape_slack(action_item.get('task', ''))
             slack_result = self.send_slack_message(
                 slack_user_id=contact["slack_user_id"],
-                message=f"New action item: {action_item.get('task', '')}",
+                message=f"New action item: {task_text}",
                 action_item=action_item
             )
             
@@ -267,7 +330,7 @@ class NotificationService:
         action_item: Dict, 
         contact: Dict
     ) -> str:
-        """Format HTML email for action item."""
+        """Format HTML email for action item with proper escaping."""
         priority_colors = {
             "high": "#FF4444",
             "medium": "#FFA500",
@@ -276,14 +339,19 @@ class NotificationService:
         priority = action_item.get("priority", "medium")
         color = priority_colors.get(priority, "#666")
         
+        # Escape all user input to prevent HTML/JS injection
+        task_text = self._escape_html(action_item.get('task', 'New Task'))
+        priority_text = self._escape_html(priority.upper())
+        contact_name = self._escape_html(contact.get('name', 'You'))
+        
         return f"""
         <html>
         <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #333;">📋 New Action Item Assigned</h2>
             <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="margin-top: 0;">{action_item.get('task', 'New Task')}</h3>
-                <p><strong>Priority:</strong> <span style="color: {color}; font-weight: bold;">{priority.upper()}</span></p>
-                <p><strong>Assigned to:</strong> {contact.get('name', 'You')}</p>
+                <h3 style="margin-top: 0;">{task_text}</h3>
+                <p><strong>Priority:</strong> <span style="color: {color}; font-weight: bold;">{priority_text}</span></p>
+                <p><strong>Assigned to:</strong> {contact_name}</p>
             </div>
             <p style="color: #666; font-size: 14px;">
                 This action item was extracted from a meeting processed by SumurAI.
@@ -297,13 +365,18 @@ class NotificationService:
         action_item: Dict, 
         contact: Dict
     ) -> str:
-        """Format plain text email for action item."""
+        """Format plain text email for action item with sanitization."""
+        # For plain text, remove newlines and excessive whitespace to prevent email injection
+        task_text = self._sanitize_subject(action_item.get('task', 'New Task'))
+        priority_text = action_item.get('priority', 'medium').upper()
+        contact_name = self._sanitize_subject(contact.get('name', 'You'))
+        
         return f"""
 New Action Item Assigned
 
-Task: {action_item.get('task', 'New Task')}
-Priority: {action_item.get('priority', 'medium').upper()}
-Assigned to: {contact.get('name', 'You')}
+Task: {task_text}
+Priority: {priority_text}
+Assigned to: {contact_name}
 
 This action item was extracted from a meeting processed by SumurAI.
         """
