@@ -8,10 +8,11 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Share, ThumbsUp, ThumbsDown, Send, Paperclip, Mic, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Users, Settings, Download, FileText, ListChecks, FileStack, Menu } from "lucide-react";
+import { Copy, Share, ThumbsUp, ThumbsDown, Send, Paperclip, Mic, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Users, Settings, Download, FileText, ListChecks, FileStack, Menu, Mail, Send as SendIcon, Loader2 } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { downloadMeetingData, type MeetingData, type DownloadType } from '@/lib/services/output-download';
+import { NotificationService } from '@/lib/services/notifications';
 
 interface Message {
   id: string;
@@ -43,6 +44,7 @@ interface ChatInterfaceProps {
   setUseSpeakerDiarization?: (value: boolean) => void;
   audioUrl?: string;
   onToggleSidebar?: () => void;
+  meetingId?: string;
 }
 
 export function ChatInterface({
@@ -61,7 +63,8 @@ export function ChatInterface({
   useSpeakerDiarization = false,
   setUseSpeakerDiarization,
   audioUrl,
-  onToggleSidebar
+  onToggleSidebar,
+  meetingId
 }: ChatInterfaceProps) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = React.useState(false);
@@ -72,6 +75,9 @@ export function ChatInterface({
   const [showConsentDialog, setShowConsentDialog] = React.useState(false);
   const [expandedGroups, setExpandedGroups] = React.useState<Record<string, boolean>>({});
   const [mobileBottomSheet, setMobileBottomSheet] = React.useState<'transcript' | 'actions' | null>(null);
+  const [notifyingItems, setNotifyingItems] = React.useState<Set<string>>(new Set());
+  const [notificationStatus, setNotificationStatus] = React.useState<Record<string, 'success' | 'error' | null>>({});
+  const [notifyingAll, setNotifyingAll] = React.useState(false);
   const downloadButtonRef = React.useRef<HTMLDivElement>(null);
 
   // Get unique speakers for color coding
@@ -161,6 +167,57 @@ export function ChatInterface({
   const handleConsentAccept = () => {
     setShowConsentDialog(false);
     fileInputRef.current?.click();
+  };
+
+  const handleNotifyActionItem = async (actionItemId: string) => {
+    setNotifyingItems(prev => new Set(prev).add(actionItemId));
+    setNotificationStatus(prev => ({ ...prev, [actionItemId]: null }));
+
+    try {
+      const result = await NotificationService.notifyActionItem(actionItemId);
+      setNotificationStatus(prev => ({ ...prev, [actionItemId]: 'success' }));
+      setTimeout(() => {
+        setNotificationStatus(prev => {
+          const updated = { ...prev };
+          delete updated[actionItemId];
+          return updated;
+        });
+      }, 3000);
+    } catch (err) {
+      console.error("Error sending notification:", err);
+      setNotificationStatus(prev => ({ ...prev, [actionItemId]: 'error' }));
+      setTimeout(() => {
+        setNotificationStatus(prev => {
+          const updated = { ...prev };
+          delete updated[actionItemId];
+          return updated;
+        });
+      }, 5000);
+    } finally {
+      setNotifyingItems(prev => {
+        const updated = new Set(prev);
+        updated.delete(actionItemId);
+        return updated;
+      });
+    }
+  };
+
+  const handleNotifyAll = async () => {
+    if (!meetingId) {
+      alert("Meeting ID not available. Cannot send notifications.");
+      return;
+    }
+
+    setNotifyingAll(true);
+    try {
+      const result = await NotificationService.notifyAllActionItems(meetingId);
+      alert(`Notifications sent! ${result.notified} notified, ${result.skipped} skipped.`);
+    } catch (err) {
+      console.error("Error sending notifications:", err);
+      alert(`Failed to send notifications: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setNotifyingAll(false);
+    }
   };
 
   const handleConsentDecline = () => {
@@ -668,10 +725,31 @@ export function ChatInterface({
           )}
           <ScrollArea className="flex-1 overflow-y-auto">
               {/* Floating Header */}
-              <div className="sticky top-0 z-10 px-6 pt-4 pb-4 bg-[#111111]">
+              <div className="sticky top-0 z-10 px-6 pt-4 pb-4 bg-[#111111] flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-white uppercase tracking-wide">
                   Action Items
                 </h3>
+                {meetingId && actionItems && actionItems.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleNotifyAll}
+                    disabled={notifyingAll}
+                    className="text-xs border-[#00F5FF] text-[#00F5FF] hover:bg-[#00F5FF] hover:text-black"
+                  >
+                    {notifyingAll ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <SendIcon className="h-3 w-3 mr-1" />
+                        Notify All
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             <div className="px-6 pt-2 pb-6">
               {actionItems && actionItems.length > 0 ? (
@@ -742,7 +820,38 @@ export function ChatInterface({
                                       #{index + 1}
                                     </span>
                                   </div>
-                                  <p className="text-sm text-white leading-relaxed">{item.task}</p>
+                                  <p className="text-sm text-white leading-relaxed mb-2">{item.task}</p>
+                                  <div className="flex items-center gap-2 mt-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleNotifyActionItem(item.id)}
+                                      disabled={notifyingItems.has(item.id)}
+                                      className="text-xs h-7 border-[#00F5FF]/50 text-[#00F5FF] hover:bg-[#00F5FF] hover:text-black"
+                                    >
+                                      {notifyingItems.has(item.id) ? (
+                                        <>
+                                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                          Sending...
+                                        </>
+                                      ) : notificationStatus[item.id] === 'success' ? (
+                                        <>
+                                          <Mail className="h-3 w-3 mr-1" />
+                                          Sent!
+                                        </>
+                                      ) : notificationStatus[item.id] === 'error' ? (
+                                        <>
+                                          <Mail className="h-3 w-3 mr-1" />
+                                          Failed
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Mail className="h-3 w-3 mr-1" />
+                                          Notify
+                                        </>
+                                      )}
+                                    </Button>
+                                  </div>
                                 </div>
                               ))}
                             </div>
