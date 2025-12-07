@@ -9,6 +9,7 @@ from auth.supabase_dependencies import get_current_user
 from database.supabase_service import get_supabase
 from auth import auth_router, get_current_user
 from summarization import SummarizationService
+from notifications.notification_service import NotificationService
 from pydantic import BaseModel
 from typing import Dict
 import os
@@ -49,10 +50,31 @@ class ActionItemsRequest(BaseModel):
 class SpeakerMappingsRequest(BaseModel):
     """
     Request model for saving speaker name mappings.
-    Maps speaker IDs (e.g., "SPEAKER_01") to actual names.
+    Maps speaker IDs (e.g., "SPEAKER_01") to actual names or contact IDs.
     """
     meeting_id: str
     mappings: Dict[str, str]  # Maps speaker ID to name
+    contact_mappings: Dict[str, str] = None  # Maps speaker ID to contact_id (optional)
+
+class ContactCreate(BaseModel):
+    """Request model for creating a contact"""
+    name: str
+    email: str = None
+    slack_user_id: str = None
+    slack_email: str = None
+    phone: str = None
+    company: str = None
+    job_title: str = None
+
+class ContactUpdate(BaseModel):
+    """Request model for updating a contact"""
+    name: str = None
+    email: str = None
+    slack_user_id: str = None
+    slack_email: str = None
+    phone: str = None
+    company: str = None
+    job_title: str = None
 
 # Create FastAPI instance
 class ConversationCreate(BaseModel):
@@ -1318,11 +1340,12 @@ async def get_speaker_mappings(meeting_id: str):
             )
         
         supabase = get_supabase()
-        mappings = supabase.get_speaker_mappings(meeting_id)
+        result = supabase.get_speaker_mappings(meeting_id)
         
         return {
             "success": True,
-            "mappings": mappings
+            "mappings": result.get("mappings", {}),
+            "contact_mappings": result.get("contact_mappings", {})
         }
     except HTTPException:
         raise
@@ -1414,7 +1437,12 @@ async def save_speaker_mappings(
             }
         
         supabase = get_supabase()
-        result = supabase.save_speaker_mappings(meeting_id, request.mappings, user_id=None)
+        result = supabase.save_speaker_mappings(
+            meeting_id, 
+            request.mappings, 
+            user_id=None,
+            contact_mappings=request.contact_mappings
+        )
         
         # Check if there was an error in the result
         if not result.get("success", False):
@@ -1426,7 +1454,8 @@ async def save_speaker_mappings(
         return {
             "success": True,
             "message": "Speaker mappings saved successfully",
-            "mappings": request.mappings
+            "mappings": request.mappings,
+            "contact_mappings": request.contact_mappings or {}
         }
     except HTTPException as e:
         return {
@@ -1513,8 +1542,19 @@ async def extract_action_items_after_speaker_mapping(meeting_id: str):
                 detail=f"Transcription text is empty for meeting {meeting_id}"
             )
         
-        # Step 2: Get speaker mappings
-        speaker_mappings = supabase.get_speaker_mappings(meeting_id)
+        # Step 2: Get speaker mappings (now includes contact_mappings)
+        speaker_mappings_result = supabase.get_speaker_mappings(meeting_id)
+        speaker_mappings = speaker_mappings_result.get("mappings", {})
+        contact_mappings = speaker_mappings_result.get("contact_mappings", {})
+        
+        # Create reverse mapping: name -> contact_id for action items
+        name_to_contact_id = {}
+        if contact_mappings:
+            # Get all speaker mappings to map names to contact_ids
+            for speaker_id, contact_id in contact_mappings.items():
+                if speaker_id in speaker_mappings:
+                    name = speaker_mappings[speaker_id]
+                    name_to_contact_id[name] = contact_id
         
         if not speaker_mappings:
             # If no speaker mappings exist, use original transcript
@@ -1790,7 +1830,8 @@ async def extract_action_items_after_speaker_mapping(meeting_id: str):
                 print(f"[DB] Saving {len(action_items)} action items to database...")
                 supabase.save_action_items(
                     conversation_id=conversation_id,
-                    action_items=action_items
+                    action_items=action_items,
+                    contact_mappings=name_to_contact_id
                 )
                 print(f"[DB] ✓ All action items saved successfully")
             except Exception as db_error:

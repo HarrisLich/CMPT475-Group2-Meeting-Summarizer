@@ -171,7 +171,7 @@ class SupabaseService:
         
         return list(speakers_dict.values())
     
-    def save_speaker_mappings(self, meeting_id, mappings, user_id=None):
+    def save_speaker_mappings(self, meeting_id, mappings, user_id=None, contact_mappings=None):
         """
         Save speaker name mappings for a meeting.
         
@@ -179,6 +179,7 @@ class SupabaseService:
             meeting_id: The meeting ID
             mappings: Dict mapping speaker IDs to names (e.g., {"SPEAKER_01": "John Doe"})
             user_id: Optional user ID (for authentication/ownership)
+            contact_mappings: Dict mapping speaker IDs to contact_ids (e.g., {"SPEAKER_01": "uuid-123"})
             
         Returns:
             Dict with success status and optional error message
@@ -203,6 +204,9 @@ class SupabaseService:
                 # Add user_id if provided
                 if user_id:
                     entry["user_id"] = user_id
+                # Add contact_id if provided in contact_mappings
+                if contact_mappings and speaker_id in contact_mappings:
+                    entry["contact_id"] = contact_mappings[speaker_id]
                 mapping_entries.append(entry)
                 
             # Bulk insert all mappings
@@ -371,12 +375,29 @@ class SupabaseService:
             if not assigned_to:
                 assigned_to = "Unassigned"
 
-            action_items_data.append({
+            action_item_entry = {
                 "conversation_id": conversation_id,
                 "task": item.get("task"),
                 "priority": priority,
                 "assigned_to": assigned_to
-            })
+            }
+            
+            # Add contact_id if contact_mappings provided and name matches
+            if contact_mappings and assigned_to in contact_mappings:
+                contact_id = contact_mappings[assigned_to]
+                action_item_entry["contact_id"] = contact_id
+                
+                # Also fetch and cache contact info for faster notifications
+                try:
+                    contact_result = self.get_contact_by_id(contact_id)
+                    if contact_result.data and len(contact_result.data) > 0:
+                        contact = contact_result.data[0]
+                        action_item_entry["assigned_to_email"] = contact.get("email")
+                        action_item_entry["assigned_to_slack"] = contact.get("slack_user_id")
+                except Exception as e:
+                    print(f"Warning: Could not fetch contact info for {contact_id}: {e}")
+            
+            action_items_data.append(action_item_entry)
 
         return self.client.table("action_items").insert(action_items_data).execute()
 
