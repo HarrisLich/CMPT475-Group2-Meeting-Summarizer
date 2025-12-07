@@ -350,8 +350,15 @@ class SupabaseService:
         return self.client.table("summaries").select("*").eq("meeting_id", meeting_id).execute()
 
     # Action items functions
-    def save_action_items(self, conversation_id, action_items):
-        """Save action items for a conversation"""
+    def save_action_items(self, conversation_id, action_items, contact_mappings=None):
+        """
+        Save action items for a conversation.
+        
+        Args:
+            conversation_id: Conversation ID
+            action_items: List of action item dicts
+            contact_mappings: Optional dict mapping assigned_to names to contact_ids
+        """
         # Transform action items to match database schema
         action_items_data = []
         for item in action_items:
