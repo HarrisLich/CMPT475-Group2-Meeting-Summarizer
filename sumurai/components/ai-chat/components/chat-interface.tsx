@@ -502,6 +502,7 @@ export function ChatInterface({
                 {audioUrl && (
                   <div className="bg-[#1A1A1A] rounded-lg border border-[#333333] p-3 mb-3">
                     <audio
+                      key={audioUrl}
                       controls
                       className="w-full h-8"
                       style={{

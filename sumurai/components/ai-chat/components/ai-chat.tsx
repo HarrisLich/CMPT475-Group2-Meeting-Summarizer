@@ -683,6 +683,28 @@ export default function AiChat() {
       if (selectedChat.messages && selectedChat.messages.length > 0) {
         setCurrentMessages(selectedChat.messages);
       }
+
+      // Always fetch audio URL even when using cached data
+      // This ensures the correct audio plays for this conversation
+      if (selectedChat.conversationId) {
+        SummarizationService.getConversation(selectedChat.conversationId)
+          .then(conversationData => {
+            if (conversationData?.transcription?.audio_url) {
+              console.log("[SELECT] Updated audio URL for cached chat:", conversationData.transcription.audio_url);
+              setChats(prevChats =>
+                prevChats.map(chat =>
+                  chat.id === chatId
+                    ? { ...chat, audioUrl: conversationData.transcription.audio_url }
+                    : chat
+                )
+              );
+            }
+          })
+          .catch(error => {
+            console.warn("[SELECT] Failed to fetch audio URL for cached chat:", error);
+          });
+      }
+
       return;
     }
 
