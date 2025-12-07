@@ -4,10 +4,10 @@
 | Name | Role | Email |
 |------|------|--------|
 | Harris Lichstein | Project Manager | harris.lichstein@gmail.com |
-| Joshua Chenoweth | Backend Developer / AI Integration | jgc50903@gmail.com |
-| Stefano Farro | Frontend Developer / UI/UX | stefanog1121@gmail.com |
-| Evan Brown | Frontend Developer / Base AI Integration | evan.brown2@marist.edu |
-| Marko Pavic | Backend Developer / AI Integration and DB implmentation | markopavic7777@gmail.com |
+| Joshua Chenoweth | Backend Developer - AI Integration | jgc50903@gmail.com |
+| Marko Pavic | Backend Developer - AI Integration and DB implmentation | markopavic7777@gmail.com |
+| Stefano Farro | Frontend Developer - UI/UX | stefanogfarro@gmail.com |
+| Evan Brown | Frontend Developer - Base AI Integration | evan.brown2@marist.edu |
 
 ---
 
