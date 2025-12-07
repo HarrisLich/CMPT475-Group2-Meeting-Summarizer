@@ -2181,6 +2181,408 @@ async def get_conversation_messages(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch messages: {str(e)}")
 
+# Contact Management Endpoints
+@app.post(
+    "/contacts",
+    tags=["Contacts"],
+    summary="Create Contact",
+    description="""
+    Create a new contact in your contact directory.
+    
+    Contacts are used to:
+    - Link speaker names to email/Slack for notifications
+    - Reuse across multiple meetings
+    - Send action item notifications
+    
+    ### Required Fields
+    - `name`: Contact's full name
+    
+    ### Optional Fields
+    - `email`: Email address for notifications
+    - `slack_user_id`: Slack user ID or handle (e.g., "@john.doe")
+    - `slack_email`: Slack email address
+    - `phone`: Phone number
+    - `company`: Company name
+    - `job_title`: Job title
+    
+    ### Authentication
+    Requires valid Supabase JWT token. Contacts are private to each user.
+    """,
+    response_description="Created contact with ID and metadata"
+)
+async def create_contact(
+    request: ContactCreate,
+    current_user = Depends(get_current_user)
+):
+    """Create a new contact"""
+    try:
+        supabase = get_supabase()
+        result = supabase.create_contact(
+            user_id=current_user["id"],
+            name=request.name,
+            email=request.email,
+            slack_user_id=request.slack_user_id,
+            slack_email=request.slack_email,
+            phone=request.phone,
+            company=request.company,
+            job_title=request.job_title
+        )
+        return {"success": True, "contact": result.data[0]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create contact: {str(e)}")
+
+@app.get(
+    "/contacts",
+    tags=["Contacts"],
+    summary="Get User Contacts",
+    description="""
+    Retrieve all contacts for the authenticated user.
+    
+    ### Returns
+    List of contacts ordered alphabetically by name, including:
+    - Contact ID, name, email, Slack info
+    - Company, job title, phone (if provided)
+    - Created/updated timestamps
+    
+    ### Use Cases
+    - Display contact list for speaker mapping
+    - Select contacts when assigning action items
+    - Manage team directory
+    
+    ### Authentication
+    Requires valid Supabase JWT token. Only returns your own contacts.
+    """,
+    response_description="List of user's contacts"
+)
+async def get_user_contacts(current_user = Depends(get_current_user)):
+    """Get all contacts for the authenticated user"""
+    try:
+        supabase = get_supabase()
+        result = supabase.get_user_contacts(current_user["id"])
+        return {"success": True, "contacts": result.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch contacts: {str(e)}")
+
+@app.get(
+    "/contacts/{contact_id}",
+    tags=["Contacts"],
+    summary="Get Contact Details",
+    description="""
+    Get detailed information about a specific contact.
+    
+    ### Authentication
+    Requires valid Supabase JWT token. Can only access your own contacts.
+    """,
+    response_description="Contact details"
+)
+async def get_contact(
+    contact_id: str,
+    current_user = Depends(get_current_user)
+):
+    """Get a specific contact"""
+    try:
+        supabase = get_supabase()
+        result = supabase.get_contact_by_id(contact_id)
+        
+        if not result.data or len(result.data) == 0:
+            raise HTTPException(status_code=404, detail="Contact not found")
+        
+        contact = result.data[0]
+        
+        # Verify ownership
+        if contact.get("user_id") != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        return {"success": True, "contact": contact}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch contact: {str(e)}")
+
+@app.put(
+    "/contacts/{contact_id}",
+    tags=["Contacts"],
+    summary="Update Contact",
+    description="""
+    Update an existing contact.
+    
+    ### Fields
+    All fields are optional - only provided fields will be updated.
+    
+    ### Authentication
+    Requires valid Supabase JWT token. Can only update your own contacts.
+    """,
+    response_description="Updated contact"
+)
+async def update_contact(
+    contact_id: str,
+    request: ContactUpdate,
+    current_user = Depends(get_current_user)
+):
+    """Update a contact"""
+    try:
+        supabase = get_supabase()
+        
+        # Verify ownership first
+        contact_result = supabase.get_contact_by_id(contact_id)
+        if not contact_result.data or len(contact_result.data) == 0:
+            raise HTTPException(status_code=404, detail="Contact not found")
+        
+        if contact_result.data[0].get("user_id") != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Update contact
+        result = supabase.update_contact(
+            contact_id=contact_id,
+            name=request.name,
+            email=request.email,
+            slack_user_id=request.slack_user_id,
+            slack_email=request.slack_email,
+            phone=request.phone,
+            company=request.company,
+            job_title=request.job_title
+        )
+        
+        return {"success": True, "contact": result.data[0] if result.data else None}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update contact: {str(e)}")
+
+@app.delete(
+    "/contacts/{contact_id}",
+    tags=["Contacts"],
+    summary="Delete Contact",
+    description="""
+    Delete a contact from your directory.
+    
+    ### Note
+    This will NOT delete speaker mappings or action items that reference this contact.
+    They will continue to show the contact name, but notifications may fail.
+    
+    ### Authentication
+    Requires valid Supabase JWT token. Can only delete your own contacts.
+    """,
+    response_description="Deletion confirmation"
+)
+async def delete_contact(
+    contact_id: str,
+    current_user = Depends(get_current_user)
+):
+    """Delete a contact"""
+    try:
+        supabase = get_supabase()
+        
+        # Verify ownership first
+        contact_result = supabase.get_contact_by_id(contact_id)
+        if not contact_result.data or len(contact_result.data) == 0:
+            raise HTTPException(status_code=404, detail="Contact not found")
+        
+        if contact_result.data[0].get("user_id") != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        supabase.delete_contact(contact_id)
+        return {"success": True, "message": "Contact deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete contact: {str(e)}")
+
+# Notification Endpoints
+notification_service = NotificationService()
+
+@app.post(
+    "/action-items/{action_item_id}/notify",
+    tags=["Notifications"],
+    summary="Notify Action Item Assignee",
+    description="""
+    Send email and/or Slack notifications for an action item.
+    
+    ### Requirements
+    - Action item must be linked to a contact (via contact_id)
+    - Contact must have email or slack_user_id configured
+    
+    ### What Gets Sent
+    - **Email**: If contact has email address
+    - **Slack**: If contact has slack_user_id configured
+    
+    ### Notification Content
+    - Task description
+    - Priority level
+    - Assigned person name
+    
+    ### Authentication
+    Requires valid Supabase JWT token. Can only notify for your own action items.
+    """,
+    response_description="Notification results (email_sent, slack_sent, errors)"
+)
+async def notify_action_item(
+    action_item_id: str,
+    current_user = Depends(get_current_user)
+):
+    """Send notifications for an action item"""
+    try:
+        supabase = get_supabase()
+        
+        # Get action item
+        action_item_result = supabase.client.table("action_items")\
+            .select("*")\
+            .eq("id", action_item_id)\
+            .execute()
+        
+        if not action_item_result.data or len(action_item_result.data) == 0:
+            raise HTTPException(status_code=404, detail="Action item not found")
+        
+        action_item = action_item_result.data[0]
+        
+        # Verify ownership via conversation
+        conversation_id = action_item.get("conversation_id")
+        if conversation_id:
+            conversation_result = supabase.get_conversation_by_id(conversation_id)
+            if conversation_result.data and len(conversation_result.data) > 0:
+                conversation = conversation_result.data[0]
+                if conversation.get("user_id") != current_user["id"]:
+                    raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Get contact if contact_id exists
+        contact_id = action_item.get("contact_id")
+        if not contact_id:
+            raise HTTPException(
+                status_code=400, 
+                detail="Action item is not linked to a contact. Link a contact first via speaker mapping."
+            )
+        
+        contact_result = supabase.get_contact_by_id(contact_id)
+        if not contact_result.data or len(contact_result.data) == 0:
+            raise HTTPException(status_code=404, detail="Contact not found")
+        
+        contact = contact_result.data[0]
+        
+        # Verify contact ownership
+        if contact.get("user_id") != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Send notifications
+        notification_result = notification_service.notify_action_item(
+            action_item={
+                "task": action_item.get("task"),
+                "priority": action_item.get("priority", "medium")
+            },
+            contact=contact
+        )
+        
+        return {
+            "success": True,
+            "action_item_id": action_item_id,
+            "notifications": notification_result
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send notifications: {str(e)}")
+
+@app.post(
+    "/meetings/{meeting_id}/action-items/notify-all",
+    tags=["Notifications"],
+    summary="Notify All Action Items from Meeting",
+    description="""
+    Send notifications for all action items in a meeting that are linked to contacts.
+    
+    ### Process
+    1. Gets all action items for the meeting
+    2. Filters to items with contact_id
+    3. Sends email/Slack notifications for each
+    
+    ### Authentication
+    Requires valid Supabase JWT token. Can only notify for your own meetings.
+    """,
+    response_description="Summary of notifications sent"
+)
+async def notify_all_action_items(
+    meeting_id: str,
+    current_user = Depends(get_current_user)
+):
+    """Send notifications for all action items in a meeting"""
+    try:
+        supabase = get_supabase()
+        
+        # Get conversation for meeting
+        conversation_result = supabase.client.table("conversations")\
+            .select("id, user_id")\
+            .eq("meeting_id", meeting_id)\
+            .execute()
+        
+        if not conversation_result.data or len(conversation_result.data) == 0:
+            raise HTTPException(status_code=404, detail="Meeting not found")
+        
+        conversation = conversation_result.data[0]
+        if conversation.get("user_id") != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        conversation_id = conversation["id"]
+        
+        # Get all action items for this conversation
+        action_items_result = supabase.get_conversation_action_items(conversation_id)
+        if not action_items_result.data:
+            return {
+                "success": True,
+                "message": "No action items found",
+                "notified": 0,
+                "skipped": 0
+            }
+        
+        notified_count = 0
+        skipped_count = 0
+        errors = []
+        
+        for action_item in action_items_result.data:
+            contact_id = action_item.get("contact_id")
+            if not contact_id:
+                skipped_count += 1
+                continue
+            
+            try:
+                contact_result = supabase.get_contact_by_id(contact_id)
+                if not contact_result.data or len(contact_result.data) == 0:
+                    skipped_count += 1
+                    continue
+                
+                contact = contact_result.data[0]
+                
+                # Send notifications
+                notification_result = notification_service.notify_action_item(
+                    action_item={
+                        "task": action_item.get("task"),
+                        "priority": action_item.get("priority", "medium")
+                    },
+                    contact=contact
+                )
+                
+                if notification_result.get("email_sent") or notification_result.get("slack_sent"):
+                    notified_count += 1
+                else:
+                    skipped_count += 1
+                    if notification_result.get("errors"):
+                        errors.extend(notification_result["errors"])
+            
+            except Exception as e:
+                skipped_count += 1
+                errors.append(f"Action item {action_item.get('id')}: {str(e)}")
+        
+        return {
+            "success": True,
+            "meeting_id": meeting_id,
+            "notified": notified_count,
+            "skipped": skipped_count,
+            "errors": errors if errors else None
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send notifications: {str(e)}")
+
 @app.post(
     "/summaries",
     tags=["Meetings"],

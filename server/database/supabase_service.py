@@ -497,6 +497,129 @@ class SupabaseService:
         }
 
 
+    # Contact Management Functions
+    def create_contact(self, user_id, name, email=None, slack_user_id=None, slack_email=None, phone=None, company=None, job_title=None):
+        """
+        Create a new contact for a user.
+        
+        Args:
+            user_id: Owner of this contact
+            name: Contact name (required)
+            email: Email address (optional)
+            slack_user_id: Slack user ID or handle (optional)
+            slack_email: Slack email (optional)
+            phone: Phone number (optional)
+            company: Company name (optional)
+            job_title: Job title (optional)
+        
+        Returns:
+            Created contact data
+        """
+        contact_data = {
+            "user_id": user_id,
+            "name": name
+        }
+        
+        if email:
+            contact_data["email"] = email
+        if slack_user_id:
+            contact_data["slack_user_id"] = slack_user_id
+        if slack_email:
+            contact_data["slack_email"] = slack_email
+        if phone:
+            contact_data["phone"] = phone
+        if company:
+            contact_data["company"] = company
+        if job_title:
+            contact_data["job_title"] = job_title
+        
+        return self.client.table("contacts").insert(contact_data).execute()
+    
+    def get_user_contacts(self, user_id):
+        """
+        Get all contacts for a user.
+        
+        Args:
+            user_id: User ID
+        
+        Returns:
+            List of contacts ordered by name
+        """
+        return self.client.table("contacts").select("*").eq("user_id", user_id).order("name", desc=False).execute()
+    
+    def get_contact_by_id(self, contact_id):
+        """
+        Get a specific contact by ID.
+        
+        Args:
+            contact_id: Contact UUID
+        
+        Returns:
+            Contact data
+        """
+        return self.client.table("contacts").select("*").eq("id", contact_id).execute()
+    
+    def update_contact(self, contact_id, name=None, email=None, slack_user_id=None, slack_email=None, phone=None, company=None, job_title=None):
+        """
+        Update a contact.
+        
+        Args:
+            contact_id: Contact UUID
+            name, email, etc.: Fields to update (optional)
+        
+        Returns:
+            Updated contact data
+        """
+        update_data = {}
+        
+        if name is not None:
+            update_data["name"] = name
+        if email is not None:
+            update_data["email"] = email
+        if slack_user_id is not None:
+            update_data["slack_user_id"] = slack_user_id
+        if slack_email is not None:
+            update_data["slack_email"] = slack_email
+        if phone is not None:
+            update_data["phone"] = phone
+        if company is not None:
+            update_data["company"] = company
+        if job_title is not None:
+            update_data["job_title"] = job_title
+        
+        if not update_data:
+            return {"data": [], "error": "No fields to update"}
+        
+        return self.client.table("contacts").update(update_data).eq("id", contact_id).execute()
+    
+    def delete_contact(self, contact_id):
+        """
+        Delete a contact.
+        
+        Args:
+            contact_id: Contact UUID
+        
+        Returns:
+            Deletion result
+        """
+        return self.client.table("contacts").delete().eq("id", contact_id).execute()
+    
+    def get_contact_by_email(self, user_id, email):
+        """
+        Find a contact by email for a specific user.
+        
+        Args:
+            user_id: User ID
+            email: Email address to search for
+        
+        Returns:
+            Contact data if found, None otherwise
+        """
+        result = self.client.table("contacts").select("*").eq("user_id", user_id).eq("email", email).execute()
+        if result.data and len(result.data) > 0:
+            return result.data[0]
+        return None
+
 def get_supabase():
     global _instance
     if _instance is None:
