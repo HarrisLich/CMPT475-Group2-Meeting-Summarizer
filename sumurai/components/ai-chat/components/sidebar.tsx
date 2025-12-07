@@ -68,12 +68,12 @@ export function Sidebar({ chats, selectedChatId, onNewChat, onSelectChat, onDele
   return (
     <div className={cn(
       "bg-[#111111] flex flex-col border-r border-[#333333] h-full transition-all duration-300 relative",
-      isCollapsed ? "w-16" : "w-75"
+      isCollapsed ? "w-16" : "w-75 md:w-75 max-w-[85vw]"
     )}>
-      {/* Collapse/Expand Handle */}
+      {/* Collapse/Expand Handle - Hidden on mobile */}
       <div
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute right-0 top-0 bottom-0 w-1 bg-transparent hover:bg-[#00F5FF]/30 cursor-col-resize transition-all duration-200 z-50 group"
+        className="hidden md:block absolute right-0 top-0 bottom-0 w-1 bg-transparent hover:bg-[#00F5FF]/30 cursor-col-resize transition-all duration-200 z-50 group"
         title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
         <div className="absolute top-1/2 -translate-y-1/2 right-0 w-3 h-12 bg-[#1A1A1A] group-hover:bg-[#00F5FF]/80 border border-[#333333] rounded-l-md flex items-center justify-center transition-all duration-200">

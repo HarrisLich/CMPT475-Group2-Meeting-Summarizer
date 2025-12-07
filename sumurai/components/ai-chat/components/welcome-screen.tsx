@@ -1,12 +1,28 @@
 "use client";
 
+import { Menu } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
 interface WelcomeScreenProps {
   onSuggestionClick: (suggestion: string) => void;
+  onToggleSidebar?: () => void;
 }
 
-export function WelcomeScreen({ onSuggestionClick }: WelcomeScreenProps) {
+export function WelcomeScreen({ onSuggestionClick, onToggleSidebar }: WelcomeScreenProps) {
   return (
-    <div className="mx-auto flex max-w-4xl flex-1 flex-col items-center justify-center p-8">
+    <div className="mx-auto flex max-w-4xl flex-1 flex-col items-center justify-center p-8 relative">
+      {/* Mobile Menu Button - Positioned at top left */}
+      {onToggleSidebar && (
+        <div className="absolute top-4 left-4 md:hidden">
+          <Button
+            onClick={onToggleSidebar}
+            variant="ghost"
+            className="h-10 w-10 p-0 flex items-center justify-center text-gray-300 hover:text-white hover:bg-[#00F5FF]/10 border border-[#333333] hover:border-[#00F5FF]/50 transition-all"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        </div>
+      )}
       <div className="mb-12 text-center">
         <h1 className="mb-6 text-6xl font-bold text-white">
           <span className="bg-gradient-to-r from-[#2EF8FF] to-[#04ADCC] bg-clip-text text-transparent">Welcome to SumurAI</span>
