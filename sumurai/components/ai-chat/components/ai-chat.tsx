@@ -163,7 +163,7 @@ export default function AiChat() {
   const [showSpeakerMapping, setShowSpeakerMapping] = useState(false);
   const [speakersMapped, setSpeakersMapped] = useState(false);
   const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
-  const [useSpeakerDiarization, setUseSpeakerDiarization] = useState(false); // Toggle: false = fast mode, true = speaker mode
+  const [useSpeakerDiarization, setUseSpeakerDiarization] = useState(true); // Toggle: false = fast mode, true = speaker mode
 
   // Track if conversations have been loaded to prevent unnecessary refetches
   const conversationsLoadedRef = useRef(false);
