@@ -2506,18 +2506,24 @@ async def notify_action_item(
 ):
     """Send notifications for an action item"""
     try:
+        print(f"[API] 📬 Notification request received for action item: {action_item_id}")
+        print(f"[API]   User: {current_user.get('email', 'Unknown')} (ID: {current_user.get('id', 'N/A')})")
+        
         supabase = get_supabase()
         
         # Get action item
+        print(f"[API]   Fetching action item from database...")
         action_item_result = supabase.client.table("action_items")\
             .select("*")\
             .eq("id", action_item_id)\
             .execute()
         
         if not action_item_result.data or len(action_item_result.data) == 0:
+            print(f"[API]   ❌ Action item not found: {action_item_id}")
             raise HTTPException(status_code=404, detail="Action item not found")
         
         action_item = action_item_result.data[0]
+        print(f"[API]   ✓ Action item found: {action_item.get('task', 'Unknown task')[:50]}...")
         
         # Verify ownership via conversation
         conversation_id = action_item.get("conversation_id")
@@ -2526,27 +2532,34 @@ async def notify_action_item(
             if conversation_result.data and len(conversation_result.data) > 0:
                 conversation = conversation_result.data[0]
                 if conversation.get("user_id") != current_user["id"]:
+                    print(f"[API]   ❌ Access denied: User does not own this conversation")
                     raise HTTPException(status_code=403, detail="Access denied")
         
         # Get contact if contact_id exists
         contact_id = action_item.get("contact_id")
         if not contact_id:
+            print(f"[API]   ❌ Action item is not linked to a contact")
             raise HTTPException(
                 status_code=400, 
                 detail="Action item is not linked to a contact. Link a contact first via speaker mapping."
             )
         
+        print(f"[API]   Fetching contact: {contact_id}")
         contact_result = supabase.get_contact_by_id(contact_id)
         if not contact_result.data or len(contact_result.data) == 0:
+            print(f"[API]   ❌ Contact not found: {contact_id}")
             raise HTTPException(status_code=404, detail="Contact not found")
         
         contact = contact_result.data[0]
+        print(f"[API]   ✓ Contact found: {contact.get('name', 'Unknown')} ({contact.get('email', 'No email')})")
         
         # Verify contact ownership
         if contact.get("user_id") != current_user["id"]:
+            print(f"[API]   ❌ Access denied: User does not own this contact")
             raise HTTPException(status_code=403, detail="Access denied")
         
         # Send notifications
+        print(f"[API]   Sending notifications...")
         notification_result = notification_service.notify_action_item(
             action_item={
                 "task": action_item.get("task"),
@@ -2554,6 +2567,12 @@ async def notify_action_item(
             },
             contact=contact
         )
+        
+        print(f"[API]   ✅ Notification complete:")
+        print(f"[API]     Email sent: {notification_result.get('email_sent', False)}")
+        print(f"[API]     Slack sent: {notification_result.get('slack_sent', False)}")
+        if notification_result.get("errors"):
+            print(f"[API]     Errors: {notification_result.get('errors')}")
         
         return {
             "success": True,
