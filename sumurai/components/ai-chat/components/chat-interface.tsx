@@ -60,7 +60,7 @@ export function ChatInterface({
   transcript = "",
   transcriptSegments = [],
   actionItems = [],
-  useSpeakerDiarization = false,
+  useSpeakerDiarization = true,
   setUseSpeakerDiarization,
   audioUrl,
   onToggleSidebar,
@@ -604,7 +604,7 @@ export function ChatInterface({
                           className="flex items-center gap-2.5 px-3 py-1.5 rounded-full border border-[#333333] hover:border-[#00F5FF]/30 transition-all duration-200"
                         >
                           <span className={`text-xs font-medium transition-colors ${!useSpeakerDiarization ? 'text-[#00F5FF]' : 'text-gray-500'}`}>
-                            Fast
+                            Local
                           </span>
                           <div className="relative w-9 h-5 bg-[#333333] rounded-full transition-colors duration-200">
                             <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] rounded-full transition-transform duration-200 shadow-sm ${useSpeakerDiarization ? 'translate-x-4' : 'translate-x-0'}`}></div>
