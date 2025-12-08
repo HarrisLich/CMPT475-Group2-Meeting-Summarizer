@@ -73,12 +73,17 @@ export default function AiChat() {
     };
 
     return actionItems.map((item, index) => {
+      // Preserve existing UUID if item already has one (from database)
+      const itemId = item.id && typeof item.id === 'string' && item.id.length >= 32 
+        ? item.id 
+        : `${chatId}-${index}`; // Temporary ID only if no UUID exists
+      
       const taskText = item.task || item;
       if (!taskText || typeof taskText !== 'string') {
         // Use mapped name if assigned_to is a speaker ID
         const assignedTo = item.assigned_to ? getSpeakerName(item.assigned_to) : "Unassigned";
         return {
-          id: `${chatId}-${index}`,
+          id: itemId,
           priority: item.priority || "medium",
           task: taskText,
           assignedTo: assignedTo
@@ -93,7 +98,7 @@ export default function AiChat() {
       if (taskWords.length === 0) {
         const assignedTo = item.assigned_to ? getSpeakerName(item.assigned_to) : "Unassigned";
         return {
-          id: `${chatId}-${index}`,
+          id: itemId,
           priority: item.priority || "medium",
           task: taskText,
           assignedTo: assignedTo
@@ -130,7 +135,7 @@ export default function AiChat() {
         // Use mapped name for the matched speaker
         const speakerName = getSpeakerName(bestMatch.speaker);
         return {
-          id: `${chatId}-${index}`,
+          id: itemId,
           priority: item.priority || "medium",
           task: taskText,
           assignedTo: speakerName
@@ -140,7 +145,7 @@ export default function AiChat() {
       // Fallback to original assigned_to with mapping
       const assignedTo = item.assigned_to ? getSpeakerName(item.assigned_to) : "Unassigned";
       return {
-        id: `${chatId}-${index}`,
+        id: itemId,
         priority: item.priority || "medium",
         task: taskText,
         assignedTo: assignedTo
@@ -891,12 +896,22 @@ export default function AiChat() {
 
             // Add action items if available from database (preserve existing if already present)
             if (conversationData?.action_items && conversationData.action_items.length > 0 && !updatedChat.actionItems) {
-              updatedChat.actionItems = conversationData.action_items.map((item: any) => ({
-                id: item.id || `${chatId}-${Date.now()}-${Math.random()}`,
-                priority: item.priority || "medium",
-                task: item.task || item.content || "",
-                assignedTo: getSpeakerName(item.assigned_to)
-              }));
+              updatedChat.actionItems = conversationData.action_items
+                .map((item: any) => {
+                  // Ensure we have a valid UUID from database
+                  if (!item.id || typeof item.id !== 'string' || item.id.length < 32) {
+                    console.error("[SELECT] Invalid or missing ID for action item from database:", item);
+                    return null; // Filter out invalid items
+                  }
+                  
+                  return {
+                    id: item.id,  // Use the UUID from database
+                    priority: item.priority || "medium",
+                    task: item.task || item.content || "",
+                    assignedTo: getSpeakerName(item.assigned_to)
+                  };
+                })
+                .filter((item: any) => item !== null); // Filter out items without valid IDs
               console.log("[SELECT] Loaded action items from database with speaker mappings:", {
                 count: updatedChat.actionItems?.length,
                 items: updatedChat.actionItems?.slice(0, 2)
@@ -1232,12 +1247,23 @@ export default function AiChat() {
                             };
 
                             // Transform action items to match frontend format
-                            const transformedActionItems = actionItemsResult.action_items.map((item: any, index: number) => ({
-                              id: item.id || `${currentChat.id}-${index}`,
-                              priority: item.priority || "medium",
-                              task: item.task || "",
-                              assignedTo: getSpeakerName(item.assigned_to) || item.assigned_to || "Unassigned"
-                            }));
+                            const transformedActionItems = actionItemsResult.action_items
+                              .map((item: any, index: number) => {
+                                // Ensure we have a valid UUID - if not, log error
+                                if (!item.id || typeof item.id !== 'string' || item.id.length < 32) {
+                                  console.error(`[ACTION ITEMS] Invalid or missing ID for action item ${index}:`, item);
+                                  console.warn(`[ACTION ITEMS] Item will be skipped: ${item.task?.substring(0, 50)}`);
+                                  return null; // Return null to filter out
+                                }
+                                
+                                return {
+                                  id: item.id,  // Use the UUID from database
+                                  priority: item.priority || "medium",
+                                  task: item.task || "",
+                                  assignedTo: getSpeakerName(item.assigned_to) || item.assigned_to || "Unassigned"
+                                };
+                              })
+                              .filter((item: any) => item !== null); // Filter out items without valid IDs
 
                             // Update the chat with new action items
                             setChats(prevChats =>

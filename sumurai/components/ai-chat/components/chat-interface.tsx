@@ -170,6 +170,15 @@ export function ChatInterface({
   };
 
   const handleNotifyActionItem = async (actionItemId: string) => {
+    // Validate that actionItemId is a valid UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(actionItemId)) {
+      console.error("[NOTIFICATION] Invalid action item ID format:", actionItemId);
+      alert("Cannot send notification: Action item ID is invalid. Please refresh the page to reload action items.");
+      setNotificationStatus(prev => ({ ...prev, [actionItemId]: 'error' }));
+      return;
+    }
+    
     setNotifyingItems(prev => new Set(prev).add(actionItemId));
     setNotificationStatus(prev => ({ ...prev, [actionItemId]: null }));
 

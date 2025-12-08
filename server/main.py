@@ -1845,15 +1845,41 @@ async def extract_action_items_after_speaker_mapping(meeting_id: str):
 
                 # Save new action items
                 print(f"[DB] Saving {len(action_items)} new action items to database...")
-                supabase.save_action_items(
+                save_result = supabase.save_action_items(
                     conversation_id=conversation_id,
                     action_items=action_items,
                     contact_mappings=name_to_contact_id
                 )
                 print(f"[DB] ✓ All action items saved successfully")
+                
+                # IMPORTANT: Return the saved action items with UUIDs from database
+                saved_action_items = save_result.data if save_result.data else []
+                
+                # Map saved items back to original format but with UUIDs
+                saved_items_with_ids = []
+                for saved_item in saved_action_items:
+                    saved_items_with_ids.append({
+                        "id": saved_item.get("id"),  # UUID from database
+                        "task": saved_item.get("task"),
+                        "priority": saved_item.get("priority"),
+                        "assigned_to": saved_item.get("assigned_to")
+                    })
+                
+                return {
+                    "success": True,
+                    "action_items": saved_items_with_ids,  # Return saved items with UUIDs
+                    "count": len(saved_items_with_ids),
+                    "message": f"Successfully extracted {len(saved_items_with_ids)} action items"
+                }
             except Exception as db_error:
                 print(f"[DB ERROR] Failed to save action items: {str(db_error)}")
-                # Don't fail the request, just log the error
+                # Fallback: return original items if save fails
+                return {
+                    "success": True,
+                    "action_items": action_items,
+                    "count": len(action_items),
+                    "message": f"Successfully extracted {len(action_items)} action items (not saved to database)"
+                }
         
         return {
             "success": True,
