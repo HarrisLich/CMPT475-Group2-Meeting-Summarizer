@@ -67,6 +67,7 @@ export function ChatInterface({
   meetingId
 }: ChatInterfaceProps) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const fileInputLabelRef = React.useRef<HTMLLabelElement>(null);
   const [isFocused, setIsFocused] = React.useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = React.useState(false);
   const [transcriptCollapsed, setTranscriptCollapsed] = React.useState(false);
@@ -137,8 +138,20 @@ export function ChatInterface({
 
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    console.log("[UPLOAD] File selected:", file?.name, "Size:", file?.size, "Type:", file?.type);
+    console.log("[UPLOAD] onFileUpload handler available:", !!onFileUpload);
+    
     if (file && onFileUpload) {
+      console.log("[UPLOAD] Calling onFileUpload handler");
       onFileUpload(file);
+    } else {
+      if (!file) {
+        console.error("[UPLOAD] No file selected!");
+      }
+      if (!onFileUpload) {
+        console.error("[UPLOAD] onFileUpload handler is missing!");
+        alert("Upload handler is not available. Please refresh the page.");
+      }
     }
     // Reset input so same file can be selected again
     e.target.value = '';
@@ -160,13 +173,210 @@ export function ChatInterface({
     setDownloadMenuOpen(false);
   };
 
-  const handleUploadClick = () => {
+  const handleUploadClick = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    
+    console.log("[UPLOAD] Upload button clicked");
+    console.log("[UPLOAD] onFileUpload available:", !!onFileUpload);
+    console.log("[UPLOAD] File input ref:", fileInputRef.current);
+    console.log("[UPLOAD] isUploading:", isUploading);
+    console.log("[UPLOAD] showConsentDialog state:", showConsentDialog);
+    
+    // Check if onFileUpload is available
+    if (!onFileUpload) {
+      console.error("[UPLOAD] onFileUpload handler is not available!");
+      alert("Upload functionality is not available. Please refresh the page.");
+      return;
+    }
+    
+    // Check if file input ref is available
+    if (!fileInputRef.current) {
+      console.error("[UPLOAD] File input ref is not available!");
+      alert("File input error. Please refresh the page.");
+      return;
+    }
+    
+    // Show consent dialog
+    console.log("[UPLOAD] Showing consent dialog");
     setShowConsentDialog(true);
   };
 
-  const handleConsentAccept = () => {
+  const handleConsentAccept = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    
+    console.log("[UPLOAD] Consent accepted");
+    
+    // CRITICAL: Trigger file input BEFORE closing dialog
+    // This preserves the user interaction context which browsers require
+    const input = fileInputRef.current || document.getElementById('file-upload-input') as HTMLInputElement;
+    const label = fileInputLabelRef.current || document.querySelector('label[for="file-upload-input"]') as HTMLLabelElement;
+    
+    if (!input) {
+      console.error("[UPLOAD] File input not found!");
+      setShowConsentDialog(false);
+      alert("File input error. Please refresh the page.");
+      return;
+    }
+    
+    if (!onFileUpload) {
+      console.error("[UPLOAD] onFileUpload handler missing!");
+      setShowConsentDialog(false);
+      alert("Upload handler not available. Please refresh the page.");
+      return;
+    }
+    
+    // Try to trigger file input immediately while user interaction is active
+    let triggered = false;
+    
+    try {
+      // Method 1: Click label (most reliable for hidden inputs)
+      if (label) {
+        console.log("[UPLOAD] Attempting label click");
+        label.click();
+        triggered = true;
+        console.log("[UPLOAD] ✓ Label click executed");
+      }
+      
+      // Method 2: Direct input click (if label didn't work)
+      if (!triggered) {
+        console.log("[UPLOAD] Attempting direct input click");
+        
+        // Temporarily make input accessible
+        const originalDisplay = input.style.display;
+        const originalVisibility = input.style.visibility;
+        const originalPointerEvents = input.style.pointerEvents;
+        
+        // Make it clickable but invisible
+        input.style.display = 'block';
+        input.style.visibility = 'visible';
+        input.style.pointerEvents = 'auto';
+        input.style.position = 'fixed';
+        input.style.left = '0';
+        input.style.top = '0';
+        input.style.width = '1px';
+        input.style.height = '1px';
+        input.style.opacity = '0';
+        input.style.zIndex = '99999';
+        
+        // Trigger click
+        input.focus();
+        input.click();
+        
+        // Restore immediately
+        requestAnimationFrame(() => {
+          input.style.display = originalDisplay;
+          input.style.visibility = originalVisibility;
+          input.style.pointerEvents = originalPointerEvents;
+          input.style.position = '';
+          input.style.left = '';
+          input.style.top = '';
+          input.style.width = '';
+          input.style.height = '';
+          input.style.opacity = '';
+          input.style.zIndex = '';
+        });
+        
+        triggered = true;
+        console.log("[UPLOAD] ✓ Direct input click executed");
+      }
+    } catch (error) {
+      console.error("[UPLOAD] Error triggering file input:", error);
+    }
+    
+    // Close dialog after attempting to trigger
     setShowConsentDialog(false);
-    fileInputRef.current?.click();
+    
+    if (!triggered) {
+      alert("Failed to open file picker. Please try clicking the paperclip icon (📎) in the chat input area instead.");
+    }
+  };
+
+  const triggerFileInput = () => {
+    console.log("[UPLOAD] triggerFileInput called");
+    console.log("[UPLOAD] fileInputRef.current:", fileInputRef.current);
+    console.log("[UPLOAD] onFileUpload:", !!onFileUpload);
+    
+    // First, try to find the input element
+    let input: HTMLInputElement | null = fileInputRef.current;
+    
+    if (!input) {
+      console.warn("[UPLOAD] File input ref is null, trying querySelector fallback");
+      // Try to find the input element by querySelector as fallback
+      input = document.querySelector('input[type="file"][accept*="audio"]') as HTMLInputElement;
+      if (input) {
+        console.log("[UPLOAD] Found file input via querySelector");
+      } else {
+        console.error("[UPLOAD] Could not find file input element!");
+        alert("File input error. Please refresh the page and try again.");
+        return;
+      }
+    }
+
+    if (!onFileUpload) {
+      console.error("[UPLOAD] onFileUpload handler is missing!");
+      alert("Upload handler is not available. Please refresh the page.");
+      return;
+    }
+
+    // Verify input is in the DOM
+    if (!input.isConnected) {
+      console.error("[UPLOAD] File input is not connected to DOM!");
+      alert("File input is not available. Please refresh the page.");
+      return;
+    }
+
+    // Try multiple methods to trigger the file input
+    let success = false;
+    
+    // Method 1: Direct click (most reliable)
+    try {
+      console.log("[UPLOAD] Method 1: Direct click()");
+      input.click();
+      success = true;
+      console.log("[UPLOAD] ✓ Direct click() succeeded");
+    } catch (error) {
+      console.warn("[UPLOAD] Method 1 failed:", error);
+    }
+
+    // Method 2: MouseEvent dispatch (fallback)
+    if (!success) {
+      try {
+        console.log("[UPLOAD] Method 2: MouseEvent dispatch");
+        const event = new MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          buttons: 1
+        });
+        input.dispatchEvent(event);
+        success = true;
+        console.log("[UPLOAD] ✓ MouseEvent dispatch succeeded");
+      } catch (error) {
+        console.warn("[UPLOAD] Method 2 failed:", error);
+      }
+    }
+
+    // Method 3: Focus and click (another fallback)
+    if (!success) {
+      try {
+        console.log("[UPLOAD] Method 3: Focus then click");
+        input.focus();
+        input.click();
+        success = true;
+        console.log("[UPLOAD] ✓ Focus + click succeeded");
+      } catch (error) {
+        console.warn("[UPLOAD] Method 3 failed:", error);
+      }
+    }
+
+    if (!success) {
+      console.error("[UPLOAD] All methods failed to trigger file input");
+      alert("Failed to open file picker. Please try clicking the paperclip icon (📎) in the chat input area instead.");
+    } else {
+      console.log("[UPLOAD] File input triggered successfully!");
+    }
   };
 
   const handleNotifyActionItem = async (actionItemId: string) => {
@@ -230,6 +440,7 @@ export function ChatInterface({
   };
 
   const handleConsentDecline = () => {
+    console.log("[UPLOAD] Consent declined, closing dialog");
     setShowConsentDialog(false);
   };
 
@@ -370,9 +581,15 @@ export function ChatInterface({
 
                   <div className="flex flex-col items-center gap-4">
                     <Button
-                      onClick={handleUploadClick}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleUploadClick(e);
+                      }}
                       size="lg"
-                      className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00F5FF]/90 hover:to-[#06B6D4]/90 text-black font-semibold shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-6 text-base"
+                      type="button"
+                      disabled={isUploading || !onFileUpload}
+                      className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00F5FF]/90 hover:to-[#06B6D4]/90 text-black font-semibold shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-6 text-base disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Paperclip className="h-5 w-5 mr-2" />
                       Upload Meeting
@@ -524,20 +741,34 @@ export function ChatInterface({
 
               <form onSubmit={handleSubmit} className="flex items-center gap-2 relative z-10">
             <div className="bg-[#1A1A1A] flex flex-1 items-center rounded-lg border border-[#333333] px-3 py-2 relative shadow-lg hover:border-[#00F5FF] focus-within:border-[#00F5FF] transition-all duration-200">
+              <label
+                ref={fileInputLabelRef}
+                htmlFor="file-upload-input"
+                style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', opacity: 0, pointerEvents: 'auto', visibility: 'visible' }}
+              >
+                Upload file
+              </label>
               <input
                 ref={fileInputRef}
+                id="file-upload-input"
                 type="file"
                 accept="audio/*,video/*,.mp3,.wav,.m4a,.flac,.ogg,.webm"
                 onChange={handleFileSelect}
-                className="hidden"
+                style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', opacity: 0, pointerEvents: 'auto' }}
+                tabIndex={-1}
               />
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 hover:bg-[#00F5FF]/20 hover:text-[#00F5FF] transition-colors"
-                onClick={handleUploadClick}
-                disabled={isUploading}
+                className="h-8 w-8 p-0 hover:bg-[#00F5FF]/20 hover:text-[#00F5FF] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleUploadClick(e);
+                }}
+                disabled={isUploading || !onFileUpload}
+                title={!onFileUpload ? "Upload not available" : "Upload meeting recording"}
               >
                 <Paperclip className="h-4 w-4" />
               </Button>
@@ -907,8 +1138,20 @@ export function ChatInterface({
 
       {/* Consent Dialog */}
       {showConsentDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-[#1A1A1A] border border-[#333333] rounded-lg shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={(e) => {
+            // Close dialog if clicking on backdrop (not the dialog content)
+            if (e.target === e.currentTarget) {
+              console.log("[UPLOAD] Backdrop clicked, closing dialog");
+              setShowConsentDialog(false);
+            }
+          }}
+        >
+          <div 
+            className="bg-[#1A1A1A] border border-[#333333] rounded-lg shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()} // Prevent backdrop click from closing when clicking inside dialog
+          >
             {/* Header */}
             <div className="border-b border-[#333333] px-4 md:px-6 py-3 md:py-4 flex-shrink-0">
               <div className="flex items-center gap-2 md:gap-3">
@@ -968,8 +1211,13 @@ export function ChatInterface({
                 Cancel
               </Button>
               <Button
-                onClick={handleConsentAccept}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleConsentAccept(e);
+                }}
                 size="sm"
+                type="button"
                 className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00F5FF]/90 hover:to-[#06B6D4]/90 text-gray-900 font-semibold text-xs md:text-sm whitespace-nowrap"
               >
                 I Understand & Consent

@@ -42,6 +42,30 @@ class NotificationService:
         
         # Slack configuration
         self.slack_webhook_url = os.getenv("SLACK_WEBHOOK_URL")
+        
+        # Log configuration on startup
+        print(f"[NOTIFICATION SERVICE] 🔧 Initializing Notification Service...")
+        print(f"[NOTIFICATION SERVICE]   Email Provider: {self.email_provider}")
+        print(f"[NOTIFICATION SERVICE]   From Email: {self.from_email}")
+        
+        if self.email_provider == "sendgrid":
+            if self.sendgrid_api_key:
+                masked_key = f"{self.sendgrid_api_key[:10]}...{self.sendgrid_api_key[-4:]}" if len(self.sendgrid_api_key) > 14 else "***"
+                print(f"[NOTIFICATION SERVICE]   SendGrid API Key: {masked_key} ✓")
+            else:
+                print(f"[NOTIFICATION SERVICE]   ⚠️  SendGrid API Key: NOT SET")
+        else:
+            print(f"[NOTIFICATION SERVICE]   SMTP Host: {self.smtp_host}")
+            print(f"[NOTIFICATION SERVICE]   SMTP Port: {self.smtp_port}")
+            if self.smtp_user:
+                print(f"[NOTIFICATION SERVICE]   SMTP User: {self.smtp_user} ✓")
+            else:
+                print(f"[NOTIFICATION SERVICE]   ⚠️  SMTP User: NOT SET")
+        
+        if self.slack_webhook_url:
+            print(f"[NOTIFICATION SERVICE]   Slack Webhook: Configured ✓")
+        else:
+            print(f"[NOTIFICATION SERVICE]   Slack Webhook: NOT SET")
     
     def _escape_html(self, text: str) -> str:
         """
@@ -114,9 +138,18 @@ class NotificationService:
         Returns:
             Dict with success status and message
         """
+        print(f"[EMAIL] 📧 Sending email notification...")
+        print(f"[EMAIL]   Provider: {self.email_provider}")
+        print(f"[EMAIL]   To: {to_email}")
+        print(f"[EMAIL]   Subject: {subject}")
+        
         if self.email_provider == "sendgrid" and self.sendgrid_api_key:
+            print(f"[EMAIL]   Using SendGrid provider")
             return self._send_via_sendgrid(to_email, subject, body_html, body_text)
         else:
+            print(f"[EMAIL]   Using SMTP provider")
+            if self.email_provider == "sendgrid" and not self.sendgrid_api_key:
+                print(f"[EMAIL]   ⚠️  WARNING: EMAIL_PROVIDER is 'sendgrid' but SENDGRID_API_KEY is not set!")
             return self._send_via_smtp(to_email, subject, body_html, body_text)
     
     def _send_via_smtp(
@@ -168,11 +201,38 @@ class NotificationService:
     ) -> Dict[str, Any]:
         """Send email via SendGrid API."""
         try:
+            # Log configuration check
+            if not self.sendgrid_api_key:
+                print("[SENDGRID] ❌ ERROR: SENDGRID_API_KEY not configured")
+                return {"success": False, "error": "SendGrid API key not configured"}
+            
+            if not self.from_email:
+                print("[SENDGRID] ❌ ERROR: FROM_EMAIL not configured")
+                return {"success": False, "error": "From email not configured"}
+            
+            print(f"[SENDGRID] 📧 Attempting to send email...")
+            print(f"[SENDGRID]   To: {to_email}")
+            print(f"[SENDGRID]   From: {self.from_email}")
+            print(f"[SENDGRID]   Subject: {subject}")
+            print(f"[SENDGRID]   API Key: {self.sendgrid_api_key[:10]}...{self.sendgrid_api_key[-4:] if len(self.sendgrid_api_key) > 14 else '***'}")
+            
             url = "https://api.sendgrid.com/v3/mail/send"
             headers = {
                 "Authorization": f"Bearer {self.sendgrid_api_key}",
                 "Content-Type": "application/json"
             }
+            
+            # Build content array - SendGrid requires text/plain FIRST, then text/html
+            content = []
+            if body_text:
+                content.append({
+                    "type": "text/plain",
+                    "value": body_text
+                })
+            content.append({
+                "type": "text/html",
+                "value": body_html
+            })
             
             payload = {
                 "personalizations": [{
@@ -180,27 +240,50 @@ class NotificationService:
                 }],
                 "from": {"email": self.from_email},
                 "subject": subject,
-                "content": [
-                    {
-                        "type": "text/html",
-                        "value": body_html
-                    }
-                ]
+                "content": content
             }
             
-            if body_text:
-                payload["content"].append({
-                    "type": "text/plain",
-                    "value": body_text
-                })
-            
+            print(f"[SENDGRID] 📤 Sending request to SendGrid API...")
             response = requests.post(url, json=payload, headers=headers)
-            response.raise_for_status()
             
+            # Log response details
+            print(f"[SENDGRID] 📥 Response status: {response.status_code}")
+            
+            if response.status_code >= 400:
+                error_body = response.text
+                print(f"[SENDGRID] ❌ ERROR Response Body: {error_body}")
+                
+                # Try to parse error details
+                try:
+                    error_json = response.json()
+                    if "errors" in error_json:
+                        for error in error_json["errors"]:
+                            print(f"[SENDGRID] ❌ Error Detail: {error.get('message', 'Unknown error')}")
+                except:
+                    pass
+                
+                return {
+                    "success": False, 
+                    "error": f"SendGrid API error ({response.status_code}): {error_body}"
+                }
+            
+            response.raise_for_status()
+            print(f"[SENDGRID] ✅ Email sent successfully to {to_email}")
             return {"success": True, "message": "Email sent via SendGrid"}
         
+        except requests.exceptions.RequestException as e:
+            error_msg = f"SendGrid request failed: {str(e)}"
+            print(f"[SENDGRID] ❌ REQUEST ERROR: {error_msg}")
+            if hasattr(e, 'response') and e.response is not None:
+                print(f"[SENDGRID] ❌ Response Status: {e.response.status_code}")
+                print(f"[SENDGRID] ❌ Response Body: {e.response.text}")
+            return {"success": False, "error": error_msg}
         except Exception as e:
-            return {"success": False, "error": f"SendGrid send failed: {str(e)}"}
+            error_msg = f"SendGrid send failed: {str(e)}"
+            print(f"[SENDGRID] ❌ EXCEPTION: {error_msg}")
+            import traceback
+            print(f"[SENDGRID] ❌ Traceback: {traceback.format_exc()}")
+            return {"success": False, "error": error_msg}
     
     def send_slack_message(
         self, 
@@ -282,6 +365,13 @@ class NotificationService:
         Returns:
             Dict with notification results
         """
+        print(f"[NOTIFICATION] 🔔 Starting notification for action item...")
+        print(f"[NOTIFICATION]   Action Item: {action_item.get('task', 'Unknown task')}")
+        print(f"[NOTIFICATION]   Priority: {action_item.get('priority', 'medium')}")
+        print(f"[NOTIFICATION]   Contact: {contact.get('name', 'Unknown')} (ID: {contact.get('id', 'N/A')})")
+        print(f"[NOTIFICATION]   Contact Email: {contact.get('email', 'N/A')}")
+        print(f"[NOTIFICATION]   Contact Slack: {contact.get('slack_user_id', 'N/A')}")
+        
         results = {
             "email_sent": False,
             "slack_sent": False,
@@ -290,6 +380,7 @@ class NotificationService:
         
         # Send email if contact has email
         if contact.get("email"):
+            print(f"[NOTIFICATION] 📧 Contact has email, attempting to send email...")
             # Sanitize subject line
             task_text = action_item.get('task', 'New Task')
             subject = f"Action Item: {self._sanitize_subject(task_text)}"
@@ -305,11 +396,17 @@ class NotificationService:
             
             if email_result["success"]:
                 results["email_sent"] = True
+                print(f"[NOTIFICATION] ✅ Email sent successfully")
             else:
-                results["errors"].append(f"Email: {email_result.get('error')}")
+                error_msg = email_result.get('error', 'Unknown error')
+                results["errors"].append(f"Email: {error_msg}")
+                print(f"[NOTIFICATION] ❌ Email failed: {error_msg}")
+        else:
+            print(f"[NOTIFICATION] ⚠️  Contact does not have an email address, skipping email notification")
         
         # Send Slack if contact has Slack ID
         if contact.get("slack_user_id"):
+            print(f"[NOTIFICATION] 💬 Contact has Slack ID, attempting to send Slack message...")
             # Escape task text for Slack message
             task_text = self._escape_slack(action_item.get('task', ''))
             slack_result = self.send_slack_message(
@@ -320,8 +417,19 @@ class NotificationService:
             
             if slack_result["success"]:
                 results["slack_sent"] = True
+                print(f"[NOTIFICATION] ✅ Slack message sent successfully")
             else:
-                results["errors"].append(f"Slack: {slack_result.get('error')}")
+                error_msg = slack_result.get('error', 'Unknown error')
+                results["errors"].append(f"Slack: {error_msg}")
+                print(f"[NOTIFICATION] ❌ Slack failed: {error_msg}")
+        else:
+            print(f"[NOTIFICATION] ⚠️  Contact does not have a Slack ID, skipping Slack notification")
+        
+        print(f"[NOTIFICATION] 📊 Notification Results:")
+        print(f"[NOTIFICATION]   Email Sent: {results['email_sent']}")
+        print(f"[NOTIFICATION]   Slack Sent: {results['slack_sent']}")
+        if results["errors"]:
+            print(f"[NOTIFICATION]   Errors: {', '.join(results['errors'])}")
         
         return results
     
