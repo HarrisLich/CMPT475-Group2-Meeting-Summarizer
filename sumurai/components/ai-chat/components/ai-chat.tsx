@@ -419,7 +419,7 @@ export default function AiChat() {
       // Use speaker diarization if toggle is enabled, otherwise use fast transcription
       let transcriptionData;
       if (useSpeakerDiarization) {
-        setUploadStatus("Transcribing with speaker identification (this may take < 1 Min)...");
+        setUploadStatus("Transcribing with speaker identification (this will take < 2 Min)...");
         transcriptionData = await SummarizationService.transcribeWithSpeakers(file, user?.id);
       } else {
         setUploadStatus("Transcribing with Groq Whisper (fast mode)...");

@@ -469,7 +469,7 @@ export function ChatInterface({
                           </span>
                         </button>
                         <span className="text-xs text-gray-500">
-                          {useSpeakerDiarization ? '< 1 Min • identifies speakers' : '~2 min • no speakers'}
+                          {useSpeakerDiarization ? '<2 Min • identifies speakers' : '~2-3 Min • no speakers'}
                         </span>
                       </div>
                     )}
