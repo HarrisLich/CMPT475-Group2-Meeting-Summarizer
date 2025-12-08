@@ -431,7 +431,6 @@ export function ChatInterface({
 
                   <div className="text-center">
                     <p className="text-sm text-[#00F5FF] font-medium mb-2">{uploadStatus || 'Processing your meeting...'}</p>
-                    <p className="text-xs text-gray-500">This may take 2-3 minutes depending on file size</p>
                   </div>
                 </div>
               )}

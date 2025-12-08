@@ -41,9 +41,9 @@ export default function AboutPage() {
       role: "Frontend Developer & UI/UX Designer",
       description: "Marist University '26, forever trying to better myself as a programmer. First example, this app.",
       skills: ["React", "TypeScript", "UI/UX Design", "Next.js", "Tailwind CSS"],
-      github: "https://github.com/teammember4",
-      linkedin: "https://linkedin.com/in/teammember4",
-      email: "member4@example.com"
+      github: "https://github.com/ecool78",
+      linkedin: "https://www.linkedin.com/in/evan-brown-016332222/",
+      email: "evan.brown2@marist.edu"
     },
     {
       name: "Harris Lichstein",
@@ -286,6 +286,8 @@ export default function AboutPage() {
                           <a
                             href={`mailto:${member.email}`}
                             className="text-gray-400 hover:text-[#00F5FF] transition-colors"
+                            aria-label={`Email ${member.name}`}
+                            title={`Send email to ${member.email}`}
                           >
                             <Mail className="w-5 h-5" />
                           </a>
