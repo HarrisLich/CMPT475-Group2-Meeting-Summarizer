@@ -745,7 +745,6 @@ export function ChatInterface({
                 ref={fileInputLabelRef}
                 htmlFor="file-upload-input"
                 style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', opacity: 0, pointerEvents: 'auto', visibility: 'visible' }}
-                aria-hidden="true"
               >
                 Upload file
               </label>
@@ -755,9 +754,8 @@ export function ChatInterface({
                 type="file"
                 accept="audio/*,video/*,.mp3,.wav,.m4a,.flac,.ogg,.webm"
                 onChange={handleFileSelect}
-                style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', opacity: 0, pointerEvents: 'none' }}
+                style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', opacity: 0, pointerEvents: 'auto' }}
                 tabIndex={-1}
-                aria-hidden="true"
               />
               <Button
                 type="button"
