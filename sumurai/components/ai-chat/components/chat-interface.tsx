@@ -137,8 +137,20 @@ export function ChatInterface({
 
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    console.log("[UPLOAD] File selected:", file?.name, "Size:", file?.size, "Type:", file?.type);
+    console.log("[UPLOAD] onFileUpload handler available:", !!onFileUpload);
+    
     if (file && onFileUpload) {
+      console.log("[UPLOAD] Calling onFileUpload handler");
       onFileUpload(file);
+    } else {
+      if (!file) {
+        console.error("[UPLOAD] No file selected!");
+      }
+      if (!onFileUpload) {
+        console.error("[UPLOAD] onFileUpload handler is missing!");
+        alert("Upload handler is not available. Please refresh the page.");
+      }
     }
     // Reset input so same file can be selected again
     e.target.value = '';
@@ -160,13 +172,66 @@ export function ChatInterface({
     setDownloadMenuOpen(false);
   };
 
-  const handleUploadClick = () => {
+  const handleUploadClick = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    
+    console.log("[UPLOAD] Upload button clicked");
+    console.log("[UPLOAD] onFileUpload available:", !!onFileUpload);
+    console.log("[UPLOAD] File input ref:", fileInputRef.current);
+    console.log("[UPLOAD] isUploading:", isUploading);
+    console.log("[UPLOAD] showConsentDialog state:", showConsentDialog);
+    
+    // Check if onFileUpload is available
+    if (!onFileUpload) {
+      console.error("[UPLOAD] onFileUpload handler is not available!");
+      alert("Upload functionality is not available. Please refresh the page.");
+      return;
+    }
+    
+    // Check if file input ref is available
+    if (!fileInputRef.current) {
+      console.error("[UPLOAD] File input ref is not available!");
+      alert("File input error. Please refresh the page.");
+      return;
+    }
+    
+    // Show consent dialog
+    console.log("[UPLOAD] Showing consent dialog");
     setShowConsentDialog(true);
   };
 
   const handleConsentAccept = () => {
+    console.log("[UPLOAD] Consent accepted, closing dialog");
     setShowConsentDialog(false);
-    fileInputRef.current?.click();
+    
+    // Add a small delay to ensure dialog closes before triggering file input
+    // This prevents potential z-index or focus issues
+    setTimeout(() => {
+      triggerFileInput();
+    }, 150);
+  };
+
+  const triggerFileInput = () => {
+    if (!fileInputRef.current) {
+      console.error("[UPLOAD] File input ref is null!");
+      alert("File input error. Please refresh the page and try again.");
+      return;
+    }
+
+    if (!onFileUpload) {
+      console.error("[UPLOAD] onFileUpload handler is missing!");
+      alert("Upload handler is not available. Please refresh the page.");
+      return;
+    }
+
+    try {
+      console.log("[UPLOAD] Triggering file input click");
+      fileInputRef.current.click();
+    } catch (error) {
+      console.error("[UPLOAD] Error triggering file input:", error);
+      alert("Failed to open file picker. Please try again.");
+    }
   };
 
   const handleNotifyActionItem = async (actionItemId: string) => {
@@ -230,6 +295,7 @@ export function ChatInterface({
   };
 
   const handleConsentDecline = () => {
+    console.log("[UPLOAD] Consent declined, closing dialog");
     setShowConsentDialog(false);
   };
 
@@ -370,9 +436,15 @@ export function ChatInterface({
 
                   <div className="flex flex-col items-center gap-4">
                     <Button
-                      onClick={handleUploadClick}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleUploadClick(e);
+                      }}
                       size="lg"
-                      className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00F5FF]/90 hover:to-[#06B6D4]/90 text-black font-semibold shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-6 text-base"
+                      type="button"
+                      disabled={isUploading || !onFileUpload}
+                      className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00F5FF]/90 hover:to-[#06B6D4]/90 text-black font-semibold shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-6 text-base disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Paperclip className="h-5 w-5 mr-2" />
                       Upload Meeting
@@ -535,9 +607,14 @@ export function ChatInterface({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 hover:bg-[#00F5FF]/20 hover:text-[#00F5FF] transition-colors"
-                onClick={handleUploadClick}
-                disabled={isUploading}
+                className="h-8 w-8 p-0 hover:bg-[#00F5FF]/20 hover:text-[#00F5FF] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleUploadClick(e);
+                }}
+                disabled={isUploading || !onFileUpload}
+                title={!onFileUpload ? "Upload not available" : "Upload meeting recording"}
               >
                 <Paperclip className="h-4 w-4" />
               </Button>
@@ -907,8 +984,20 @@ export function ChatInterface({
 
       {/* Consent Dialog */}
       {showConsentDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-[#1A1A1A] border border-[#333333] rounded-lg shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={(e) => {
+            // Close dialog if clicking on backdrop (not the dialog content)
+            if (e.target === e.currentTarget) {
+              console.log("[UPLOAD] Backdrop clicked, closing dialog");
+              setShowConsentDialog(false);
+            }
+          }}
+        >
+          <div 
+            className="bg-[#1A1A1A] border border-[#333333] rounded-lg shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()} // Prevent backdrop click from closing when clicking inside dialog
+          >
             {/* Header */}
             <div className="border-b border-[#333333] px-4 md:px-6 py-3 md:py-4 flex-shrink-0">
               <div className="flex items-center gap-2 md:gap-3">
