@@ -155,3 +155,108 @@ export const uploadAvatar = async (file: File) => {
 
   return { data: publicUrl, error: null };
 };
+
+// Contact Management Types and Functions
+export type Contact = {
+  id?: string;
+  user_id?: string;
+  name: string;
+  email: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+// Get all contacts for the current user
+export const getContacts = async () => {
+  try {
+    const { data: user } = await supabase.auth.getUser();
+    if (!user.user) {
+      return { data: null, error: new Error('Not authenticated') };
+    }
+
+    const result = await supabase
+      .from('contacts')
+      .select('*')
+      .eq('user_id', user.user.id)
+      .order('created_at', { ascending: false });
+
+    return result;
+  } catch (error) {
+    console.error("Error fetching contacts:", error);
+    return { data: null, error };
+  }
+};
+
+// Create a new contact
+export const createContact = async (contact: { name: string; email: string }) => {
+  try {
+    const { data: user } = await supabase.auth.getUser();
+    if (!user.user) {
+      return { data: null, error: new Error('Not authenticated') };
+    }
+
+    const result = await supabase
+      .from('contacts')
+      .insert({
+        user_id: user.user.id,
+        name: contact.name,
+        email: contact.email,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    return result;
+  } catch (error) {
+    console.error("Error creating contact:", error);
+    return { data: null, error };
+  }
+};
+
+// Update an existing contact
+export const updateContact = async (id: string, updates: { name?: string; email?: string }) => {
+  try {
+    const { data: user } = await supabase.auth.getUser();
+    if (!user.user) {
+      return { data: null, error: new Error('Not authenticated') };
+    }
+
+    const result = await supabase
+      .from('contacts')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .eq('user_id', user.user.id) // Ensure user can only update their own contacts
+      .select()
+      .single();
+
+    return result;
+  } catch (error) {
+    console.error("Error updating contact:", error);
+    return { data: null, error };
+  }
+};
+
+// Delete a contact
+export const deleteContact = async (id: string) => {
+  try {
+    const { data: user } = await supabase.auth.getUser();
+    if (!user.user) {
+      return { data: null, error: new Error('Not authenticated') };
+    }
+
+    const result = await supabase
+      .from('contacts')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.user.id); // Ensure user can only delete their own contacts
+
+    return result;
+  } catch (error) {
+    console.error("Error deleting contact:", error);
+    return { data: null, error };
+  }
+};
