@@ -685,6 +685,44 @@ export default function AiChat() {
         setCurrentMessages(selectedChat.messages);
       }
 
+      // Check if cached transcription needs speaker mapping enrichment
+      const hasSegmentsWithSpeakers = selectedChat.transcription?.segments?.some((s: any) => s.speaker);
+      if (hasSegmentsWithSpeakers && selectedChat.meetingId) {
+        // Asynchronously enrich cached segments with speaker mappings (don't block UI)
+        getSpeakerMappings(selectedChat.meetingId)
+          .then(mappingsData => {
+            if (mappingsData.success && mappingsData.mappings && Object.keys(mappingsData.mappings).length > 0) {
+              console.log("[SELECT] Enriching cached segments with speaker mappings:", mappingsData.mappings);
+
+              // Enrich segments with speaker names
+              const enrichedSegments = selectedChat.transcription!.segments!.map((segment: any) => ({
+                ...segment,
+                speaker_name: segment.speaker && mappingsData.mappings[segment.speaker]
+                  ? mappingsData.mappings[segment.speaker]
+                  : segment.speaker_name
+              }));
+
+              // Update the cached chat with enriched segments
+              setChats(prevChats =>
+                prevChats.map(chat =>
+                  chat.id === chatId
+                    ? {
+                        ...chat,
+                        transcription: {
+                          ...chat.transcription!,
+                          segments: enrichedSegments
+                        }
+                      }
+                    : chat
+                )
+              );
+            }
+          })
+          .catch(error => {
+            console.warn("[SELECT] Failed to enrich cached segments with speaker mappings:", error);
+          });
+      }
+
       // Always fetch audio URL even when using cached data
       // This ensures the correct audio plays for this conversation
       if (selectedChat.conversationId) {
@@ -739,17 +777,40 @@ export default function AiChat() {
         content: msg.content
       })) : messagesData;
 
-      // Load speaker mappings for action items if needed (outside of setChats callback)
+      // Unwrap segments early to check if we need speaker mappings
+      let segments: any[] = [];
+      if (conversationData?.transcription) {
+        segments = conversationData.transcription.segments || [];
+        // Database stores as { segments: [...], language: "en" }, unwrap if needed
+        if (segments && typeof segments === 'object' && !Array.isArray(segments)) {
+          const segmentsObj = segments as any;
+          if (segmentsObj.segments && Array.isArray(segmentsObj.segments)) {
+            segments = segmentsObj.segments;
+          }
+        }
+        // Ensure it's an array
+        if (!Array.isArray(segments)) {
+          console.warn("[SELECT] Segments is not an array, defaulting to empty:", segments);
+          segments = [];
+        }
+      }
+
+      // Check if we need speaker mappings (for action items OR transcription segments)
+      const hasActionItems = conversationData?.action_items && conversationData.action_items.length > 0;
+      const hasSegmentsWithSpeakers = segments.length > 0 && segments.some((s: any) => s.speaker);
+      const needsSpeakerMappings = selectedChat?.meetingId && (hasActionItems || hasSegmentsWithSpeakers);
+
+      // Load speaker mappings if needed (outside of setChats callback)
       let speakerMappings: Record<string, string> = {};
-      if (conversationData?.action_items && conversationData.action_items.length > 0 && selectedChat?.meetingId) {
+      if (needsSpeakerMappings && selectedChat.meetingId) {
         try {
           const mappingsData = await getSpeakerMappings(selectedChat.meetingId);
           if (mappingsData.success && mappingsData.mappings) {
             speakerMappings = mappingsData.mappings;
-            console.log("[SELECT] Loaded speaker mappings for action items:", speakerMappings);
+            console.log("[SELECT] Loaded speaker mappings:", speakerMappings);
           }
         } catch (error) {
-          console.warn("Could not load speaker mappings for action items:", error);
+          console.warn("Could not load speaker mappings:", error);
         }
       }
 
@@ -773,24 +834,17 @@ export default function AiChat() {
 
             // Add transcription if available (preserve existing if already present)
             if (conversationData?.transcription && !updatedChat.transcription) {
-              // Unwrap segments from database format if needed
-              let segments = conversationData.transcription.segments || [];
-              // Database stores as { segments: [...], language: "en" }, unwrap if needed
-              if (segments && typeof segments === 'object' && !Array.isArray(segments)) {
-                const segmentsObj = segments as any;
-                if (segmentsObj.segments && Array.isArray(segmentsObj.segments)) {
-                  segments = segmentsObj.segments;
-                }
-              }
-              // Ensure it's an array
-              if (!Array.isArray(segments)) {
-                console.warn("[SELECT] Segments is not an array, defaulting to empty:", segments);
-                segments = [];
-              }
+              // Enrich segments with speaker names from mappings
+              const enrichedSegments = segments.map((segment: any) => ({
+                ...segment,
+                speaker_name: segment.speaker && speakerMappings[segment.speaker]
+                  ? speakerMappings[segment.speaker]
+                  : segment.speaker_name
+              }));
 
               updatedChat.transcription = {
                 fullText: conversationData.transcription.transcription_text || "",
-                segments: segments,
+                segments: enrichedSegments,
                 fileName: conversationData.conversation?.title || "Meeting Transcript"
               };
 
@@ -804,14 +858,34 @@ export default function AiChat() {
                 hasFullText: !!updatedChat.transcription.fullText,
                 textLength: updatedChat.transcription.fullText?.length,
                 segmentsCount: updatedChat.transcription.segments?.length || 0,
-                segmentsFormat: typeof conversationData.transcription.segments,
+                speakerMappingsApplied: Object.keys(speakerMappings).length > 0,
                 hasAudioUrl: !!updatedChat.audioUrl
               });
             } else if (updatedChat.transcription) {
+              // Chat already has transcription - but check if we need to enrich it with speaker mappings
+              const hasSegmentsWithSpeakers = updatedChat.transcription.segments?.some((s: any) => s.speaker);
+              const needsEnrichment = hasSegmentsWithSpeakers && Object.keys(speakerMappings).length > 0;
+
+              if (needsEnrichment) {
+                console.log("[SELECT] Enriching existing transcription with speaker mappings:", speakerMappings);
+                const enrichedSegments = updatedChat.transcription.segments!.map((segment: any) => ({
+                  ...segment,
+                  speaker_name: segment.speaker && speakerMappings[segment.speaker]
+                    ? speakerMappings[segment.speaker]
+                    : segment.speaker_name
+                }));
+
+                updatedChat.transcription = {
+                  ...updatedChat.transcription,
+                  segments: enrichedSegments
+                };
+              }
+
               console.log("[SELECT] Preserving existing transcription:", {
                 hasFullText: !!updatedChat.transcription.fullText,
                 textLength: updatedChat.transcription.fullText?.length,
-                segmentsCount: updatedChat.transcription.segments?.length || 0
+                segmentsCount: updatedChat.transcription.segments?.length || 0,
+                enriched: needsEnrichment
               });
             }
 
@@ -1082,11 +1156,20 @@ export default function AiChat() {
                 <div className="max-w-2xl w-full max-h-[80vh] overflow-auto">
                   <SpeakerMapping
                     meetingId={currentMeetingId}
-                    onComplete={async () => {
+                    onComplete={async (namesSaved: boolean) => {
                       setShowSpeakerMapping(false);
                       setSpeakersMapped(true);
+
+                      if (!namesSaved) {
+                        // User skipped - keep existing action items
+                        console.log("[SPEAKER MAPPING] User skipped speaker names - keeping existing action items");
+                        setUploadStatus("Speaker mapping skipped.");
+                        setTimeout(() => setUploadStatus(""), 2000);
+                        return;
+                      }
+
                       setUploadStatus("Extracting action items with speaker names...");
-                      
+
                       // Refresh segments with speaker mappings
                       if (currentChat?.meetingId && currentChat?.transcription?.segments) {
                         try {
@@ -1119,7 +1202,7 @@ export default function AiChat() {
                         }
                       }
 
-                      // Extract action items AFTER speaker mapping is complete
+                      // Extract action items AFTER speaker mapping is complete (only if names were saved)
                       if (currentChat?.meetingId) {
                         try {
                           console.log("[ACTION ITEMS] Extracting action items after speaker mapping...");

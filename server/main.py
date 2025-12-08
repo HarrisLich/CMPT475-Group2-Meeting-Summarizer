@@ -1438,19 +1438,29 @@ async def save_speaker_mappings(
         
         supabase = get_supabase()
         result = supabase.save_speaker_mappings(
-            meeting_id, 
-            request.mappings, 
+            meeting_id,
+            request.mappings,
             user_id=None,
             contact_mappings=request.contact_mappings
         )
-        
+
         # Check if there was an error in the result
         if not result.get("success", False):
             return {
                 "success": False,
                 "error": result.get("error", "Failed to save speaker mappings")
             }
-        
+
+        # Update transcription segments with speaker names for persistence
+        print(f"[SPEAKER MAPPINGS] Updating transcription segments with speaker names...")
+        update_result = supabase.update_transcription_segments_with_speaker_names(
+            meeting_id,
+            request.mappings
+        )
+        if not update_result.get("success", False):
+            print(f"[WARNING] Failed to update transcription segments: {update_result.get('error')}")
+            # Don't fail the request - mappings are saved, segments update is a bonus
+
         return {
             "success": True,
             "message": "Speaker mappings saved successfully",
@@ -1824,10 +1834,17 @@ async def extract_action_items_after_speaker_mapping(meeting_id: str):
         if conversation_result.data and len(conversation_result.data) > 0:
             conversation_id = conversation_result.data[0]["id"]
         
-        # Step 6: Save action items to database
+        # Step 6: Delete old action items and save new ones
         if conversation_id and len(action_items) > 0:
             try:
-                print(f"[DB] Saving {len(action_items)} action items to database...")
+                # Delete old action items first to avoid duplicates
+                print(f"[DB] Deleting old action items for conversation {conversation_id}...")
+                delete_result = supabase.delete_conversation_action_items(conversation_id)
+                if delete_result.get("success"):
+                    print(f"[DB] Deleted {delete_result.get('deleted_count', 0)} old action items")
+
+                # Save new action items
+                print(f"[DB] Saving {len(action_items)} new action items to database...")
                 supabase.save_action_items(
                     conversation_id=conversation_id,
                     action_items=action_items,

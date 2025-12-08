@@ -19,7 +19,7 @@ interface Speaker {
 
 interface SpeakerMappingProps {
   meetingId: string;
-  onComplete: () => void;
+  onComplete: (namesSaved: boolean) => void;
 }
 
 export default function SpeakerMapping({ meetingId, onComplete }: SpeakerMappingProps) {
@@ -182,13 +182,13 @@ export default function SpeakerMapping({ meetingId, onComplete }: SpeakerMapping
 
       const result = await saveSpeakerMappings(meetingId, filteredMappings, filteredContactMappings);
       console.log("Speaker mappings saved:", result);
-      
+
       if (result.success) {
-        onComplete();
+        onComplete(true); // Names were saved
       } else {
         throw new Error(result.error || "Failed to save speaker mappings");
       }
-      
+
     } catch (err) {
       console.error("Error saving speaker mappings:", err);
       setError(err instanceof Error ? err.message : "Failed to save speaker mappings");
@@ -199,7 +199,7 @@ export default function SpeakerMapping({ meetingId, onComplete }: SpeakerMapping
 
   const handleSkip = () => {
     // Allow users to skip speaker mapping if they don't want to assign names
-    onComplete();
+    onComplete(false); // User skipped, no names saved
   };
 
   if (isFetching) {

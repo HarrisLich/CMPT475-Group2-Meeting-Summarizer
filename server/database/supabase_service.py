@@ -231,29 +231,83 @@ class SupabaseService:
     def get_speaker_mappings(self, meeting_id):
         """
         Get speaker name mappings for a meeting.
-        
+
         Returns:
-            Dict mapping speaker IDs to names
+            Dict with "mappings" (speaker_id -> name) and "contact_mappings" (speaker_id -> contact_id)
         """
         try:
             response = self.client.table("speaker_mappings")\
-                .select("speaker_id, name")\
+                .select("speaker_id, name, contact_id")\
                 .eq("meeting_id", meeting_id)\
                 .execute()
-            
-            # Convert from array of records to dictionary
+
+            # Convert from array of records to dictionaries
             mappings = {}
+            contact_mappings = {}
             if response.data:
                 for mapping in response.data:
                     speaker_id = mapping.get("speaker_id")
                     name = mapping.get("name")
+                    contact_id = mapping.get("contact_id")
+
                     if speaker_id and name:
                         mappings[speaker_id] = name
-            
-            return mappings
+
+                    if speaker_id and contact_id:
+                        contact_mappings[speaker_id] = contact_id
+
+            return {
+                "mappings": mappings,
+                "contact_mappings": contact_mappings
+            }
         except Exception as e:
             print(f"Error retrieving speaker mappings: {str(e)}")
-            return {}
+            return {
+                "mappings": {},
+                "contact_mappings": {}
+            }
+
+    def update_transcription_segments_with_speaker_names(self, meeting_id, speaker_mappings):
+        """
+        Update transcription segments to permanently include speaker names.
+        This ensures speaker names persist after page refresh.
+        """
+        try:
+            # Get the transcription
+            transcription_result = self.get_meeting_transcription(meeting_id)
+            if not transcription_result.data or len(transcription_result.data) == 0:
+                return {"success": False, "error": "No transcription found"}
+
+            transcription = transcription_result.data[0]
+            segments_data = transcription.get("segments", [])
+
+            # Handle different segment formats
+            segments = []
+            if isinstance(segments_data, list):
+                segments = segments_data
+            elif isinstance(segments_data, dict) and "segments" in segments_data:
+                segments = segments_data["segments"]
+
+            # Enrich segments with speaker_name
+            enriched = []
+            for seg in segments:
+                enriched_seg = dict(seg)
+                speaker_id = seg.get("speaker")
+                if speaker_id and speaker_id in speaker_mappings:
+                    enriched_seg["speaker_name"] = speaker_mappings[speaker_id]
+                enriched.append(enriched_seg)
+
+            # Update database
+            self.client.table("transcriptions")\
+                .update({"segments": enriched})\
+                .eq("meeting_id", meeting_id)\
+                .execute()
+
+            print(f"[DB] Updated {len(enriched)} segments with speaker names")
+            return {"success": True}
+        except Exception as e:
+            print(f"Error updating segments: {e}")
+            return {"success": False, "error": str(e)}
 
     # Conversation functions
     def create_conversation(self, user_id, meeting_id, title, model_version="llama3.2:3b"):
@@ -404,6 +458,17 @@ class SupabaseService:
     def get_conversation_action_items(self, conversation_id):
         """Get all action items for a conversation"""
         return self.client.table("action_items").select("*").eq("conversation_id", conversation_id).order("created_at", desc=False).execute()
+
+    def delete_conversation_action_items(self, conversation_id):
+        """Delete all action items for a conversation"""
+        try:
+            result = self.client.table("action_items").delete().eq("conversation_id", conversation_id).execute()
+            count = len(result.data) if result.data else 0
+            print(f"[DB] Deleted {count} old action items for conversation {conversation_id}")
+            return {"success": True, "deleted_count": count}
+        except Exception as e:
+            print(f"Error deleting action items: {e}")
+            return {"success": False, "error": str(e)}
     
     def update_action_items_with_speaker_names(self, meeting_id, speaker_mappings):
         """
