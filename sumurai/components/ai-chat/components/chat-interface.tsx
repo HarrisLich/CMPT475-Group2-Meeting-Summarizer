@@ -204,30 +204,51 @@ export function ChatInterface({
   const handleConsentAccept = () => {
     console.log("[UPLOAD] Consent accepted");
     
-    // Try to trigger file input immediately while we still have user interaction context
-    // This is important because browsers require file input clicks to be in the same event loop
-    const input = fileInputRef.current || document.querySelector('input[type="file"][accept*="audio"]') as HTMLInputElement;
-    
-    if (input && onFileUpload) {
-      try {
-        console.log("[UPLOAD] Triggering file input immediately (preserving user interaction)");
-        input.click();
-        console.log("[UPLOAD] File input click triggered, closing dialog");
-        setShowConsentDialog(false);
-        return; // Success, exit early
-      } catch (error) {
-        console.warn("[UPLOAD] Immediate click failed, will try delayed approach:", error);
-      }
-    }
-    
-    // Fallback: Close dialog first, then trigger (may not work due to browser security)
-    console.log("[UPLOAD] Closing dialog, will trigger file input after");
+    // Close dialog first
     setShowConsentDialog(false);
     
-    // Use minimal delay to preserve user interaction context as much as possible
-    requestAnimationFrame(() => {
-      triggerFileInput();
-    });
+    // Trigger file input immediately while we still have user interaction context
+    // This is critical - browsers require file input clicks to be in the same user interaction event
+    const input = fileInputRef.current || document.getElementById('file-upload-input') as HTMLInputElement;
+    
+    if (!input) {
+      console.error("[UPLOAD] File input not found!");
+      alert("File input error. Please refresh the page.");
+      return;
+    }
+    
+    if (!onFileUpload) {
+      console.error("[UPLOAD] onFileUpload handler missing!");
+      alert("Upload handler not available. Please refresh the page.");
+      return;
+    }
+    
+    // Use a synchronous approach - trigger click immediately
+    // The input is positioned off-screen but not display:none, which should work
+    try {
+      console.log("[UPLOAD] Triggering file input click synchronously");
+      
+      // Force a synchronous click by using a direct method
+      // Create a synthetic click event that preserves user interaction
+      const clickEvent = new MouseEvent('click', {
+        view: window,
+        bubbles: true,
+        cancelable: true,
+        buttons: 1
+      });
+      
+      // Try direct click first (most reliable)
+      input.focus();
+      input.click();
+      
+      // Also dispatch the event as a fallback
+      input.dispatchEvent(clickEvent);
+      
+      console.log("[UPLOAD] ✓ File input click triggered");
+    } catch (error) {
+      console.error("[UPLOAD] Error triggering file input:", error);
+      alert("Failed to open file picker. Please try clicking the paperclip icon (📎) in the chat input area instead.");
+    }
   };
 
   const triggerFileInput = () => {
@@ -680,12 +701,13 @@ export function ChatInterface({
             <div className="bg-[#1A1A1A] flex flex-1 items-center rounded-lg border border-[#333333] px-3 py-2 relative shadow-lg hover:border-[#00F5FF] focus-within:border-[#00F5FF] transition-all duration-200">
               <input
                 ref={fileInputRef}
+                id="file-upload-input"
                 type="file"
                 accept="audio/*,video/*,.mp3,.wav,.m4a,.flac,.ogg,.webm"
                 onChange={handleFileSelect}
-                className="hidden"
-                style={{ display: 'none' }}
+                style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', opacity: 0, pointerEvents: 'auto', visibility: 'hidden' }}
                 tabIndex={-1}
+                aria-hidden="true"
               />
               <Button
                 type="button"
