@@ -897,7 +897,7 @@ export default function AiChat() {
             // Add action items if available from database (preserve existing if already present)
             if (conversationData?.action_items && conversationData.action_items.length > 0 && !updatedChat.actionItems) {
               updatedChat.actionItems = conversationData.action_items
-                .map((item: any) => {
+                .map((item: any): ActionItem | null => {
                   // Ensure we have a valid UUID from database
                   if (!item.id || typeof item.id !== 'string' || item.id.length < 32) {
                     console.error("[SELECT] Invalid or missing ID for action item from database:", item);
@@ -906,12 +906,12 @@ export default function AiChat() {
                   
                   return {
                     id: item.id,  // Use the UUID from database
-                    priority: item.priority || "medium",
+                    priority: (item.priority || "medium") as "high" | "medium" | "low",
                     task: item.task || item.content || "",
                     assignedTo: getSpeakerName(item.assigned_to)
                   };
                 })
-                .filter((item: any) => item !== null); // Filter out items without valid IDs
+                .filter((item: ActionItem | null): item is ActionItem => item !== null); // Type guard to filter out nulls
               console.log("[SELECT] Loaded action items from database with speaker mappings:", {
                 count: updatedChat.actionItems?.length,
                 items: updatedChat.actionItems?.slice(0, 2)
@@ -1247,8 +1247,8 @@ export default function AiChat() {
                             };
 
                             // Transform action items to match frontend format
-                            const transformedActionItems = actionItemsResult.action_items
-                              .map((item: any, index: number) => {
+                            const transformedActionItems: ActionItem[] = actionItemsResult.action_items
+                              .map((item: any, index: number): ActionItem | null => {
                                 // Ensure we have a valid UUID - if not, log error
                                 if (!item.id || typeof item.id !== 'string' || item.id.length < 32) {
                                   console.error(`[ACTION ITEMS] Invalid or missing ID for action item ${index}:`, item);
@@ -1258,12 +1258,12 @@ export default function AiChat() {
                                 
                                 return {
                                   id: item.id,  // Use the UUID from database
-                                  priority: item.priority || "medium",
+                                  priority: (item.priority || "medium") as "high" | "medium" | "low",
                                   task: item.task || "",
                                   assignedTo: getSpeakerName(item.assigned_to) || item.assigned_to || "Unassigned"
                                 };
                               })
-                              .filter((item: any) => item !== null); // Filter out items without valid IDs
+                              .filter((item: ActionItem | null): item is ActionItem => item !== null); // Type guard to filter out nulls
 
                             // Update the chat with new action items
                             setChats(prevChats =>
