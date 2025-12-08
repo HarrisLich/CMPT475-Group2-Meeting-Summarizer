@@ -67,6 +67,7 @@ export function ChatInterface({
   meetingId
 }: ChatInterfaceProps) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const fileInputLabelRef = React.useRef<HTMLLabelElement>(null);
   const [isFocused, setIsFocused] = React.useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = React.useState(false);
   const [transcriptCollapsed, setTranscriptCollapsed] = React.useState(false);
@@ -201,52 +202,93 @@ export function ChatInterface({
     setShowConsentDialog(true);
   };
 
-  const handleConsentAccept = () => {
+  const handleConsentAccept = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    
     console.log("[UPLOAD] Consent accepted");
     
-    // Close dialog first
-    setShowConsentDialog(false);
-    
-    // Trigger file input immediately while we still have user interaction context
-    // This is critical - browsers require file input clicks to be in the same user interaction event
+    // CRITICAL: Trigger file input BEFORE closing dialog
+    // This preserves the user interaction context which browsers require
     const input = fileInputRef.current || document.getElementById('file-upload-input') as HTMLInputElement;
+    const label = fileInputLabelRef.current || document.querySelector('label[for="file-upload-input"]') as HTMLLabelElement;
     
     if (!input) {
       console.error("[UPLOAD] File input not found!");
+      setShowConsentDialog(false);
       alert("File input error. Please refresh the page.");
       return;
     }
     
     if (!onFileUpload) {
       console.error("[UPLOAD] onFileUpload handler missing!");
+      setShowConsentDialog(false);
       alert("Upload handler not available. Please refresh the page.");
       return;
     }
     
-    // Use a synchronous approach - trigger click immediately
-    // The input is positioned off-screen but not display:none, which should work
+    // Try to trigger file input immediately while user interaction is active
+    let triggered = false;
+    
     try {
-      console.log("[UPLOAD] Triggering file input click synchronously");
+      // Method 1: Click label (most reliable for hidden inputs)
+      if (label) {
+        console.log("[UPLOAD] Attempting label click");
+        label.click();
+        triggered = true;
+        console.log("[UPLOAD] ✓ Label click executed");
+      }
       
-      // Force a synchronous click by using a direct method
-      // Create a synthetic click event that preserves user interaction
-      const clickEvent = new MouseEvent('click', {
-        view: window,
-        bubbles: true,
-        cancelable: true,
-        buttons: 1
-      });
-      
-      // Try direct click first (most reliable)
-      input.focus();
-      input.click();
-      
-      // Also dispatch the event as a fallback
-      input.dispatchEvent(clickEvent);
-      
-      console.log("[UPLOAD] ✓ File input click triggered");
+      // Method 2: Direct input click (if label didn't work)
+      if (!triggered) {
+        console.log("[UPLOAD] Attempting direct input click");
+        
+        // Temporarily make input accessible
+        const originalDisplay = input.style.display;
+        const originalVisibility = input.style.visibility;
+        const originalPointerEvents = input.style.pointerEvents;
+        
+        // Make it clickable but invisible
+        input.style.display = 'block';
+        input.style.visibility = 'visible';
+        input.style.pointerEvents = 'auto';
+        input.style.position = 'fixed';
+        input.style.left = '0';
+        input.style.top = '0';
+        input.style.width = '1px';
+        input.style.height = '1px';
+        input.style.opacity = '0';
+        input.style.zIndex = '99999';
+        
+        // Trigger click
+        input.focus();
+        input.click();
+        
+        // Restore immediately
+        requestAnimationFrame(() => {
+          input.style.display = originalDisplay;
+          input.style.visibility = originalVisibility;
+          input.style.pointerEvents = originalPointerEvents;
+          input.style.position = '';
+          input.style.left = '';
+          input.style.top = '';
+          input.style.width = '';
+          input.style.height = '';
+          input.style.opacity = '';
+          input.style.zIndex = '';
+        });
+        
+        triggered = true;
+        console.log("[UPLOAD] ✓ Direct input click executed");
+      }
     } catch (error) {
       console.error("[UPLOAD] Error triggering file input:", error);
+    }
+    
+    // Close dialog after attempting to trigger
+    setShowConsentDialog(false);
+    
+    if (!triggered) {
       alert("Failed to open file picker. Please try clicking the paperclip icon (📎) in the chat input area instead.");
     }
   };
@@ -699,13 +741,21 @@ export function ChatInterface({
 
               <form onSubmit={handleSubmit} className="flex items-center gap-2 relative z-10">
             <div className="bg-[#1A1A1A] flex flex-1 items-center rounded-lg border border-[#333333] px-3 py-2 relative shadow-lg hover:border-[#00F5FF] focus-within:border-[#00F5FF] transition-all duration-200">
+              <label
+                ref={fileInputLabelRef}
+                htmlFor="file-upload-input"
+                style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', opacity: 0, pointerEvents: 'auto', visibility: 'visible' }}
+                aria-hidden="true"
+              >
+                Upload file
+              </label>
               <input
                 ref={fileInputRef}
                 id="file-upload-input"
                 type="file"
                 accept="audio/*,video/*,.mp3,.wav,.m4a,.flac,.ogg,.webm"
                 onChange={handleFileSelect}
-                style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', opacity: 0, pointerEvents: 'auto', visibility: 'hidden' }}
+                style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', opacity: 0, pointerEvents: 'none' }}
                 tabIndex={-1}
                 aria-hidden="true"
               />
@@ -1163,8 +1213,13 @@ export function ChatInterface({
                 Cancel
               </Button>
               <Button
-                onClick={handleConsentAccept}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleConsentAccept(e);
+                }}
                 size="sm"
+                type="button"
                 className="bg-gradient-to-r from-[#00F5FF] to-[#06B6D4] hover:from-[#00F5FF]/90 hover:to-[#06B6D4]/90 text-gray-900 font-semibold text-xs md:text-sm whitespace-nowrap"
               >
                 I Understand & Consent
