@@ -202,21 +202,53 @@ export function ChatInterface({
   };
 
   const handleConsentAccept = () => {
-    console.log("[UPLOAD] Consent accepted, closing dialog");
+    console.log("[UPLOAD] Consent accepted");
+    
+    // Try to trigger file input immediately while we still have user interaction context
+    // This is important because browsers require file input clicks to be in the same event loop
+    const input = fileInputRef.current || document.querySelector('input[type="file"][accept*="audio"]') as HTMLInputElement;
+    
+    if (input && onFileUpload) {
+      try {
+        console.log("[UPLOAD] Triggering file input immediately (preserving user interaction)");
+        input.click();
+        console.log("[UPLOAD] File input click triggered, closing dialog");
+        setShowConsentDialog(false);
+        return; // Success, exit early
+      } catch (error) {
+        console.warn("[UPLOAD] Immediate click failed, will try delayed approach:", error);
+      }
+    }
+    
+    // Fallback: Close dialog first, then trigger (may not work due to browser security)
+    console.log("[UPLOAD] Closing dialog, will trigger file input after");
     setShowConsentDialog(false);
     
-    // Add a small delay to ensure dialog closes before triggering file input
-    // This prevents potential z-index or focus issues
-    setTimeout(() => {
+    // Use minimal delay to preserve user interaction context as much as possible
+    requestAnimationFrame(() => {
       triggerFileInput();
-    }, 150);
+    });
   };
 
   const triggerFileInput = () => {
-    if (!fileInputRef.current) {
-      console.error("[UPLOAD] File input ref is null!");
-      alert("File input error. Please refresh the page and try again.");
-      return;
+    console.log("[UPLOAD] triggerFileInput called");
+    console.log("[UPLOAD] fileInputRef.current:", fileInputRef.current);
+    console.log("[UPLOAD] onFileUpload:", !!onFileUpload);
+    
+    // First, try to find the input element
+    let input: HTMLInputElement | null = fileInputRef.current;
+    
+    if (!input) {
+      console.warn("[UPLOAD] File input ref is null, trying querySelector fallback");
+      // Try to find the input element by querySelector as fallback
+      input = document.querySelector('input[type="file"][accept*="audio"]') as HTMLInputElement;
+      if (input) {
+        console.log("[UPLOAD] Found file input via querySelector");
+      } else {
+        console.error("[UPLOAD] Could not find file input element!");
+        alert("File input error. Please refresh the page and try again.");
+        return;
+      }
     }
 
     if (!onFileUpload) {
@@ -225,12 +257,62 @@ export function ChatInterface({
       return;
     }
 
+    // Verify input is in the DOM
+    if (!input.isConnected) {
+      console.error("[UPLOAD] File input is not connected to DOM!");
+      alert("File input is not available. Please refresh the page.");
+      return;
+    }
+
+    // Try multiple methods to trigger the file input
+    let success = false;
+    
+    // Method 1: Direct click (most reliable)
     try {
-      console.log("[UPLOAD] Triggering file input click");
-      fileInputRef.current.click();
+      console.log("[UPLOAD] Method 1: Direct click()");
+      input.click();
+      success = true;
+      console.log("[UPLOAD] ✓ Direct click() succeeded");
     } catch (error) {
-      console.error("[UPLOAD] Error triggering file input:", error);
-      alert("Failed to open file picker. Please try again.");
+      console.warn("[UPLOAD] Method 1 failed:", error);
+    }
+
+    // Method 2: MouseEvent dispatch (fallback)
+    if (!success) {
+      try {
+        console.log("[UPLOAD] Method 2: MouseEvent dispatch");
+        const event = new MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          buttons: 1
+        });
+        input.dispatchEvent(event);
+        success = true;
+        console.log("[UPLOAD] ✓ MouseEvent dispatch succeeded");
+      } catch (error) {
+        console.warn("[UPLOAD] Method 2 failed:", error);
+      }
+    }
+
+    // Method 3: Focus and click (another fallback)
+    if (!success) {
+      try {
+        console.log("[UPLOAD] Method 3: Focus then click");
+        input.focus();
+        input.click();
+        success = true;
+        console.log("[UPLOAD] ✓ Focus + click succeeded");
+      } catch (error) {
+        console.warn("[UPLOAD] Method 3 failed:", error);
+      }
+    }
+
+    if (!success) {
+      console.error("[UPLOAD] All methods failed to trigger file input");
+      alert("Failed to open file picker. Please try clicking the paperclip icon (📎) in the chat input area instead.");
+    } else {
+      console.log("[UPLOAD] File input triggered successfully!");
     }
   };
 
@@ -602,6 +684,8 @@ export function ChatInterface({
                 accept="audio/*,video/*,.mp3,.wav,.m4a,.flac,.ogg,.webm"
                 onChange={handleFileSelect}
                 className="hidden"
+                style={{ display: 'none' }}
+                tabIndex={-1}
               />
               <Button
                 type="button"
